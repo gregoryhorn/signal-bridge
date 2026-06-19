@@ -290,3 +290,4 @@ Before calling the app v1.0, the goal is to have:
 - Feed readability polish completed: clearer sans-serif chat font and improved lowercase pilot-handle ESI detection with plural ship exclusions.
 - ESI cache policy updated: negative ESI answers use a 90-day TTL.
 - ESI usability refinement completed: visible last-check diagnostics and character exclusion list for false positives/bad names.
+- ESI exclusion refinement completed: common individual words such as Link/Jump/Fleet/Gate/ISK/Ship are excluded from character detection and local DB checks.

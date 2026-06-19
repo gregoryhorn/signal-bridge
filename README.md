@@ -270,3 +270,4 @@ The chat feed now defaults to a clear sans-serif typeface (`Segoe UI`) while sti
 ESI cache policy: successful entity lookups cache for 30 days; negative ESI answers cache for 90 days to avoid unnecessary ESI rechecks.
 
 ESI usability: right-click menu includes selected-text resolve/ignore, last-check diagnostics, and an exclusion list for badly named characters.
+Built-in ESI exclusions include common individual words such as `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`; these can also be stored in the local ESI exclusion DB.

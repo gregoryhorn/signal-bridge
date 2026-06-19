@@ -636,11 +636,9 @@ ESI_CACHE = EsiCache()
 
 
 COMMON_ESI_NOISE = {
-    "gate", "jump", "jumped", "jumping", "clear", "clr", "eyes", "no visual", "nv", "ess", "isk", "red",
-    "hostile", "neutral", "neut", "local", "system", "fleet", "corp", "alliance", "ship", "ships",
-    "tackle", "camp", "bubble", "warp", "dock", "undock", "status", "reported", "scout", "pilot",
-    "on", "in", "at", "to", "from", "by", "with", "and", "or", "the", "a", "an", "is", "are", "was",
-    "message", "messages", "assess", "assessment", "essence",
+    "and", "the", "link", "jump", "jumped", "fleet", "gate", "star", "isk", "ship",
+    "clear", "eyes", "no visual", "nv", "ess", "red", "hostile", "neutral", "neut",
+    "local", "system", "corp", "alliance",
 }
 NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
