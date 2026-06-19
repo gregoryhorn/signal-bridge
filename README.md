@@ -308,3 +308,5 @@ Appearance options include configurable font, colors, bold highlights, optional 
 
 Signal Bridge includes curated shorthand ship aliases such as `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
 The portable build includes `data/default_exclusions.json`, which seeds the General Exclusion List on first run without overwriting user changes.
+
+The portable build also includes `data/default_esi_entities.json`, a starter cache of verified ESI characters seeded on first run without overwriting local cache entries.

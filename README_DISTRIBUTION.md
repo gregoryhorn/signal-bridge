@@ -24,3 +24,5 @@ Signal Bridge opens in a narrow mobile-style side-panel layout by default. Resiz
 
 Use `View > Appearance / Display Options...` to change fonts, colors, bold styles, opacity, highlight backgrounds, and presets. The dialog shows color swatches next to editable hex codes.
 Bundled default exclusions are included in `data/default_exclusions.json` and are imported into the local General Exclusion List on first run.
+
+Bundled starter ESI characters are included in `data/default_esi_entities.json` and imported into the local ESI cache on first run.

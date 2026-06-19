@@ -111,3 +111,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Sender names are neutral by default to reduce visual noise.
 - The General Exclusion List suppresses all recognition/highlighting for ignored terms, including ESI character, ship, module/asset, system, and ESS highlights.
 - Bundled default General Exclusion List entries in `data/default_exclusions.json` for new installs.
+- Bundled a verified ESI character starter cache in `data/default_esi_entities.json` for new installs.

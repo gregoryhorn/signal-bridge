@@ -48,6 +48,7 @@ CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
 CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
 PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
 DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
+DEFAULT_ESI_ENTITIES_PATH = DATA_DIR / "default_esi_entities.json"
 TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
 ESI_CONFIG_PATH = CONFIG_DIR / "esi_settings.json"
 ESI_TOKENS_PATH = CONFIG_DIR / "esi_tokens.json"
@@ -695,7 +696,44 @@ def seed_default_exclusions(path: Path = DEFAULT_EXCLUSIONS_PATH) -> int:
         return 0
 
 
+def seed_default_esi_entities(path: Path = DEFAULT_ESI_ENTITIES_PATH) -> int:
+    """Seed bundled verified character entities without overwriting local cache entries."""
+    try:
+        if not path.exists():
+            return 0
+        data = json.loads(path.read_text(encoding="utf-8"))
+        items = data.get("entities") if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            return 0
+        added = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            query = str(item.get("query") or item.get("name") or "").strip()
+            if not query or ESI_CACHE.get_entity(query):
+                continue
+            payload = {
+                "entity_type": item.get("entity_type") or "character",
+                "entity_id": item.get("entity_id"),
+                "name": item.get("name") or query,
+                "corporation_id": item.get("corporation_id"),
+                "corporation_name": item.get("corporation_name") or "",
+                "alliance_id": item.get("alliance_id"),
+                "alliance_name": item.get("alliance_name") or "",
+                "source": item.get("source") or "bundled-esi-starter",
+            }
+            ESI_CACHE.put_entity(query, payload, ttl=365 * 24 * 60 * 60)
+            added += 1
+        if added:
+            write_log(f"Seeded {added} bundled ESI character(s)")
+        return added
+    except Exception as exc:
+        write_log("Default ESI entity seed failed", exc)
+        return 0
+
+
 seed_default_exclusions()
+seed_default_esi_entities()
 
 
 

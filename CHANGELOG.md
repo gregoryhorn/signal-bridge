@@ -109,3 +109,4 @@ Initial portable Windows preview release.
 - Documented the mobile-style default window layout, Appearance / Display Options dialog, color swatches, opacity, presets, sender-neutral styling, and General Exclusion List behavior.
 - Bundled docs now describe how display styling interacts with system, ESI character, ship, asset/module, ESS, translation, and link highlights.
 - Bundled the maintainer/user General Exclusion List as `data/default_exclusions.json` and seed it into new local caches without overwriting user edits.
+- Bundled verified ESI character starter cache as `data/default_esi_entities.json` and seed it into new local caches without overwriting user entries.

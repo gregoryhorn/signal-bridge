@@ -25,3 +25,5 @@ The portable ZIP should include the current README, distribution notes, changelo
 
 The default packaged app opens in a mobile-style side-panel layout and includes Appearance / Display Options documentation in the bundled README files.
 Include `data/default_exclusions.json` in every portable build so default General Exclusion List entries are seeded for new installs.
+
+Include `data/default_esi_entities.json` and its checksum in portable builds so new installs start with verified ESI character cache entries.
