@@ -42,6 +42,7 @@ Upload:
 ```markdown
 # Signal Bridge v0.2
 
+- Header color legend removed for a cleaner live UI.
 Backfill is disabled by default, so opened channel tabs start live-only and do not display old chat history.
 
 Portable Windows release for EVE Online chat intel monitoring and translation.

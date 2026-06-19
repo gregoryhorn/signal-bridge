@@ -26,6 +26,8 @@ This roadmap is planned work, not a guarantee of exact delivery order. The curre
 - Custom app icon.
 - GitHub release with SHA256 checksums.
 
+- v0.2 UI cleanup: header color legend hidden to keep the live monitor header focused on version, tabs, and status.
+
 ## v0.2.1 - UI Hotfix and Interaction Polish
 
 Goal: make the current app feel less prototype-like and remove obvious UI friction.

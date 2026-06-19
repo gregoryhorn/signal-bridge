@@ -4,6 +4,7 @@ All notable Signal Bridge changes will be documented here.
 
 ## v0.2 - 2026-06-19
 
+- Removed the header color legend to keep the live UI cleaner.
 ### Feed interaction and diagnostics
 - Added a simple nonblocking GitHub update check on launch, with Help > Check for Updates and an on-launch toggle.
 - Added right-click feed row menu.

@@ -875,8 +875,8 @@ class SignalBridgeGui:
         top.pack(fill="x")
         self.title_label = tk.Label(top, text=f"{APP_NAME} v{APP_VERSION}", bg="#111821", fg="#d7dde5", font=("Consolas", 11, "bold"), padx=8, pady=5)
         self.title_label.pack(side="left")
-        self.mode_label = tk.Label(top, text="  Systems yellow | Ships red | ESS blue", bg="#111821", fg="#5ad7ff", font=("Segoe UI", 9), padx=8)
-        self.mode_label.pack(side="left")
+        # Color legend intentionally hidden; colors are documented in Help/About and should not clutter the header.
+        self.mode_label = tk.Label(top, text="", bg="#111821", fg="#5ad7ff", font=("Segoe UI", 9), padx=8)
         self.status_label = tk.Label(top, text="Idle", bg="#111821", fg="#8b98a8", font=("Segoe UI", 9), padx=8)
         self.status_label.pack(side="right")
         self.tab_bar = tk.Frame(self.root, bg=TAB_THEME["bar_bg"], padx=6, pady=4)
