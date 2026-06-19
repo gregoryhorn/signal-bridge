@@ -1,0 +1,74 @@
+﻿# GitHub Release Checklist
+
+## Before Release
+
+1. Verify app runs from source:
+
+   ```powershell
+   python -X utf8 -m py_compile .\signal_bridge_gui.py
+   python -X utf8 .\signal_bridge_gui.py --self-test --limit 5
+   ```
+
+2. Build portable package:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\build_portable.ps1
+   ```
+
+3. Verify package exists:
+
+   ```powershell
+   Get-Item .\SignalBridge-v0.1-win64-portable.zip
+   Get-FileHash .\SignalBridge-v0.1-win64-portable.zip -Algorithm SHA256
+   ```
+
+4. Extract ZIP to a clean folder and run:
+
+   ```text
+   SignalBridge.exe
+   ```
+
+5. Test on a non-dev Windows 10/11 machine if possible.
+
+## Release Assets
+
+Upload:
+
+- `SignalBridge-v0.1-win64-portable.zip`
+- SHA256 checksum in release notes
+
+## Suggested Release Notes
+
+```markdown
+# Signal Bridge v0.1
+
+Backfill is disabled by default, so opened channel tabs start live-only and do not display old chat history.
+
+Portable Windows release for EVE Online chat intel monitoring and translation.
+
+## Highlights
+
+- No installer required.
+- Dynamic channel selection, no hard-coded channel.
+- Channel tabs with close buttons.
+- Systems highlighted yellow, ships/assets red, ESS light blue.
+- EVE localization DB support.
+- Google free auto-detect translation to English.
+- Optional Argos offline fallback.
+- Configurable font and timestamp display.
+
+## Install
+
+Download and extract `SignalBridge-v0.1-win64-portable.zip`, then run `SignalBridge.exe`.
+
+## SHA256
+
+`PASTE_HASH_HERE`
+```
+
+## AV / SmartScreen Note
+
+Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. This does not necessarily mean malware; it is common for new unsigned PyInstaller apps. Long-term mitigation is code signing and reputation building.
+
+
+

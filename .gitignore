@@ -1,0 +1,39 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# PyInstaller/build output
+build/
+dist/
+*.spec
+
+# Local portable runtime state
+config/
+cache/
+logs/
+models/
+data/translations.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Release artifacts; upload these to GitHub Releases instead of committing
+*.zip
+*.zip.sha256
+*.exe.sha256
+build_portable.log
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets/local env
+.env
+*.key
+*.pem
