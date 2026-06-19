@@ -157,3 +157,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Default high-confidence triggers: Force Recon Cruisers and Expedition Frigates.
 - Black Ops battleships such as Redeemer, Widow, Sin, and Panther no longer trigger default hot-drop caller flags; they remain useful profile/context data.
 - Feed badges reuse the existing compact flag display, while Pilot Info exposes the underlying reason.
+- Translation cache fix: `天鹤级` now resolves to `Crane` instead of the literal `Tianhe class`.

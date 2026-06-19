@@ -1,5 +1,8 @@
 
 
+- Corrected the Chinese EVE ship translation `天鹤级` from literal `Tianhe class` to `Crane` in the bundled starter translation cache.
+
+
 - Added Intel History Auto Hot Drop Risk v0.1: likely cyno ships now create temporary auto flags that reuse the live-feed badge path.
 - Corrected hot-drop detection so default inline triggers are Force Recon Cruisers and Expedition Frigates only; Black Ops battleships such as Redeemer/Widow/Sin/Panther are treated as drop-fleet context, not default hot-drop caller flags.
 - Auto Hot Drop Risk reasons now include ship, class, system, timestamp, and expiry context.

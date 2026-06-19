@@ -1423,5 +1423,6 @@
     }
   ],
   "reviewed": "manual high-confidence EVE terminology cleanup",
-  "schema": 1
+  "schema": 1,
+  "天鹤级": "Crane"
 }
