@@ -1,23 +1,28 @@
 ﻿from __future__ import annotations
 import argparse
+import base64
 import json
 import hashlib
 import queue
 import re
+import secrets
 import sqlite3
 import sys
 import threading
 import time
 import traceback
 import webbrowser
+import http.server
+import socketserver
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+import urllib.error
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
 APP_NAME = "Signal Bridge"
-APP_VERSION = "0.2"
+APP_VERSION = "0.3"
 UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
 UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
@@ -42,6 +47,20 @@ CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
 CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
 PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
 TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
+ESI_CONFIG_PATH = CONFIG_DIR / "esi_settings.json"
+ESI_TOKENS_PATH = CONFIG_DIR / "esi_tokens.json"
+ESI_CACHE_PATH = CACHE_DIR / "esi_cache.sqlite"
+ESI_DEFAULT_CLIENT_ID = "6d57a179c8764b3aa95cc956f7ad7050"
+ESI_CALLBACK_URL = "http://localhost:8080/callback"
+ESI_CALLBACK_HOST = "127.0.0.1"
+ESI_CALLBACK_PORT = 8080
+ESI_POSITIVE_TTL_SECONDS = 30 * 24 * 60 * 60
+ESI_NEGATIVE_TTL_SECONDS = 24 * 60 * 60
+ESI_USER_AGENT = f"SignalBridge/{APP_VERSION} contact: github.com/gregoryhorn/signal-bridge"
+ESI_SEARCH_URL = "https://esi.evetech.net/latest/search/"
+ESI_SSO_AUTHORIZE_URL = "https://login.eveonline.com/v2/oauth/authorize/"
+ESI_SSO_TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
+ESI_SSO_VERIFY_URL = "https://login.eveonline.com/oauth/verify"
 CATALOG_MANIFEST_URL = "https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/catalog_manifest.json"
 
 
@@ -82,6 +101,8 @@ def load_settings() -> dict:
         "auto_switch_to_new_channel": False,
         "max_tab_rows": 3,
         "check_updates_on_start": True,
+        "esi_entity_recognition": False,
+        "esi_oauth_enabled": False,
         "replay_on_start": False,
     }
     try:
@@ -182,6 +203,7 @@ class Row:
     free_translation: str
     translation_source: str
     file: str
+    esi_entities: list[dict] = field(default_factory=list)
 
 
 def unique(seq):
@@ -377,6 +399,362 @@ class TranslationCache:
 
 
 TRANSLATION_CACHE = TranslationCache()
+
+
+
+def redact_secret(value: str) -> str:
+    if not value:
+        return ""
+    return value[:4] + "..." + value[-4:] if len(value) > 10 else "***"
+
+
+def load_esi_settings() -> dict:
+    defaults = {
+        "enabled": bool(SETTINGS.get("esi_entity_recognition", False)),
+        "oauth_enabled": bool(SETTINGS.get("esi_oauth_enabled", False)),
+        "client_id": ESI_DEFAULT_CLIENT_ID,
+        "client_secret": "",
+        "callback_url": ESI_CALLBACK_URL,
+        "scopes": [],
+    }
+    try:
+        if ESI_CONFIG_PATH.exists():
+            loaded = json.loads(ESI_CONFIG_PATH.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                defaults.update(loaded)
+    except Exception as exc:
+        write_log("ESI settings load failed", exc)
+    return defaults
+
+
+def save_esi_settings(settings: dict) -> None:
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        safe = dict(settings)
+        ESI_CONFIG_PATH.write_text(json.dumps(safe, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        write_log("ESI settings save failed", exc)
+
+
+def save_esi_tokens(tokens: dict) -> None:
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        ESI_TOKENS_PATH.write_text(json.dumps(tokens, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        write_log("ESI token save failed", exc)
+
+
+def load_esi_tokens() -> dict:
+    try:
+        if ESI_TOKENS_PATH.exists():
+            data = json.loads(ESI_TOKENS_PATH.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        write_log("ESI token load failed", exc)
+    return {}
+
+
+def normalize_esi_query(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+
+
+class EsiCache:
+    def __init__(self, path: Path = ESI_CACHE_PATH):
+        self.path = path
+        self._init()
+
+    def _connect(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        return sqlite3.connect(self.path, timeout=3, check_same_thread=False)
+
+    def _init(self):
+        try:
+            con = self._connect()
+            con.execute("""create table if not exists esi_entities(
+                query text primary key, entity_type text, entity_id integer, name text,
+                corporation_id integer, corporation_name text, alliance_id integer, alliance_name text,
+                resolved_at real not null, expires_at real not null, hit_count integer not null default 0, source text)""")
+            con.execute("""create table if not exists esi_negative_cache(
+                query text primary key, reason text, resolved_at real not null, expires_at real not null, hit_count integer not null default 0)""")
+            con.execute("""create table if not exists esi_corrections(
+                text text primary key, action text not null, entity_type text, entity_id integer,
+                canonical_name text, note text, created_at real not null)""")
+            con.execute("""create table if not exists esi_status(key text primary key, value text, updated_at real not null)""")
+            con.commit(); con.close()
+        except Exception as exc:
+            write_log("ESI cache init failed", exc)
+
+    def get_correction(self, query: str) -> dict | None:
+        key = normalize_esi_query(query)
+        if not key:
+            return None
+        try:
+            con = self._connect()
+            row = con.execute("select action, entity_type, entity_id, canonical_name, note from esi_corrections where text=?", (key,)).fetchone()
+            con.close()
+            if row:
+                return {"query": query, "action": row[0], "entity_type": row[1], "entity_id": row[2], "name": row[3], "note": row[4], "source": "manual"}
+        except Exception as exc:
+            write_log("ESI correction lookup failed", exc)
+        return None
+
+    def set_correction(self, text: str, action: str, entity_type: str = "", entity_id: int | None = None, canonical_name: str = "", note: str = "") -> bool:
+        key = normalize_esi_query(text)
+        if not key:
+            return False
+        try:
+            con = self._connect()
+            con.execute("insert or replace into esi_corrections(text, action, entity_type, entity_id, canonical_name, note, created_at) values(?,?,?,?,?,?,?)",
+                        (key, action, entity_type, entity_id, canonical_name, note, time.time()))
+            con.commit(); con.close(); return True
+        except Exception as exc:
+            write_log("ESI correction save failed", exc); return False
+
+    def get_entity(self, query: str, force: bool = False) -> dict | None:
+        if force:
+            return None
+        key = normalize_esi_query(query)
+        if not key:
+            return None
+        corr = self.get_correction(query)
+        if corr:
+            if corr.get("action") == "ignore":
+                return {"query": query, "ignored": True, "source": "manual-ignore"}
+            return corr
+        try:
+            now = time.time(); con = self._connect()
+            row = con.execute("""select entity_type, entity_id, name, corporation_id, corporation_name, alliance_id, alliance_name, expires_at, hit_count, source
+                                 from esi_entities where query=?""", (key,)).fetchone()
+            if row and float(row[7]) >= now:
+                con.execute("update esi_entities set hit_count=? where query=?", (int(row[8]) + 1, key)); con.commit(); con.close()
+                return {"query": query, "entity_type": row[0], "entity_id": row[1], "name": row[2], "corporation_id": row[3], "corporation_name": row[4], "alliance_id": row[5], "alliance_name": row[6], "source": row[9] or "esi-cache"}
+            con.close()
+        except Exception as exc:
+            write_log("ESI cache get failed", exc)
+        return None
+
+    def put_entity(self, query: str, data: dict, ttl: int = ESI_POSITIVE_TTL_SECONDS):
+        key = normalize_esi_query(query)
+        if not key:
+            return
+        try:
+            now = time.time(); con = self._connect()
+            con.execute("""insert or replace into esi_entities
+                (query, entity_type, entity_id, name, corporation_id, corporation_name, alliance_id, alliance_name, resolved_at, expires_at, hit_count, source)
+                values(?,?,?,?,?,?,?,?,?,?,coalesce((select hit_count from esi_entities where query=?),0),?)""",
+                (key, data.get("entity_type"), data.get("entity_id"), data.get("name"), data.get("corporation_id"), data.get("corporation_name"), data.get("alliance_id"), data.get("alliance_name"), now, now + ttl, key, data.get("source", "esi")))
+            con.commit(); con.close()
+        except Exception as exc:
+            write_log("ESI cache put failed", exc)
+
+    def is_negative(self, query: str, force: bool = False) -> bool:
+        if force:
+            return False
+        key = normalize_esi_query(query)
+        if not key:
+            return True
+        try:
+            now = time.time(); con = self._connect()
+            row = con.execute("select expires_at, hit_count from esi_negative_cache where query=?", (key,)).fetchone()
+            if row and float(row[0]) >= now:
+                con.execute("update esi_negative_cache set hit_count=? where query=?", (int(row[1]) + 1, key)); con.commit(); con.close(); return True
+            con.close()
+        except Exception as exc:
+            write_log("ESI negative cache get failed", exc)
+        return False
+
+    def put_negative(self, query: str, reason: str = "not_found", ttl: int = ESI_NEGATIVE_TTL_SECONDS):
+        key = normalize_esi_query(query)
+        if not key:
+            return
+        try:
+            now = time.time(); con = self._connect()
+            con.execute("insert or replace into esi_negative_cache(query, reason, resolved_at, expires_at, hit_count) values(?,?,?,?,coalesce((select hit_count from esi_negative_cache where query=?),0))",
+                        (key, reason, now, now + ttl, key))
+            con.commit(); con.close()
+        except Exception as exc:
+            write_log("ESI negative cache put failed", exc)
+
+    def set_status(self, key: str, value: str):
+        try:
+            con = self._connect(); con.execute("insert or replace into esi_status(key, value, updated_at) values(?,?,?)", (key, value, time.time())); con.commit(); con.close()
+        except Exception:
+            pass
+
+    def stats(self) -> dict:
+        try:
+            con = self._connect()
+            entities = con.execute("select count(*) from esi_entities").fetchone()[0]
+            negatives = con.execute("select count(*) from esi_negative_cache").fetchone()[0]
+            corrections = con.execute("select count(*) from esi_corrections").fetchone()[0]
+            status = dict(con.execute("select key, value from esi_status").fetchall())
+            con.close(); return {"entities": entities, "negative": negatives, "corrections": corrections, "status": status}
+        except Exception:
+            return {"entities": 0, "negative": 0, "corrections": 0, "status": {}}
+
+    def clear(self) -> bool:
+        try:
+            con = self._connect(); con.execute("delete from esi_entities"); con.execute("delete from esi_negative_cache"); con.commit(); con.close(); return True
+        except Exception as exc:
+            write_log("ESI cache clear failed", exc); return False
+
+
+ESI_CACHE = EsiCache()
+
+
+COMMON_ESI_NOISE = {"gate", "jump", "jumped", "clear", "eyes", "no visual", "nv", "ess", "isk", "red", "hostile", "neutral", "neut", "local", "system", "fleet", "corp", "alliance"}
+
+
+def esi_candidates_for_row(row: Row) -> list[str]:
+    out: list[str] = []
+    sender = row.sender.strip()
+    if sender and sender.lower() != "eve system":
+        out.append(sender)
+    protected = {x.casefold() for x in row.systems + row.assets + row.links + row.counts}
+    words = re.findall(r"\b[A-Z][A-Za-z0-9'\-]{2,}(?:\s+[A-Z][A-Za-z0-9'\-]{2,}){1,2}\b", row.text)
+    for term in words[:4]:
+        key = term.casefold()
+        if key not in protected and key not in COMMON_ESI_NOISE and not CATALOG.lookup_type(term) and not CATALOG.lookup_system(term):
+            out.append(term)
+    return unique(out)[:5]
+
+
+class EsiResolver(threading.Thread):
+    def __init__(self, outq: queue.Queue, enabled_func: Callable[[], bool]):
+        super().__init__(daemon=True)
+        self.outq = outq
+        self.enabled_func = enabled_func
+        self.work: queue.Queue = queue.Queue(maxsize=500)
+        self.pending: set[str] = set()
+        self.stop_event = threading.Event()
+        self.last_request_at = 0.0
+        self.backoff_until = 0.0
+
+    def submit(self, query: str, force: bool = False):
+        query = str(query or "").strip()
+        key = normalize_esi_query(query)
+        if not key or len(key) < 3 or key in COMMON_ESI_NOISE:
+            return
+        cached = ESI_CACHE.get_entity(query, force=force)
+        if cached:
+            if not cached.get("ignored"):
+                self.outq.put(("esi_resolved", query, cached))
+            return
+        if ESI_CACHE.is_negative(query, force=force):
+            return
+        if key in self.pending:
+            return
+        try:
+            self.pending.add(key)
+            self.work.put_nowait((query, force))
+        except queue.Full:
+            self.pending.discard(key)
+            ESI_CACHE.set_status("last_status", "queue_full")
+
+    def stop(self):
+        self.stop_event.set()
+
+    def _rate_wait(self):
+        now = time.time()
+        if self.backoff_until > now:
+            time.sleep(min(5, self.backoff_until - now))
+        elapsed = time.time() - self.last_request_at
+        if elapsed < 1.0:
+            time.sleep(1.0 - elapsed)
+        self.last_request_at = time.time()
+
+    def _request_json(self, url: str, params: dict | None = None) -> dict:
+        if params:
+            url = url + "?" + urllib.parse.urlencode(params, doseq=True)
+        self._rate_wait()
+        req = urllib.request.Request(url, headers={"User-Agent": ESI_USER_AGENT, "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                ESI_CACHE.set_status("last_status", "ok")
+                return json.loads(resp.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as exc:  # type: ignore[attr-defined]
+            if exc.code in (420, 429, 500, 502, 503, 504):
+                self.backoff_until = time.time() + 30
+                ESI_CACHE.set_status("last_status", f"backoff_http_{exc.code}")
+            raise
+
+    def resolve_public(self, query: str) -> dict | None:
+        data = self._request_json(ESI_SEARCH_URL, {"categories": ["character", "corporation", "alliance"], "search": query, "strict": "true"})
+        if data.get("character"):
+            cid = int(data["character"][0])
+            char = self._request_json(f"https://esi.evetech.net/latest/characters/{cid}/")
+            corp_id = char.get("corporation_id")
+            alliance_id = char.get("alliance_id")
+            corp_name = ""; alliance_name = ""
+            if corp_id:
+                try: corp_name = str(self._request_json(f"https://esi.evetech.net/latest/corporations/{int(corp_id)}/").get("name") or "")
+                except Exception: corp_name = ""
+            if alliance_id:
+                try: alliance_name = str(self._request_json(f"https://esi.evetech.net/latest/alliances/{int(alliance_id)}/").get("name") or "")
+                except Exception: alliance_name = ""
+            return {"query": query, "entity_type": "character", "entity_id": cid, "name": char.get("name") or query, "corporation_id": corp_id, "corporation_name": corp_name, "alliance_id": alliance_id, "alliance_name": alliance_name, "source": "esi"}
+        if data.get("corporation"):
+            eid = int(data["corporation"][0]); corp = self._request_json(f"https://esi.evetech.net/latest/corporations/{eid}/")
+            return {"query": query, "entity_type": "corporation", "entity_id": eid, "name": corp.get("name") or query, "alliance_id": corp.get("alliance_id"), "source": "esi"}
+        if data.get("alliance"):
+            eid = int(data["alliance"][0]); ali = self._request_json(f"https://esi.evetech.net/latest/alliances/{eid}/")
+            return {"query": query, "entity_type": "alliance", "entity_id": eid, "name": ali.get("name") or query, "source": "esi"}
+        return None
+
+    def handle_esi_resolved(self, query: str, data: dict):
+        key = normalize_esi_query(query)
+        self.esi_entities[key] = data
+        changed = False
+        for row in self.rows:
+            candidates = [normalize_esi_query(x) for x in esi_candidates_for_row(row)]
+            if key in candidates and not any(normalize_esi_query(e.get("query") or e.get("name") or "") == key for e in row.esi_entities):
+                row.esi_entities.append(data); changed = True
+        self.status_label.configure(text=f"ESI resolved: {data.get('name') or query}")
+        if changed:
+            self.redraw_feed()
+
+    def esi_details_for_row(self, row: Row) -> str:
+        entities = list(row.esi_entities)
+        for candidate in esi_candidates_for_row(row):
+            cached = self.esi_entities.get(normalize_esi_query(candidate)) or ESI_CACHE.get_entity(candidate)
+            if cached and not cached.get("ignored") and cached not in entities:
+                entities.append(cached)
+        if not entities:
+            return "No ESI entities resolved for this row."
+        lines = []
+        for ent in entities:
+            bits = [f"{ent.get('entity_type','entity')}: {ent.get('name') or ent.get('query')} ({ent.get('entity_id','')})"]
+            if ent.get("corporation_name"):
+                bits.append(f"corp={ent.get('corporation_name')}")
+            if ent.get("alliance_name"):
+                bits.append(f"alliance={ent.get('alliance_name')}")
+            bits.append(f"source={ent.get('source','esi-cache')}")
+            lines.append(" | ".join(bits))
+        return "\n".join(lines)
+
+    def run(self):
+        while not self.stop_event.is_set():
+            try:
+                query, force = self.work.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            key = normalize_esi_query(query)
+            try:
+                if not self.enabled_func():
+                    continue
+                if ESI_CACHE.is_negative(query, force=force):
+                    continue
+                result = self.resolve_public(query)
+                if result:
+                    ESI_CACHE.put_entity(query, result)
+                    self.outq.put(("esi_resolved", query, result))
+                else:
+                    ESI_CACHE.put_negative(query, "not_found")
+            except Exception as exc:
+                ESI_CACHE.set_status("last_error", type(exc).__name__)
+                write_log(f"ESI lookup failed for {query!r}: {type(exc).__name__}")
+            finally:
+                self.pending.discard(key)
 
 
 def load_phrase_overrides() -> list[dict]:
@@ -781,6 +1159,12 @@ class SignalBridgeGui:
         self.show_channel_names = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names", False)))
         self.show_channel_names_in_all = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names_in_all", True)))
         self.check_updates_on_start = tk.BooleanVar(value=bool(SETTINGS.get("check_updates_on_start", True)))
+        self.esi_settings = load_esi_settings()
+        self.esi_enabled = tk.BooleanVar(value=bool(self.esi_settings.get("enabled", False)))
+        self.esi_oauth_enabled = tk.BooleanVar(value=bool(self.esi_settings.get("oauth_enabled", False)))
+        self.esi_resolver: EsiResolver | None = None
+        self.esi_entities: dict[str, dict] = {}
+        self.oauth_listener_active = False
         self.root.attributes("-topmost", bool(self.always_on_top.get()))
         self.active_channels: set[str] = default_channels()
         self.hidden_tab_ids: set[str] = set(str(x) for x in (SETTINGS.get("hidden_tab_ids") or []))
@@ -831,6 +1215,8 @@ class SignalBridgeGui:
         settings_menu.add_command(label="Install Argos Offline Fallback", command=self.install_argos_models)
         settings_menu.add_command(label="Open App Folder", command=self.open_app_folder)
         settings_menu.add_command(label="Open Logs Folder", command=self.open_logs_folder)
+        settings_menu.add_separator()
+        settings_menu.add_command(label="ESI / OAuth...", command=self.show_esi_settings)
         menubar.add_cascade(label="Settings", menu=settings_menu)
         view_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
         view_menu.add_checkbutton(label="Always on Top", variable=self.always_on_top, command=self.apply_topmost)
@@ -857,6 +1243,9 @@ class SignalBridgeGui:
         tools_menu.add_command(label="Translation Cache Status", command=self.show_translation_cache)
         tools_menu.add_command(label="Clear Translation Cache", command=self.clear_translation_cache)
         tools_menu.add_command(label="Open Phrase Overrides", command=self.open_phrase_overrides)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="ESI Cache Status", command=self.show_esi_cache_status)
+        tools_menu.add_command(label="Clear ESI Cache", command=self.clear_esi_cache)
         tools_menu.add_separator()
         tools_menu.add_command(label="Open Chatlog Folder", command=self.open_folder)
         menubar.add_cascade(label="Tools", menu=tools_menu)
@@ -900,6 +1289,7 @@ class SignalBridgeGui:
         self.text.tag_configure("muted", foreground="#8b98a8")
         self.text.tag_configure("error", foreground="#ff5a5f")
         self.text.tag_configure("link", foreground="#5ad7ff", underline=True)
+        self.text.tag_configure("esi", foreground="#9be28f", font=self.feed_font(bold=True))
         self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
 
@@ -1306,6 +1696,7 @@ class SignalBridgeGui:
         self.text.tag_configure("system", font=self.feed_font(bold=True))
         self.text.tag_configure("asset", font=self.feed_font(bold=True))
         self.text.tag_configure("ess", font=self.feed_font(bold=True))
+        self.text.tag_configure("esi", font=self.feed_font(bold=True))
         self.persist_settings()
         self.redraw_feed()
 
@@ -1462,6 +1853,183 @@ class SignalBridgeGui:
         except Exception as exc:
             self.set_status("Argos install failed: " + str(exc)[:160])
 
+    def esi_is_enabled(self) -> bool:
+        return bool(self.esi_enabled.get())
+
+    def save_esi_ui_settings(self):
+        self.esi_settings["enabled"] = bool(self.esi_enabled.get())
+        self.esi_settings["oauth_enabled"] = bool(self.esi_oauth_enabled.get())
+        save_esi_settings(self.esi_settings)
+        SETTINGS["esi_entity_recognition"] = bool(self.esi_enabled.get())
+        SETTINGS["esi_oauth_enabled"] = bool(self.esi_oauth_enabled.get())
+        save_settings(SETTINGS)
+        if self.esi_is_enabled():
+            self.ensure_esi_resolver()
+        self.set_status("ESI settings saved")
+
+    def ensure_esi_resolver(self):
+        if self.esi_resolver and self.esi_resolver.is_alive():
+            return
+        self.esi_resolver = EsiResolver(self.queue, self.esi_is_enabled)
+        self.esi_resolver.start()
+
+    def show_esi_settings(self):
+        tk = self.tk
+        self.esi_settings = load_esi_settings()
+        win = tk.Toplevel(self.root)
+        win.title("ESI / OAuth Settings")
+        win.geometry("560x460")
+        win.configure(bg="#0b0f14")
+        win.transient(self.root)
+        tk.Label(win, text="Optional ESI support", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
+        tk.Label(win, text="Signal Bridge works normally with ESI disabled. OAuth is only needed for future character-aware features.", bg="#0b0f14", fg="#8b98a8", wraplength=520, justify="left").pack(anchor="w", padx=10, pady=(0, 8))
+        tk.Checkbutton(win, text="Enable ESI entity recognition", variable=self.esi_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(anchor="w", padx=10)
+        tk.Checkbutton(win, text="Enable OAuth features", variable=self.esi_oauth_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(anchor="w", padx=10)
+        form = tk.Frame(win, bg="#0b0f14"); form.pack(fill="x", padx=10, pady=8)
+        tk.Label(form, text="Client ID", bg="#0b0f14", fg="#d7dde5").grid(row=0, column=0, sticky="w", pady=3)
+        client_id = tk.Entry(form, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", width=52)
+        client_id.insert(0, str(self.esi_settings.get("client_id") or ESI_DEFAULT_CLIENT_ID)); client_id.grid(row=0, column=1, sticky="ew", padx=8, pady=3)
+        tk.Label(form, text="Client Secret", bg="#0b0f14", fg="#d7dde5").grid(row=1, column=0, sticky="w", pady=3)
+        client_secret = tk.Entry(form, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", show="*", width=52)
+        client_secret.insert(0, str(self.esi_settings.get("client_secret") or "")); client_secret.grid(row=1, column=1, sticky="ew", padx=8, pady=3)
+        tk.Label(form, text="Callback", bg="#0b0f14", fg="#d7dde5").grid(row=2, column=0, sticky="w", pady=3)
+        callback = tk.Entry(form, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", width=52)
+        callback.insert(0, str(self.esi_settings.get("callback_url") or ESI_CALLBACK_URL)); callback.grid(row=2, column=1, sticky="ew", padx=8, pady=3)
+        form.columnconfigure(1, weight=1)
+        stats = ESI_CACHE.stats()
+        status_text = f"Cache: {stats.get('entities',0)} entities, {stats.get('negative',0)} negative, {stats.get('corrections',0)} corrections\nCallback listener: {'listening' if self.oauth_listener_active else 'closed'}\nToken file: {'present' if ESI_TOKENS_PATH.exists() else 'not authorized'}"
+        tk.Label(win, text=status_text, bg="#0b0f14", fg="#8b98a8", justify="left").pack(anchor="w", padx=10, pady=8)
+        btns = tk.Frame(win, bg="#0b0f14"); btns.pack(fill="x", padx=10, pady=10)
+        def apply():
+            self.esi_settings["client_id"] = client_id.get().strip() or ESI_DEFAULT_CLIENT_ID
+            self.esi_settings["client_secret"] = client_secret.get().strip()
+            self.esi_settings["callback_url"] = callback.get().strip() or ESI_CALLBACK_URL
+            self.save_esi_ui_settings()
+        tk.Button(btns, text="Save", command=apply).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Authorize Character", command=lambda: (apply(), self.authorize_esi_character())).pack(side="left", padx=6)
+        tk.Button(btns, text="Check ESI", command=self.check_esi_status).pack(side="left", padx=6)
+        tk.Button(btns, text="Close", command=win.destroy).pack(side="right")
+
+    def check_esi_status(self):
+        def worker():
+            try:
+                req = urllib.request.Request("https://esi.evetech.net/latest/status/", headers={"User-Agent": ESI_USER_AGENT, "Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    data = json.loads(resp.read().decode("utf-8", "replace"))
+                ESI_CACHE.set_status("last_status", "ok")
+                self.queue.put(("status", f"ESI OK: {data.get('players','?')} players online"))
+            except Exception as exc:
+                ESI_CACHE.set_status("last_status", "offline")
+                write_log("ESI status check failed", exc)
+                self.queue.put(("status", "ESI status check failed; see logs"))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_esi_cache_status(self):
+        stats = ESI_CACHE.stats(); status = stats.get("status", {})
+        self.messagebox.showinfo("ESI Cache", f"Cache file: {ESI_CACHE_PATH}\nEntities: {stats.get('entities',0)}\nNegative entries: {stats.get('negative',0)}\nCorrections: {stats.get('corrections',0)}\nLast status: {status.get('last_status','unknown')}\nLast error: {status.get('last_error','none')}\nPositive TTL: 30 days")
+
+    def clear_esi_cache(self):
+        if self.messagebox.askyesno("ESI Cache", "Clear cached ESI entities and negative lookups? Manual corrections are kept."):
+            if ESI_CACHE.clear():
+                self.esi_entities.clear(); self.set_status("ESI cache cleared")
+
+    def authorize_esi_character(self):
+        settings = load_esi_settings()
+        if not bool(self.esi_oauth_enabled.get()):
+            self.messagebox.showinfo("ESI OAuth", "Enable OAuth features first in ESI settings."); return
+        client_id = str(settings.get("client_id") or ESI_DEFAULT_CLIENT_ID).strip()
+        client_secret = str(settings.get("client_secret") or "").strip()
+        callback_url = str(settings.get("callback_url") or ESI_CALLBACK_URL).strip()
+        if not client_secret:
+            self.messagebox.showwarning("ESI OAuth", "Client secret is not configured. It is stored only in local config and is not committed to GitHub."); return
+        if self.oauth_listener_active:
+            self.messagebox.showinfo("ESI OAuth", "OAuth listener is already waiting for a callback."); return
+        state = secrets.token_urlsafe(24)
+        scopes = " ".join(settings.get("scopes") or [])
+        params = {"response_type": "code", "redirect_uri": callback_url, "client_id": client_id, "state": state}
+        if scopes:
+            params["scope"] = scopes
+        auth_url = ESI_SSO_AUTHORIZE_URL + "?" + urllib.parse.urlencode(params)
+        self.oauth_listener_active = True
+        self.set_status("Opening ESI OAuth browser flow on localhost:8080...")
+        threading.Thread(target=self._oauth_listener_worker, args=(state, client_id, client_secret, callback_url), daemon=True).start()
+        webbrowser.open(auth_url)
+
+    def _oauth_listener_worker(self, expected_state: str, client_id: str, client_secret: str, callback_url: str):
+        result: dict = {}
+        app = self
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, fmt, *args):
+                return
+            def do_GET(self):
+                parsed = urllib.parse.urlparse(self.path)
+                if parsed.path != "/callback":
+                    self.send_response(404); self.end_headers(); return
+                qs = urllib.parse.parse_qs(parsed.query)
+                result["code"] = (qs.get("code") or [""])[0]
+                result["state"] = (qs.get("state") or [""])[0]
+                ok = bool(result.get("code")) and result.get("state") == expected_state
+                self.send_response(200 if ok else 400)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                msg = "Signal Bridge ESI authorization complete. You can close this browser tab." if ok else "Signal Bridge ESI authorization failed. Return to the app."
+                self.wfile.write(msg.encode("utf-8"))
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+        try:
+            with socketserver.TCPServer((ESI_CALLBACK_HOST, ESI_CALLBACK_PORT), Handler) as httpd:
+                httpd.timeout = 120
+                end = time.time() + 120
+                while time.time() < end and not result:
+                    httpd.handle_request()
+                if not result:
+                    raise TimeoutError("OAuth callback timed out")
+            if not result.get("code") or result.get("state") != expected_state:
+                raise RuntimeError("OAuth state validation failed")
+            token_data = self._exchange_esi_code(result["code"], client_id, client_secret, callback_url)
+            save_esi_tokens({"updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "characters": token_data})
+            ESI_CACHE.set_status("oauth", "authorized")
+            app.queue.put(("status", "ESI OAuth authorization saved"))
+        except OSError as exc:
+            write_log("ESI OAuth listener failed; port may be busy", exc)
+            app.queue.put(("esi_oauth_failed", "Could not listen on localhost:8080. Another app may be using the port."))
+        except Exception as exc:
+            write_log("ESI OAuth failed", exc)
+            app.queue.put(("esi_oauth_failed", str(exc)))
+        finally:
+            app.oauth_listener_active = False
+
+    def _exchange_esi_code(self, code: str, client_id: str, client_secret: str, callback_url: str) -> dict:
+        body = urllib.parse.urlencode({"grant_type": "authorization_code", "code": code, "redirect_uri": callback_url}).encode("utf-8")
+        basic = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+        req = urllib.request.Request(ESI_SSO_TOKEN_URL, data=body, headers={"Authorization": "Basic " + basic, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ESI_USER_AGENT, "Accept": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            token = json.loads(resp.read().decode("utf-8", "replace"))
+        verify_req = urllib.request.Request(ESI_SSO_VERIFY_URL, headers={"Authorization": "Bearer " + str(token.get("access_token", "")), "User-Agent": ESI_USER_AGENT, "Accept": "application/json"})
+        character = {}
+        try:
+            with urllib.request.urlopen(verify_req, timeout=12) as resp:
+                character = json.loads(resp.read().decode("utf-8", "replace"))
+        except Exception:
+            character = {}
+        expires_in = int(token.get("expires_in") or 0)
+        char_id = str(character.get("CharacterID") or "unknown")
+        return {char_id: {"character_id": character.get("CharacterID"), "character_name": character.get("CharacterName"), "scopes": character.get("Scopes", ""), "access_token": token.get("access_token"), "refresh_token": token.get("refresh_token"), "expires_at": time.time() + expires_in}}
+
+    def refresh_esi_entity(self, query: str):
+        if not query:
+            return
+        if not self.esi_is_enabled():
+            self.esi_enabled.set(True); self.save_esi_ui_settings()
+        self.ensure_esi_resolver()
+        if self.esi_resolver:
+            self.esi_resolver.submit(query, force=True)
+            self.set_status(f"Queued ESI refresh: {query}")
+
+    def ignore_esi_entity(self, query: str):
+        if query and ESI_CACHE.set_correction(query, "ignore", note="user ignored"):
+            self.esi_entities.pop(normalize_esi_query(query), None)
+            self.set_status(f"Ignored for ESI: {query}")
+
     def set_status(self, msg: str):
         self.queue.put(("status", msg))
 
@@ -1612,7 +2180,8 @@ class SignalBridgeGui:
             f"- Compact EVE catalog: {CATALOG.version}\n"
             "- Google free auto-detect to English\n"
             "- Argos fallback when available\n"
-            "- Simple nonblocking GitHub update check on launch"
+            "- Simple nonblocking GitHub update check on launch\n"
+            "- Optional cache-first ESI entity recognition/OAuth foundation"
         )
 
     def show_support(self):
@@ -1643,12 +2212,17 @@ class SignalBridgeGui:
             f"Show timestamps: {bool(self.show_timestamps.get())}\n"
             "Free MT: Google primary, Argos fallback\n"
             "Directions: Auto -> EN / EN -> CN\n"
-            f"Update check on launch: {bool(self.check_updates_on_start.get())}"
+            f"Update check on launch: {bool(self.check_updates_on_start.get())}\n"
+            f"ESI enabled: {bool(self.esi_enabled.get())}\n"
+            f"ESI OAuth token file: {ESI_TOKENS_PATH.exists()}\n"
+            f"ESI cache: {ESI_CACHE.stats()}"
         )
 
 
     def on_exit(self):
         self.persist_settings()
+        if self.esi_resolver:
+            self.esi_resolver.stop()
         self.stop_monitor()
         self.root.after(100, self.root.destroy)
 
@@ -1716,6 +2290,11 @@ class SignalBridgeGui:
             menu.add_command(label="Copy Ships / Assets", command=lambda r=row: self.copy_to_clipboard(", ".join(r.assets)))
             menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
             menu.add_command(label="Copy Translation Details", command=lambda i=info: self.copy_to_clipboard(f"source={i.get('source_label','none')}"))
+            menu.add_separator()
+            menu.add_command(label="Resolve Sender with ESI", command=lambda r=row: self.refresh_esi_entity(r.sender))
+            menu.add_command(label="Refresh Sender ESI Data", command=lambda r=row: self.refresh_esi_entity(r.sender))
+            menu.add_command(label="Copy ESI Details", command=lambda r=row: self.copy_to_clipboard(self.esi_details_for_row(r)))
+            menu.add_command(label="Ignore Sender for ESI", command=lambda r=row: self.ignore_esi_entity(r.sender))
         else:
             menu.add_command(label="Copy Selected Text", command=self.copy_selected_text)
             menu.add_command(label="Copy Visible Feed", command=self.copy_visible_feed)
@@ -1853,6 +2432,11 @@ class SignalBridgeGui:
 
     def append_row(self, row: Row):
         self.rows.append(row)
+        if self.esi_is_enabled():
+            self.ensure_esi_resolver()
+            if self.esi_resolver:
+                for candidate in esi_candidates_for_row(row):
+                    self.esi_resolver.submit(candidate)
         self.ensure_row_channel_tab(row.channel)
         if len(self.rows) > MAX_ROWS:
             self.rows = self.rows[-MAX_ROWS:]
@@ -1906,6 +2490,10 @@ class SignalBridgeGui:
                 self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets)
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["display_text"])
         row_end = self.text.index("end-1c")
+        for ent in row.esi_entities:
+            name = str(ent.get("name") or ent.get("query") or "")
+            if name:
+                self.tag_term(name, "esi", row_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
         self.rendered_row_map[row_tag] = {"row": row, **parts}
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
@@ -1947,6 +2535,11 @@ class SignalBridgeGui:
                 elif isinstance(item, tuple) and item[0] == "update_failed":
                     self.status_label.configure(text="Update check failed; see logs")
                     self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
+                elif isinstance(item, tuple) and item[0] == "esi_resolved":
+                    self.handle_esi_resolved(item[1], item[2])
+                elif isinstance(item, tuple) and item[0] == "esi_oauth_failed":
+                    self.status_label.configure(text="ESI OAuth failed")
+                    self.messagebox.showwarning("ESI OAuth", str(item[1])[:500])
                 elif isinstance(item, Row):
                     self.append_row(item)
         except queue.Empty:
@@ -1954,6 +2547,8 @@ class SignalBridgeGui:
         self.root.after(150, self.drain_queue)
 
     def run(self):
+        if self.esi_is_enabled():
+            self.ensure_esi_resolver()
         self.start_monitor()
         if bool(self.check_updates_on_start.get()):
             self.root.after(1500, lambda: self.check_for_updates(manual=False))

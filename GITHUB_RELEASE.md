@@ -18,8 +18,8 @@
 3. Verify package exists:
 
    ```powershell
-   Get-Item .\SignalBridge-v0.2-win64-portable.zip
-   Get-FileHash .\SignalBridge-v0.2-win64-portable.zip -Algorithm SHA256
+   Get-Item .\SignalBridge-v0.3-win64-portable.zip
+   Get-FileHash .\SignalBridge-v0.3-win64-portable.zip -Algorithm SHA256
    ```
 
 4. Extract ZIP to a clean folder and run:
@@ -34,13 +34,18 @@
 
 Upload:
 
-- `SignalBridge-v0.2-win64-portable.zip`
+- `SignalBridge-v0.3-win64-portable.zip`
 - SHA256 checksum in release notes
 
 ## Suggested Release Notes
 
 ```markdown
-# Signal Bridge v0.2
+# Signal Bridge v0.3
+
+- Optional ESI/OAuth foundation, disabled by default.
+- Cache-first ESI resolver with 30-day positive cache, negative cache, and right-click refresh/ignore sender actions.
+- Temporary localhost OAuth callback listener on `127.0.0.1:8080` only during authorization.
+- Client secret and tokens are local-only and not committed/bundled.
 
 - Header color legend removed for a cleaner live UI.
 Backfill is disabled by default, so opened channel tabs start live-only and do not display old chat history.
@@ -60,7 +65,7 @@ Portable Windows release for EVE Online chat intel monitoring and translation.
 
 ## Install
 
-Download and extract `SignalBridge-v0.2-win64-portable.zip`, then run `SignalBridge.exe`.
+Download and extract `SignalBridge-v0.3-win64-portable.zip`, then run `SignalBridge.exe`.
 
 ## SHA256
 

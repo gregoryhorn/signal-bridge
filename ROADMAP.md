@@ -101,6 +101,11 @@ Planned items:
 - Copy selected structured entities.
 - Optional original-on-hover for translated text.
 
+
+## v0.3 implementation note
+
+Optional ESI/OAuth foundation has been implemented with ESI disabled by default, localhost OAuth callback on `127.0.0.1:8080`, cache-first SQLite lookups, 30-day positive TTL, negative caching, right-click refresh/ignore actions, background resolver queue, and no live-feed blocking. Future v0.3.x work can refine entity highlighting and add richer correction UI.
+
 ## v0.3 - ESI Entity Recognition
 
 Goal: improve character, corporation, and alliance detection using EVE ESI while keeping the app responsive.

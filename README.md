@@ -1,10 +1,26 @@
-﻿# Signal Bridge v0.2 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
+﻿# Signal Bridge v0.3 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
 
 ## Version
 
 Current version: 0.1
+
+
+## v0.3 Optional ESI
+
+Signal Bridge includes optional ESI/OAuth foundation for future EVE entity recognition and character-aware features. ESI is **disabled by default** and is never required for normal live chat monitoring or translation.
+
+ESI features:
+
+- cache-first SQLite entity cache at `cache/esi_cache.sqlite`,
+- 30-day positive cache for resolved players/entities,
+- negative cache to avoid repeated bad lookups,
+- background resolver queue only,
+- right-click sender resolve/refresh/ignore actions,
+- optional OAuth using `http://localhost:8080/callback`,
+- temporary listener bound to `127.0.0.1:8080` only during authorization,
+- local-only client secret/token storage in ignored `config/` files.
 
 ## Current Interaction Behavior
 
@@ -33,7 +49,7 @@ See [ROADMAP.md](ROADMAP.md) for planned features, including tab polish, right-c
 Get the Windows portable app from the GitHub release:
 
 - **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2)
-- **Direct download:** [SignalBridge-v0.2-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/SignalBridge-v0.2-win64-portable.zip)
+- **Direct download:** [SignalBridge-v0.3-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/SignalBridge-v0.3-win64-portable.zip)
 
 Extract the ZIP, then run:
 

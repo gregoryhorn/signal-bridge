@@ -1,3 +1,15 @@
+## v0.3 - 2026-06-19
+
+### Optional ESI / OAuth foundation
+- Added optional ESI entity recognition settings; ESI remains disabled by default and is never required for normal chat monitoring or translation.
+- Added cache-first ESI resolver foundation with SQLite cache at `cache/esi_cache.sqlite`.
+- Added 30-day positive ESI entity cache, negative cache, manual ignore/correction storage, and background resolver queue.
+- Added right-click feed actions to resolve/refresh sender ESI data, copy ESI details, and ignore sender for ESI.
+- Added optional EVE OAuth foundation using a temporary `127.0.0.1:8080` callback listener for `http://localhost:8080/callback`; the listener is only opened during authorization and closes after success/failure/timeout.
+- Added ESI status/cache entries to Health and Tools menus.
+- Client secret and OAuth tokens are stored only in ignored local config files and are not committed or bundled.
+- Preserved live-only/no-backfill behavior.
+
 ﻿# Changelog
 
 All notable Signal Bridge changes will be documented here.
