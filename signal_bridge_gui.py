@@ -52,6 +52,7 @@ MAX_CHUNK = 1024 * 1024
 MAX_ROWS = 600
 GOOGLE_TRANSLATE_TIMEOUT = 2.5
 FREE_TRANSLATION_CACHE: dict[str, str] = {}
+ARGOS_STATUS_CACHE = {"checked": False, "runtime": False, "models": set(), "error": ""}
 CATALOG_PATH = DATA_DIR / "eve_catalog.json"
 CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
 CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
@@ -1505,6 +1506,13 @@ def argos_runtime_status() -> dict:
             status["error"] = f"model check failed: {type(exc).__name__}"
     except Exception as exc:
         status["error"] = f"runtime missing: {type(exc).__name__}"
+    try:
+        ARGOS_STATUS_CACHE["checked"] = True
+        ARGOS_STATUS_CACHE["runtime"] = bool(status.get("runtime"))
+        ARGOS_STATUS_CACHE["models"] = set(status.get("models") or [])
+        ARGOS_STATUS_CACHE["error"] = str(status.get("error") or "")
+    except Exception:
+        pass
     return status
 
 
@@ -1546,12 +1554,25 @@ def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") 
     return None
 
 
+def argos_pair_ready(source: str, target: str) -> bool:
+    # Never import/check Argos from feed redraw or settings redraw. Only trust the
+    # status cache populated by Refresh Argos Status or Install/Repair workers.
+    if not bool(ARGOS_STATUS_CACHE.get("checked")):
+        return False
+    if not bool(ARGOS_STATUS_CACHE.get("runtime")):
+        return False
+    return f"{source}->{target}" in set(ARGOS_STATUS_CACHE.get("models") or [])
+
+
 def argos_translate_fallback(text: str, source: str = "zh", target: str = "en") -> str | None:
+    if not argos_pair_ready(source, target):
+        return None
     try:
         import argostranslate.translate  # type: ignore
         translated = argostranslate.translate.translate(text, source, target).strip()
         return translated or None
-    except Exception:
+    except Exception as exc:
+        ARGOS_STATUS_CACHE["error"] = f"translate failed: {type(exc).__name__}"
         return None
 
 
@@ -3362,12 +3383,20 @@ class SignalBridgeGui:
 
     def save_translation_engine_settings(self):
         self.persist_settings()
-        self.set_status(f"Translation engine: {self.translation_preferred_engine.get()} / {self.translation_fallback_mode.get()}")
+        pref = self.translation_preferred_engine.get()
+        fallback = self.translation_fallback_mode.get()
+        if pref == "argos" and not bool(ARGOS_STATUS_CACHE.get("runtime")):
+            self.argos_status_text.set("Argos selected, but runtime/model availability is not confirmed. Use Refresh Argos Status or Install / Repair Argos. The app will not call Argos until it is confirmed ready.")
+        self.set_status(f"Translation engine: {pref} / {fallback}")
         self.schedule_redraw()
 
     def test_translation_engine(self):
         sample = chr(0x5929) + chr(0x9e64) + chr(0x7ea7) + " " + chr(0x77ed) + chr(0x5251) + chr(0x7ea7)
-        result = translate_free_text(sample, [], [], [], [], [], self.translation_direction.get(), [], self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
+        pref = self.translation_preferred_engine.get()
+        if pref == "argos" and not argos_pair_ready("zh" if self.translation_direction.get() == "zh-en" else "en", "en" if self.translation_direction.get() == "zh-en" else "zh"):
+            result = "Argos is selected, but the needed offline model is not confirmed installed. Use Refresh Argos Status or Install / Repair Argos."
+        else:
+            result = translate_free_text(sample, [], [], [], [], [], self.translation_direction.get(), [], pref, self.translation_fallback_mode.get())
         if not result:
             result = "No machine/free-text translation returned. Curated EVE cache still handles known ship aliases in live rows."
         self.messagebox.showinfo("Translation Test", f"Preferred engine: {self.translation_preferred_engine.get()}\nFallback: {self.translation_fallback_mode.get()}\n\nInput:\n{sample}\n\nOutput:\n{result}\n\nArgos status is shown on the Translation settings page. Use Refresh Argos Status to check it without blocking the app.")
