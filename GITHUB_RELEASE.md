@@ -42,6 +42,8 @@ Upload:
 ```markdown
 # Signal Bridge v0.3
 
+- Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
+
 - Optional ESI/OAuth foundation, disabled by default.
 - Cache-first ESI resolver with 30-day positive cache, negative cache, and right-click refresh/ignore sender actions.
 - Temporary localhost OAuth callback listener on `127.0.0.1:8080` only during authorization.

@@ -57,7 +57,7 @@ ESI_CALLBACK_PORT = 8080
 ESI_POSITIVE_TTL_SECONDS = 30 * 24 * 60 * 60
 ESI_NEGATIVE_TTL_SECONDS = 24 * 60 * 60
 ESI_USER_AGENT = f"SignalBridge/{APP_VERSION} contact: github.com/gregoryhorn/signal-bridge"
-ESI_SEARCH_URL = "https://esi.evetech.net/latest/search/"
+ESI_SEARCH_URL = "https://esi.evetech.net/latest/universe/ids/"
 ESI_SSO_AUTHORIZE_URL = "https://login.eveonline.com/v2/oauth/authorize/"
 ESI_SSO_TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 ESI_SSO_VERIFY_URL = "https://login.eveonline.com/oauth/verify"
@@ -606,17 +606,14 @@ COMMON_ESI_NOISE = {"gate", "jump", "jumped", "clear", "eyes", "no visual", "nv"
 
 
 def esi_candidates_for_row(row: Row) -> list[str]:
+    # Keep automatic ESI lookups conservative to protect ESI rates. Sender names
+    # are reliable; free-text names can be manually refreshed from the row menu.
     out: list[str] = []
-    sender = row.sender.strip()
-    if sender and sender.lower() != "eve system":
-        out.append(sender)
-    protected = {x.casefold() for x in row.systems + row.assets + row.links + row.counts}
-    words = re.findall(r"\b[A-Z][A-Za-z0-9'\-]{2,}(?:\s+[A-Z][A-Za-z0-9'\-]{2,}){1,2}\b", row.text)
-    for term in words[:4]:
-        key = term.casefold()
-        if key not in protected and key not in COMMON_ESI_NOISE and not CATALOG.lookup_type(term) and not CATALOG.lookup_system(term):
-            out.append(term)
-    return unique(out)[:5]
+    sender = re.sub(r"\s+", " ", row.sender.strip())
+    if sender and sender.lower() != "eve system" and len(sender) >= 3:
+        if sender.casefold() not in COMMON_ESI_NOISE and not CATALOG.lookup_type(sender) and not CATALOG.lookup_system(sender):
+            out.append(sender)
+    return unique(out)[:2]
 
 
 class EsiResolver(threading.Thread):
@@ -663,74 +660,65 @@ class EsiResolver(threading.Thread):
             time.sleep(1.0 - elapsed)
         self.last_request_at = time.time()
 
-    def _request_json(self, url: str, params: dict | None = None) -> dict:
+    def _request_json(self, url: str, params: dict | None = None, data: bytes | None = None, method: str | None = None) -> dict:
         if params:
             url = url + "?" + urllib.parse.urlencode(params, doseq=True)
         self._rate_wait()
-        req = urllib.request.Request(url, headers={"User-Agent": ESI_USER_AGENT, "Accept": "application/json"})
+        headers = {"User-Agent": ESI_USER_AGENT, "Accept": "application/json"}
+        if data is not None:
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=8) as resp:
                 ESI_CACHE.set_status("last_status", "ok")
-                return json.loads(resp.read().decode("utf-8", "replace"))
+                body = resp.read().decode("utf-8", "replace")
+                return json.loads(body) if body else {}
         except urllib.error.HTTPError as exc:  # type: ignore[attr-defined]
             if exc.code in (420, 429, 500, 502, 503, 504):
                 self.backoff_until = time.time() + 30
                 ESI_CACHE.set_status("last_status", f"backoff_http_{exc.code}")
+            elif exc.code == 404:
+                ESI_CACHE.set_status("last_status", "not_found")
             raise
 
+    def _ids_for_name(self, query: str) -> dict:
+        payload = json.dumps([query], ensure_ascii=False).encode("utf-8")
+        return self._request_json(ESI_SEARCH_URL, data=payload, method="POST")
+
     def resolve_public(self, query: str) -> dict | None:
-        data = self._request_json(ESI_SEARCH_URL, {"categories": ["character", "corporation", "alliance"], "search": query, "strict": "true"})
-        if data.get("character"):
-            cid = int(data["character"][0])
+        data = self._ids_for_name(query)
+        chars = data.get("characters") or []
+        corps = data.get("corporations") or []
+        alliances = data.get("alliances") or []
+        if chars:
+            ent = chars[0]
+            cid = int(ent.get("id"))
             char = self._request_json(f"https://esi.evetech.net/latest/characters/{cid}/")
             corp_id = char.get("corporation_id")
             alliance_id = char.get("alliance_id")
             corp_name = ""; alliance_name = ""
             if corp_id:
-                try: corp_name = str(self._request_json(f"https://esi.evetech.net/latest/corporations/{int(corp_id)}/").get("name") or "")
-                except Exception: corp_name = ""
+                try:
+                    corp_name = str(self._request_json(f"https://esi.evetech.net/latest/corporations/{int(corp_id)}/").get("name") or "")
+                except Exception:
+                    corp_name = ""
             if alliance_id:
-                try: alliance_name = str(self._request_json(f"https://esi.evetech.net/latest/alliances/{int(alliance_id)}/").get("name") or "")
-                except Exception: alliance_name = ""
-            return {"query": query, "entity_type": "character", "entity_id": cid, "name": char.get("name") or query, "corporation_id": corp_id, "corporation_name": corp_name, "alliance_id": alliance_id, "alliance_name": alliance_name, "source": "esi"}
-        if data.get("corporation"):
-            eid = int(data["corporation"][0]); corp = self._request_json(f"https://esi.evetech.net/latest/corporations/{eid}/")
-            return {"query": query, "entity_type": "corporation", "entity_id": eid, "name": corp.get("name") or query, "alliance_id": corp.get("alliance_id"), "source": "esi"}
-        if data.get("alliance"):
-            eid = int(data["alliance"][0]); ali = self._request_json(f"https://esi.evetech.net/latest/alliances/{eid}/")
-            return {"query": query, "entity_type": "alliance", "entity_id": eid, "name": ali.get("name") or query, "source": "esi"}
+                try:
+                    alliance_name = str(self._request_json(f"https://esi.evetech.net/latest/alliances/{int(alliance_id)}/").get("name") or "")
+                except Exception:
+                    alliance_name = ""
+            return {"query": query, "entity_type": "character", "entity_id": cid, "name": char.get("name") or ent.get("name") or query, "corporation_id": corp_id, "corporation_name": corp_name, "alliance_id": alliance_id, "alliance_name": alliance_name, "source": "esi"}
+        if corps:
+            ent = corps[0]
+            eid = int(ent.get("id"))
+            corp = self._request_json(f"https://esi.evetech.net/latest/corporations/{eid}/")
+            return {"query": query, "entity_type": "corporation", "entity_id": eid, "name": corp.get("name") or ent.get("name") or query, "alliance_id": corp.get("alliance_id"), "source": "esi"}
+        if alliances:
+            ent = alliances[0]
+            eid = int(ent.get("id"))
+            ali = self._request_json(f"https://esi.evetech.net/latest/alliances/{eid}/")
+            return {"query": query, "entity_type": "alliance", "entity_id": eid, "name": ali.get("name") or ent.get("name") or query, "source": "esi"}
         return None
-
-    def handle_esi_resolved(self, query: str, data: dict):
-        key = normalize_esi_query(query)
-        self.esi_entities[key] = data
-        changed = False
-        for row in self.rows:
-            candidates = [normalize_esi_query(x) for x in esi_candidates_for_row(row)]
-            if key in candidates and not any(normalize_esi_query(e.get("query") or e.get("name") or "") == key for e in row.esi_entities):
-                row.esi_entities.append(data); changed = True
-        self.status_label.configure(text=f"ESI resolved: {data.get('name') or query}")
-        if changed:
-            self.redraw_feed()
-
-    def esi_details_for_row(self, row: Row) -> str:
-        entities = list(row.esi_entities)
-        for candidate in esi_candidates_for_row(row):
-            cached = self.esi_entities.get(normalize_esi_query(candidate)) or ESI_CACHE.get_entity(candidate)
-            if cached and not cached.get("ignored") and cached not in entities:
-                entities.append(cached)
-        if not entities:
-            return "No ESI entities resolved for this row."
-        lines = []
-        for ent in entities:
-            bits = [f"{ent.get('entity_type','entity')}: {ent.get('name') or ent.get('query')} ({ent.get('entity_id','')})"]
-            if ent.get("corporation_name"):
-                bits.append(f"corp={ent.get('corporation_name')}")
-            if ent.get("alliance_name"):
-                bits.append(f"alliance={ent.get('alliance_name')}")
-            bits.append(f"source={ent.get('source','esi-cache')}")
-            lines.append(" | ".join(bits))
-        return "\n".join(lines)
 
     def run(self):
         while not self.stop_event.is_set():
@@ -2545,6 +2533,38 @@ class SignalBridgeGui:
         except queue.Empty:
             pass
         self.root.after(150, self.drain_queue)
+
+    def handle_esi_resolved(self, query: str, data: dict):
+        key = normalize_esi_query(query)
+        self.esi_entities[key] = data
+        changed = False
+        for row in self.rows:
+            candidates = [normalize_esi_query(x) for x in esi_candidates_for_row(row)]
+            if key in candidates and not any(normalize_esi_query(e.get("query") or e.get("name") or "") == key for e in row.esi_entities):
+                row.esi_entities.append(data)
+                changed = True
+        self.status_label.configure(text=f"ESI resolved: {data.get('name') or query}")
+        if changed:
+            self.redraw_feed()
+
+    def esi_details_for_row(self, row: Row) -> str:
+        entities = list(row.esi_entities)
+        for candidate in esi_candidates_for_row(row):
+            cached = self.esi_entities.get(normalize_esi_query(candidate)) or ESI_CACHE.get_entity(candidate)
+            if cached and not cached.get("ignored") and cached not in entities:
+                entities.append(cached)
+        if not entities:
+            return "No ESI entities resolved for this row."
+        lines = []
+        for ent in entities:
+            bits = [f"{ent.get('entity_type','entity')}: {ent.get('name') or ent.get('query')} ({ent.get('entity_id','')})"]
+            if ent.get("corporation_name"):
+                bits.append(f"corp={ent.get('corporation_name')}")
+            if ent.get("alliance_name"):
+                bits.append(f"alliance={ent.get('alliance_name')}")
+            bits.append(f"source={ent.get('source','esi-cache')}")
+            lines.append(" | ".join(bits))
+        return "\n".join(lines)
 
     def run(self):
         if self.esi_is_enabled():

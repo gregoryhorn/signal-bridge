@@ -277,3 +277,5 @@ Before calling the app v1.0, the goal is to have:
 - Prefer local EVE data for EVE terms.
 - Use machine translation only for normal free text.
 - Avoid surprising users with old/private chat backfill.
+
+- Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.

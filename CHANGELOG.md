@@ -1,5 +1,6 @@
 ## v0.3 - 2026-06-19
 
+- Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
 ### Optional ESI / OAuth foundation
 - Added optional ESI entity recognition settings; ESI remains disabled by default and is never required for normal chat monitoring or translation.
 - Added cache-first ESI resolver foundation with SQLite cache at `cache/esi_cache.sqlite`.
