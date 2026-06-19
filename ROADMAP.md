@@ -499,4 +499,4 @@ Suggested implementation:
 - Diagnostics foundation: structured logs, UI stall watchdog, redraw/queue timing, and richer Settings > Diagnostics summaries are now in place; next diagnostics work can add per-row translation/entity/right-click decision traces and diagnostic bundle export.
 - Diagnostic tracing expanded with feed-row translation decisions, entity recognition summaries, and click-context traces. Future work: diagnostic ZIP export and deeper ESI/Intel History traces.
 - Completed first pass of the segmentation/render-safety refactor: structured row segments, separated multi-event intel display, segment diagnostics, and render path safety. Next work: chunked redraw and deeper segment/entity quality tuning.
-
+- Refined segmentation display to keep normal rows chat-like and reserve split rendering for multi-event rows.

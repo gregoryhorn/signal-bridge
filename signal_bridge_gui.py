@@ -4312,36 +4312,31 @@ class SignalBridgeGui:
         self.root.after(100, self.root.destroy)
 
     def segment_display_lines(self, row: Row, translated_text: str) -> list[str]:
+        """Return compact display lines.
+
+        Segmentation is primarily an internal/diagnostic model.  The feed should
+        stay chat-like by default: single-segment rows render as the original
+        visible line.  Only genuinely multi-segment rows are split for clarity.
+        """
         segments = getattr(row, "segments", None) or []
-        if not segments:
-            return [translated_text]
-        if len(segments) == 1 and segments[0].kind == "message":
+        if len(segments) <= 1:
             return [translated_text]
         lines: list[str] = []
         for seg in segments:
-            kind = str(seg.kind or "message").upper()
-            chip = {"KILL": "[KILL]", "SIGHTING": "[SIGHT]", "CLEAR": "[CLEAR]", "MESSAGE": "[INFO]"}.get(kind, f"[{kind}]")
-            bits: list[str] = []
             if seg.kind == "kill":
-                if seg.pilots:
-                    bits.append(" / ".join(seg.pilots[:2]))
-                if seg.assets:
-                    bits.append(" / ".join(seg.assets[:3]))
-                if not bits:
-                    bits.append(seg.text)
+                # Keep the original segment words together; this avoids over-transforming
+                # pilot/ship formatting while still separating repeated kill markers.
+                lines.append(f"[KILL] {seg.text}")
             else:
-                # Preserve the full segment text for sightings/comments so unknown ships or foreign notes are not lost.
-                bits.append(seg.text)
-            if seg.notes:
-                bits.extend(f"[{n}]" for n in seg.notes if f"[{n}]" not in seg.text)
-            if seg.status:
-                bits.extend(f"[{st}]" for st in seg.status if f"[{st}]" not in seg.text)
-            lines.append(f"  {chip} " + " — ".join([b for b in bits if b]))
-        return lines or [translated_text]
+                lines.append(seg.text)
+        return [normalize_feed_text(line) for line in lines if normalize_feed_text(line)] or [translated_text]
 
     def row_visible_body_lines(self, row: Row, parts: dict) -> list[str]:
         text = parts["translated"] if bool(self.translated_only.get()) else parts["original_text"]
         return self.segment_display_lines(row, text)
+
+    def row_uses_multiline_segments(self, row: Row) -> bool:
+        return len(getattr(row, "segments", None) or []) > 1
 
     def row_display_parts(self, row: Row) -> dict:
         original_text = normalize_feed_text(row.text)
@@ -5077,15 +5072,19 @@ class SignalBridgeGui:
         show_channel = bool(self.show_channel_names.get()) or (self.visible_channel == ALL_CHANNELS_TAB and bool(self.show_channel_names_in_all.get()))
         if show_channel:
             self.text.insert("end", f"[{row.channel}] ", "muted")
-        self.text.insert("end", f"{row.sender} >\n", "sender")
+        sender_prefix = f"{row.sender} > "
+        self.text.insert("end", sender_prefix, "sender")
         body_start = self.text.index("end-1c")
         display_lines = self.row_visible_body_lines(row, parts)
         tag_assets = row.assets + [normalize_feed_text(x.get("original", "")) for x in row.localized]
-        for line in display_lines:
+        multiline = self.row_uses_multiline_segments(row)
+        for idx, line in enumerate(display_lines):
+            if idx > 0:
+                self.text.insert("end", " " * max(4, len(sender_prefix)), "muted")
             body = self.apply_pilot_flag_badges(row, line)
             self.insert_tagged_text(body + "\n", row.systems, tag_assets)
             self.tag_urls(body_start, self.text.index("end-1c"), body)
-        if not bool(self.translated_only.get()):
+        if not bool(self.translated_only.get()) and not multiline:
             if parts["free_text"] and parts["free_text"] != parts["original_text"]:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")
