@@ -487,3 +487,7 @@ Suggested implementation:
 - `Translated only` and redraw now show only precomputed row translations instead of triggering live translation work during display.
 - Synced current local General Exclusion List and local translation cache into bundled starter data files with refreshed SHA256 checksums.
 - This keeps the app responsive and improves first-run defaults without overwriting existing user cache/settings.
+
+### Feed text normalization polish
+- Normalized common shorthand `clr` to `clear` in visible feed/copy-visible text.
+- Removed noisy display punctuation `(`, `)`, and `*` from rendered feed text while keeping raw stored chat rows unchanged.
