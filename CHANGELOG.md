@@ -1,5 +1,8 @@
 
 
+- Corrected the Chinese EVE ship translation `短剑级` from literal `Stabber grade` style output to `Stabber` in the bundled starter translation cache.
+
+
 - Corrected the Chinese EVE ship translation `天鹤级` from literal `Tianhe class` to `Crane` in the bundled starter translation cache.
 
 

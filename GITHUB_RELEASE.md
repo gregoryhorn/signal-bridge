@@ -158,3 +158,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Black Ops battleships such as Redeemer, Widow, Sin, and Panther no longer trigger default hot-drop caller flags; they remain useful profile/context data.
 - Feed badges reuse the existing compact flag display, while Pilot Info exposes the underlying reason.
 - Translation cache fix: `天鹤级` now resolves to `Crane` instead of the literal `Tianhe class`.
+- Translation cache fix: `短剑级` now resolves to `Stabber` instead of literal `Stabber grade` style output.
