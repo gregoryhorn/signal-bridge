@@ -289,3 +289,5 @@ Appearance options include configurable font, colors, bold highlights, optional 
 Signal Bridge includes curated shorthand ship aliases such as `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
 
 The Appearance dialog shows both color swatches and editable hex color codes for easier theme tuning.
+
+Signal Bridge now opens by default in a narrow mobile-style layout that works well as a side-panel beside EVE.

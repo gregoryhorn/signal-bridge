@@ -102,3 +102,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Added Appearance / Display Options with configurable colors, bold styles, background highlights, presets, live preview, and window opacity.
 - Added shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
 - Polished Appearance / Display Options with visible color swatches beside hex color codes.
+- Default startup window now opens in a narrow mobile-style layout instead of a wide layout.

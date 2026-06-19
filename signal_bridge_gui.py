@@ -1476,8 +1476,10 @@ class SignalBridgeGui:
         self.filedialog = filedialog
         self.root = tk.Tk()
         self.root.title(f"{APP_NAME} v{APP_VERSION}")
-        self.root.geometry("920x560")
-        self.root.minsize(540, 300)
+        # Mobile-style default: narrow, tall layout suitable for side-panel/overlay use.
+        # Users can still resize freely, and their OS/window-manager placement persists normally.
+        self.root.geometry("430x720")
+        self.root.minsize(360, 420)
         self.root.configure(bg="#0b0f14")
         self.always_on_top = tk.BooleanVar(value=bool(SETTINGS.get("always_on_top", True)))
         self.compact = tk.BooleanVar(value=bool(SETTINGS.get("compact_mode", True)))

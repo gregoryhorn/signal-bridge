@@ -303,3 +303,4 @@ Before calling the app v1.0, the goal is to have:
 - Appearance/display options completed: theme presets, font/color/bold/background controls, preview, reset defaults, and opacity slider.
 - Ongoing alias tuning: added shorthand ship aliases for Stabber and Caracal Navy Issue from real intel usage.
 - Appearance polish completed: color swatches are shown beside editable hex codes.
+- Mobile-style default layout completed: first launch now uses a narrow/tall side-panel window.
