@@ -6,6 +6,27 @@ Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN an
 
 Current version: 0.1
 
+## Download
+
+Get the Windows portable app from the GitHub release:
+
+- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.1](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.1)
+- **Direct download:** [SignalBridge-v0.1-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.1/SignalBridge-v0.1-win64-portable.zip)
+
+Extract the ZIP, then run:
+
+```text
+SignalBridge.exe
+```
+
+No installer is required. The ZIP is the standalone portable package; keep the extracted folder together because `SignalBridge.exe` uses the bundled `_internal` runtime folder.
+
+SHA256:
+
+```text
+A7AFFFDE24F94659D9ED196827544153350E05334A19C730EA01031FEC9889EE
+```
+
 ## Screenshot
 
 ![Signal Bridge screenshot](docs/images/signal-bridge-screenshot.png)
