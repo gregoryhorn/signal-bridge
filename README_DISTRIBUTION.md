@@ -31,3 +31,6 @@ Bundled starter ESI characters are included in `data/default_esi_entities.json` 
 ## Settings Center
 
 Use **Settings > Settings...** for the main configuration UI. The Settings Center groups channels, appearance, translation, EVE catalog, ESI, exclusions, cache/data, diagnostics, and support into one window with a sidebar and fixed bottom action bar.
+## Settings Center
+
+Open **Settings > Settings...** after extracting the portable ZIP. The Settings Center groups General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support into one dedicated window.
