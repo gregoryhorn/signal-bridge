@@ -1,4 +1,4 @@
-﻿# Signal Bridge v0.1
+﻿# Signal Bridge v0.1 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
 
