@@ -101,7 +101,7 @@ def load_settings() -> dict:
         "auto_switch_to_new_channel": False,
         "max_tab_rows": 3,
         "check_updates_on_start": True,
-        "esi_entity_recognition": False,
+        "esi_entity_recognition": True,
         "esi_oauth_enabled": False,
         "replay_on_start": False,
     }
@@ -410,7 +410,7 @@ def redact_secret(value: str) -> str:
 
 def load_esi_settings() -> dict:
     defaults = {
-        "enabled": bool(SETTINGS.get("esi_entity_recognition", False)),
+        "enabled": bool(SETTINGS.get("esi_entity_recognition", True)),
         "oauth_enabled": bool(SETTINGS.get("esi_oauth_enabled", False)),
         "client_id": ESI_DEFAULT_CLIENT_ID,
         "client_secret": "",

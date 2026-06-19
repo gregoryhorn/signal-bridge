@@ -1,5 +1,6 @@
 ## v0.3 - 2026-06-19
 
+- ESI public entity recognition is now enabled by default for new installs; OAuth remains disabled and optional.
 - Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
 ### Optional ESI / OAuth foundation
 - Added optional ESI entity recognition settings; ESI remains disabled by default and is never required for normal chat monitoring or translation.

@@ -279,3 +279,5 @@ Before calling the app v1.0, the goal is to have:
 - Avoid surprising users with old/private chat backfill.
 
 - Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
+
+- Default ESI behavior updated: public cache-first entity recognition is enabled by default, while OAuth/location-aware features remain opt-in.

@@ -42,6 +42,8 @@ Upload:
 ```markdown
 # Signal Bridge v0.3
 
+- ESI public entity recognition is now enabled by default for new installs; OAuth remains disabled and optional.
+
 - Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
 
 - Optional ESI/OAuth foundation, disabled by default.

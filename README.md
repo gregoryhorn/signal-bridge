@@ -9,6 +9,8 @@ Current version: 0.1
 
 ## v0.3 Optional ESI
 
+Public ESI entity recognition is enabled by default in v0.3. OAuth remains disabled unless the user opts in for future character-aware features.
+
 Signal Bridge includes optional ESI/OAuth foundation for future EVE entity recognition and character-aware features. ESI is **disabled by default** and is never required for normal live chat monitoring or translation.
 
 ESI features:
