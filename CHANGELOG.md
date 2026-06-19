@@ -1,6 +1,7 @@
 
 
 ### Intel History add-on MVP foundation
+- Added Manual Flags v0.1 feed integration: active Intel History flags now render as compact badges beside ESI-confirmed pilot names in the feed, right-click quick actions can mark Watchlist/High Threat/Do Not Track, and Do Not Track prevents future Intel History recordings for that pilot.
 - Added Intel History Pilot Info Card v0.1 planning implementation: feed right-click `Open Pilot Info`, compact pilot summary, recent sightings/top ships/top systems drill-downs, direct manual flag editing, copyable pilot summaries, and automatic add-on worker startup.
 - Added the first installable `Intel History / Pilot Intelligence` add-on skeleton under `addons/intel-history`.
 - Added guarded same-EXE module loading for the official Intel History add-on.

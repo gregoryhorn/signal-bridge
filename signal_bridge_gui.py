@@ -3793,6 +3793,96 @@ class SignalBridgeGui:
                 return ent
         return None
 
+
+    def intel_history_active_flags(self, pilot_id: int) -> list[dict]:
+        flags = self.intel_history_call("get_active_flags", int(pilot_id))
+        return flags if isinstance(flags, list) else []
+
+    def pilot_flag_badges(self, flags: list[dict], limit: int = 2) -> str:
+        priority = {
+            "extreme threat": 10,
+            "high threat": 20,
+            "hot dropper": 30,
+            "watchlist": 40,
+            "fc": 50,
+            "scout": 60,
+            "friendly": 70,
+            "do not track": 80,
+        }
+        compact = {
+            "extreme threat": "☠",
+            "high threat": "⚠",
+            "hot dropper": "🔥",
+            "watchlist": "⭐",
+            "fc": "👑",
+            "scout": "👁",
+            "friendly": "✓",
+            "do not track": "DNT",
+        }
+        def key(item):
+            label = str(item.get("label") or item.get("flag") or "").casefold()
+            return (priority.get(label, 500), label)
+        out = []
+        seen = set()
+        for flag in sorted(flags, key=key):
+            label = str(flag.get("label") or flag.get("flag") or "").strip()
+            if not label or label.casefold() in seen:
+                continue
+            seen.add(label.casefold())
+            out.append(str(flag.get("icon") or compact.get(label.casefold()) or label[:3]).strip())
+            if len(out) >= limit:
+                break
+        return " ".join([x for x in out if x])
+
+    def pilot_flag_badges_for_row(self, row: Row) -> dict[str, str]:
+        badges: dict[str, str] = {}
+        for ent in getattr(row, "esi_entities", []) or []:
+            if ent.get("entity_type") != "character" or not ent.get("entity_id"):
+                continue
+            flags = self.intel_history_active_flags(int(ent.get("entity_id")))
+            badge = self.pilot_flag_badges(flags)
+            if badge:
+                for key in (ent.get("name"), ent.get("query")):
+                    if key:
+                        badges[str(key)] = badge
+        return badges
+
+    def apply_pilot_flag_badges(self, row: Row, text: str) -> str:
+        badges = self.pilot_flag_badges_for_row(row)
+        if not badges or not text:
+            return text
+        result = text
+        for name, badge in sorted(badges.items(), key=lambda kv: len(kv[0]), reverse=True):
+            if not name or badge in name:
+                continue
+            # Simple literal replacement keeps this dependency-free and predictable.
+            result = result.replace(name, f"{name} {badge}")
+        return result
+
+    def quick_set_pilot_flag_for_row(self, row: Row | None, label: str, icon: str = ""):
+        ent = self.first_character_for_row(row)
+        if not ent:
+            self.messagebox.showinfo("Pilot Flags", "No ESI-confirmed pilot was found for this row yet.")
+            return
+        pilot_id = int(ent.get("entity_id"))
+        current = self.intel_history_active_flags(pilot_id)
+        manual = []
+        exists = False
+        for flag in current:
+            if flag.get("source") == "manual":
+                item_label = str(flag.get("label") or flag.get("flag") or "")
+                manual.append({"flag": item_label, "label": item_label, "icon": flag.get("icon") or "", "reason": flag.get("reason") or ""})
+                if item_label.casefold() == label.casefold():
+                    exists = True
+        if not exists:
+            manual.append({"flag": label, "label": label, "icon": icon, "reason": "quick flag from feed"})
+        result = self.intel_history_call("set_manual_flags", pilot_id, manual)
+        if result and result.get("ok"):
+            self.set_status(f"Pilot flag set: {ent.get('name') or ent.get('query')} -> {label}")
+            self.redraw_feed()
+        else:
+            self.messagebox.showwarning("Pilot Flags", f"Could not save flag: {result}")
+
     def open_pilot_info_for_row(self, row: Row | None):
         ent = self.first_character_for_row(row)
         if not ent:
@@ -4004,6 +4094,9 @@ class SignalBridgeGui:
             menu.add_command(label="Add Selected Text to Exclusion List", command=self.ignore_selected_esi_text, state="disabled")
         if row:
             menu.add_command(label="Open Pilot Info", command=lambda r=row: self.open_pilot_info_for_row(r))
+            menu.add_command(label="Mark Pilot Watchlist", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Watchlist", "⭐"))
+            menu.add_command(label="Mark Pilot High Threat", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "High Threat", "⚠"))
+            menu.add_command(label="Mark Pilot Do Not Track", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Do Not Track", "DNT"))
             menu.add_separator()
             menu.add_command(label="Resolve Sender with ESI", command=lambda r=row: self.refresh_esi_entity(r.sender))
             menu.add_command(label="Refresh Sender ESI Data", command=lambda r=row: self.refresh_esi_entity(r.sender))
@@ -4291,12 +4384,13 @@ class SignalBridgeGui:
         self.text.insert("end", f"{row.sender} > ", "sender")
         body_start = self.text.index("end-1c")
         if translated_only:
-            body = parts["translated"]
+            body = self.apply_pilot_flag_badges(row, parts["translated"])
             self.insert_tagged_text(body + "\n", row.systems, row.assets)
             self.tag_urls(body_start, self.text.index("end-1c"), body)
         else:
-            self.insert_tagged_text(row.text + "\n", row.systems, row.assets + [x.get("original", "") for x in row.localized])
-            self.tag_urls(body_start, self.text.index("end-1c"), row.text)
+            body = self.apply_pilot_flag_badges(row, row.text)
+            self.insert_tagged_text(body + "\n", row.systems, row.assets + [x.get("original", "") for x in row.localized])
+            self.tag_urls(body_start, self.text.index("end-1c"), body)
             if parts["free_text"] and parts["free_text"] != row.text:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")

@@ -463,4 +463,4 @@ Suggested implementation:
 - Same-EXE guarded loader, event bridge, SQLite sighting storage, dedupe, and health/status display are implemented.
 - Next milestones: Pilot Intelligence Card v0.1, manual flags, Hot Drop Risk auto flag, zKill enrichment, import/export packs, and Intel Query Service / LLM entry point.
 
-- Completed first Pilot Info Card slice: feed right-click opens compact pilot summaries with recent sightings, top ships/systems drill-downs, manual flag editing, and copyable summaries. Next milestones: richer threat reasons, auto Hot Drop Risk flags, zKill enrichment, import/export intel packs, and Intel Query Service / LLM entry point.
+- Completed first Pilot Info Card and Manual Flags feed slices: feed right-click opens compact pilot summaries, supports manual flag editing/quick flag actions, renders compact badges beside flagged pilots, and Do Not Track prevents future local history recording. Next milestones: richer threat reasons, auto Hot Drop Risk flags, zKill enrichment, import/export intel packs, and Intel Query Service / LLM entry point.

@@ -105,6 +105,8 @@ class IntelHistoryModule:
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         for ent in characters:
             pilot_id = int(ent.get("entity_id"))
+            if self._is_do_not_track(pilot_id):
+                continue
             pilot_name = ent.get("name") or ent.get("query") or str(pilot_id)
             for system in systems[:3]:
                 for ship in ships[:3]:
@@ -166,6 +168,32 @@ class IntelHistoryModule:
         rows = con.execute(f"select {column}, count(*) c from sightings where pilot_id=? and {column}<>'' group by {column} order by c desc, {column} limit 5", (pilot_id,)).fetchall()
         total = sum(int(r[1]) for r in rows) or 1
         return json.dumps([{"name": r[0], "count": int(r[1]), "percent": round(int(r[1]) * 100 / total)} for r in rows], ensure_ascii=False)
+
+
+    def get_active_flags(self, pilot_id: int) -> list[dict]:
+        """Return active flags for feed badges and quick UI actions."""
+        if not self.db_path.exists():
+            return []
+        try:
+            with sqlite3.connect(self.db_path) as con:
+                con.row_factory = sqlite3.Row
+                rows = con.execute("""
+                    select id, flag, label, icon, source, confidence, reason, created_at, expires_at, active
+                    from pilot_flags
+                    where pilot_id=? and active=1
+                    order by source='manual' desc, created_at desc, flag
+                """, (int(pilot_id),)).fetchall()
+                return [dict(r) for r in rows]
+        except Exception as exc:
+            self.last_error = f"active_flags {type(exc).__name__}: {exc}"
+            return []
+
+    def _is_do_not_track(self, pilot_id: int) -> bool:
+        for flag in self.get_active_flags(int(pilot_id)):
+            label = str(flag.get("label") or flag.get("flag") or "").casefold()
+            if label == "do not track":
+                return True
+        return False
 
     def get_pilot_profile(self, pilot_id: int | None = None, name: str | None = None) -> dict:
         """Return a compact profile for the Pilot Info card."""
