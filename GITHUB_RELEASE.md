@@ -2,6 +2,13 @@
 
 ## Before Release
 
+## Planned optional Intel History add-on
+
+Planning has started for the first optional Signal Bridge add-on: **Intel History / Pilot Intelligence**. The core app keeps LAN Viewer and Argos support native, while Intel History is planned as an optional module for local pilot memory, Pilot Intelligence Cards, manual/auto flags, zKill enrichment, import/export intel packs, and a read-only Intel Query Service for future LLM-assisted questions.
+
+Spec: [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
+
+
 1. Verify app runs from source:
 
    ```powershell

@@ -2,6 +2,13 @@
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN.
 
+## Optional Intel History add-on spec
+
+The first optional add-on is planned as **Intel History / Pilot Intelligence**. LAN Viewer and Argos offline translation remain native/core features; Intel History is optional because it stores long-term local intel and performs deeper analysis.
+
+Planned scope includes local SQLite sightings, ESI-confirmed pilot tracking, Pilot Intelligence Cards, manual and auto flags, zKill enrichment, import/export intel packs, and a read-only Intel Query Service for UI and future LLM queries. See [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
+
+
 This roadmap is planned work, not a guarantee of exact delivery order. The current focus is keeping the app lightweight, portable, low-impact during gameplay, and useful for live chat/intel readability.
 
 ## Current v0.2 Baseline

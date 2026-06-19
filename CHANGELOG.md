@@ -1,6 +1,14 @@
 
 ### v0.3 - message character detection refinement
 - Added conservative ESI character-name candidate detection inside chat message text, not only sender names.
+
+## Planned - Intel History add-on spec
+
+- Added planning spec for the future optional Intel History / Pilot Intelligence add-on.
+- Clarified that LAN Viewer and Argos offline translation support are native/core planned features, while Intel History is the first optional add-on.
+- Captured planned local SQLite sighting history, Pilot Intelligence Cards, manual/auto flags, zKill enrichment, import/export intel packs, and a read-only Intel Query Service / LLM entry point.
+- See `docs/INTEL_HISTORY_ADDON_SPEC.md`.
+
 - Excludes known solar systems, ships, modules, catalog entities, links, counts, and localized EVE aliases before ESI lookup.
 - Confirmed ESI character names are protected from machine translation, including EN -> CN mode.
 - Changed ship highlighting to orange and ESI character highlighting to red; non-ship modules/assets remain purple.
