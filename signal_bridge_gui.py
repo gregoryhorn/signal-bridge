@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import argparse
 import base64
 import json
@@ -40,6 +40,10 @@ CACHE_DIR = USER_DIR / "cache"
 MODEL_DIR = USER_DIR / "models" / "argos"
 LOG_DIR = USER_DIR / "logs"
 LOG_PATH = LOG_DIR / "signal_bridge.log"
+EVENT_LOG_PATH = LOG_DIR / "events.jsonl"
+ERROR_LOG_PATH = LOG_DIR / "errors.jsonl"
+STALL_LOG_PATH = LOG_DIR / "stalls.jsonl"
+JOB_LOG_PATH = LOG_DIR / "jobs.jsonl"
 CONFIG_PATH = CONFIG_DIR / "settings.json"
 DATA_DIR = USER_DIR / "data"
 MODULES_DIR = USER_DIR / "modules"
@@ -370,6 +374,37 @@ def write_log(message: str, exc: BaseException | None = None) -> None:
                 f.write("\n")
     except Exception:
         pass
+
+
+def _safe_json_value(value):
+    try:
+        json.dumps(value)
+        return value
+    except Exception:
+        return str(value)
+
+
+def write_jsonl(path: Path, event: dict) -> None:
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        payload = {str(k): _safe_json_value(v) for k, v in dict(event).items()}
+        payload.setdefault("ts", time.strftime("%Y-%m-%dT%H:%M:%S%z"))
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+    except Exception:
+        pass
+
+
+def record_event(event_type: str, **data) -> None:
+    payload = {"type": event_type, **data}
+    write_jsonl(EVENT_LOG_PATH, payload)
+
+
+def record_error(context: str, exc: BaseException | None = None, **data) -> None:
+    payload = {"type": "error", "context": context, **data}
+    if exc is not None:
+        payload.update({"error_type": type(exc).__name__, "error": str(exc)})
+    write_jsonl(ERROR_LOG_PATH, payload)
 
 
 def install_exception_logging() -> None:
@@ -1959,14 +1994,80 @@ class SignalBridgeGui:
         self.rendered_row_map: dict[str, dict] = {}
         self.link_map: dict[str, str] = {}
         self.render_seq = 0
+        self.diagnostics: dict = {
+            "started_at": time.time(),
+            "last_action": "startup",
+            "last_action_at": time.time(),
+            "last_action_duration_ms": 0,
+            "last_status": "",
+            "last_redraw_duration_ms": 0,
+            "last_redraw_rows": 0,
+            "last_visible_rows": 0,
+            "redraw_count": 0,
+            "last_queue_drain_duration_ms": 0,
+            "last_queue_items": 0,
+            "last_queue_size": 0,
+            "last_ui_heartbeat": time.time(),
+            "last_ui_stall": "none",
+            "last_ui_stall_seconds": 0,
+            "stall_count": 0,
+        }
+        self._heartbeat_last = time.monotonic()
+        self._heartbeat_interval_ms = 500
+        self._stall_threshold_seconds = 2.0
         self.intel_history_runtime: AddonRuntime | None = None
         self.intel_history_last_health: dict = {}
         write_log(f"Starting {APP_NAME} v{APP_VERSION}")
+        record_event("app_start", version=APP_VERSION)
         self._build_menu()
         self._build_widgets()
         self.load_enabled_addons()
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
         self.root.after(150, self.drain_queue)
+        self.root.after(self._heartbeat_interval_ms, self.ui_heartbeat)
+
+    def note_action(self, action: str, **data):
+        now = time.time()
+        self.diagnostics["last_action"] = action
+        self.diagnostics["last_action_at"] = now
+        if data:
+            self.diagnostics["last_action_data"] = data
+        record_event("action", action=action, **data)
+
+    def finish_action(self, action: str, started: float, **data):
+        duration_ms = int((time.time() - started) * 1000)
+        self.diagnostics["last_action"] = action
+        self.diagnostics["last_action_duration_ms"] = duration_ms
+        record_event("action_done", action=action, duration_ms=duration_ms, **data)
+
+    def ui_heartbeat(self):
+        try:
+            now = time.monotonic()
+            gap = now - getattr(self, "_heartbeat_last", now)
+            self._heartbeat_last = now
+            self.diagnostics["last_ui_heartbeat"] = time.time()
+            if gap > self._stall_threshold_seconds:
+                self.diagnostics["stall_count"] = int(self.diagnostics.get("stall_count") or 0) + 1
+                self.diagnostics["last_ui_stall_seconds"] = round(gap, 3)
+                self.diagnostics["last_ui_stall"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                payload = {
+                    "type": "ui_stall",
+                    "duration_seconds": round(gap, 3),
+                    "last_action": self.diagnostics.get("last_action", ""),
+                    "visible_channel": self.visible_channel,
+                    "rows": len(self.rows),
+                    "visible_rows": self.diagnostics.get("last_visible_rows", 0),
+                    "queue_size": self.queue.qsize() if hasattr(self, "queue") else 0,
+                }
+                write_jsonl(STALL_LOG_PATH, payload)
+                record_event("ui_stall", **{k: v for k, v in payload.items() if k != "type"})
+        except Exception as exc:
+            write_log("UI heartbeat failed", exc)
+        finally:
+            try:
+                self.root.after(self._heartbeat_interval_ms, self.ui_heartbeat)
+            except Exception:
+                pass
 
     def _build_menu(self):
         tk = self.tk
@@ -2762,25 +2863,42 @@ class SignalBridgeGui:
         count, hits = TRANSLATION_CACHE.stats()
         esi_stats = ESI_CACHE.stats()
         last_check = ESI_CACHE.get_status().get("last_check") or "none"
+        diag = dict(getattr(self, "diagnostics", {}) or {})
+        uptime = int(time.time() - float(diag.get("started_at") or time.time()))
+        queue_size = self.queue.qsize() if hasattr(self, "queue") else 0
         return (
             f"Signal Bridge v{APP_VERSION}\n"
+            f"Uptime: {uptime}s\n"
             f"Chatlogs: {CHATLOG_DIR}\n"
             f"Chatlogs exists: {CHATLOG_DIR.exists()}\n"
             f"Active channels: {len(self.active_channels)} | Hidden: {len(self.hidden_tab_ids)} | Visible: {self.visible_channel}\n"
+            f"Rows in memory: {len(self.rows)} | Last visible rows: {diag.get('last_visible_rows', 0)}\n"
+            f"Last action: {diag.get('last_action', 'unknown')} | duration: {diag.get('last_action_duration_ms', 0)}ms\n"
+            f"Last status: {diag.get('last_status', '')}\n"
+            f"UI stalls: {diag.get('stall_count', 0)} | Last stall: {diag.get('last_ui_stall', 'none')} ({diag.get('last_ui_stall_seconds', 0)}s)\n"
+            f"Last redraw: {diag.get('last_redraw_duration_ms', 0)}ms | rows rendered: {diag.get('last_redraw_rows', 0)} | redraws: {diag.get('redraw_count', 0)}\n"
+            f"Queue: size={queue_size} | last drain={diag.get('last_queue_drain_duration_ms', 0)}ms | items={diag.get('last_queue_items', 0)}\n"
             f"Discovered channels: {len(discover_channels())}\n"
             f"Catalog: {CATALOG.version} | loaded={CATALOG.loaded} | counts={CATALOG.counts()}\n"
             f"Translation cache: {count} entries, {hits} hits\n"
+            f"Translation: preferred={self.translation_preferred_engine.get()} fallback={self.translation_fallback_mode.get()} free_text={bool(self.translate_chinese_text.get())}\n"
+            f"Argos: disabled direct runtime path; status={self.argos_status_text.get()}\n"
             f"ESI enabled: {bool(self.esi_enabled.get())} | cache={esi_stats}\n"
             f"Last ESI check: {last_check}\n"
             f"Intel History add-on: {self.intel_history_status_label()}\n"
             f"Config: {CONFIG_PATH}\n"
             f"Logs: {LOG_PATH}\n"
+            f"Events: {EVENT_LOG_PATH}\n"
+            f"Errors: {ERROR_LOG_PATH}\n"
+            f"Stalls: {STALL_LOG_PATH}\n"
             f"Live-only/no-backfill: replay_on_start=False"
         )
 
     def copy_diagnostics(self):
+        self.note_action("copy_diagnostics")
         self.copy_to_clipboard(self.settings_summary_text())
         self.set_status("Diagnostics copied")
+        record_event("diagnostics_copied")
 
     def load_enabled_addons(self):
         status = installed_addon_status(INTEL_HISTORY_ADDON_ID)
@@ -3062,8 +3180,8 @@ class SignalBridgeGui:
             label(c, f"Local translation cache: {count} entries, {hits} hits", "#8b98a8"); label(c, f"Local ESI cache: {ESI_CACHE.stats()}", "#8b98a8")
             r = row(c); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Clear Translation Cache", self.clear_translation_cache); action(r, "Clear ESI Cache", self.clear_esi_cache)
         def render_diagnostics():
-            c = card(body, "Diagnostics", "Copy this information when reporting bugs.")
-            txt = tk.Text(c, height=13, wrap="word", bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); txt.pack(fill="both", expand=True, pady=4); txt.insert("1.0", self.settings_summary_text()); txt.configure(state="disabled")
+            c = card(body, "Diagnostics", "Copy this information when reporting bugs. UI stalls, slow redraws, and errors are logged as JSONL in the logs folder.")
+            txt = tk.Text(c, height=17, wrap="word", bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); txt.pack(fill="both", expand=True, pady=4); txt.insert("1.0", self.settings_summary_text()); txt.configure(state="disabled")
             r = row(c); action(r, "Copy Diagnostics", self.copy_diagnostics); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Health Dialog", self.show_health)
         def render_about():
             c = card(body, "About / Support"); label(c, f"Signal Bridge v{APP_VERSION}"); label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", "#8b98a8")
@@ -3962,6 +4080,7 @@ class SignalBridgeGui:
 
 
     def on_exit(self):
+        record_event("app_exit", uptime_seconds=int(time.time() - float(self.diagnostics.get("started_at", time.time()))))
         self.persist_settings()
         if self.esi_resolver:
             self.esi_resolver.stop()
@@ -4521,16 +4640,30 @@ class SignalBridgeGui:
         return normalize_feed_text(display)
 
     def redraw_feed(self):
-        self.text.configure(state="normal")
-        self.text.delete("1.0", "end")
-        self.text.configure(state="disabled")
-        self.rendered_row_map.clear()
-        self.link_map.clear()
-        old_rows = list(self.rows[-MAX_ROWS:])
-        self.row_count = 0
-        for row in old_rows:
-            if self.row_visible(row):
-                self._render_row(row)
+        started = time.time()
+        rendered = 0
+        visible = 0
+        try:
+            self.text.configure(state="normal")
+            self.text.delete("1.0", "end")
+            self.text.configure(state="disabled")
+            self.rendered_row_map.clear()
+            self.link_map.clear()
+            old_rows = list(self.rows[-MAX_ROWS:])
+            self.row_count = 0
+            for row in old_rows:
+                if self.row_visible(row):
+                    visible += 1
+                    self._render_row(row)
+                    rendered += 1
+        finally:
+            duration_ms = int((time.time() - started) * 1000)
+            self.diagnostics["last_redraw_duration_ms"] = duration_ms
+            self.diagnostics["last_redraw_rows"] = rendered
+            self.diagnostics["last_visible_rows"] = visible
+            self.diagnostics["redraw_count"] = int(self.diagnostics.get("redraw_count") or 0) + 1
+            if duration_ms > 500:
+                record_event("slow_redraw", duration_ms=duration_ms, rendered=rendered, visible=visible, rows=len(self.rows), channel=self.visible_channel)
 
     def row_visible(self, row: Row) -> bool:
         if self.visible_channel == ALL_CHANNELS_TAB:
@@ -4712,10 +4845,17 @@ class SignalBridgeGui:
         self.row_count = max(0, self.row_count - 40)
 
     def drain_queue(self):
+        started = time.time()
+        drained = 0
         try:
             while True:
                 item = self.queue.get_nowait()
+                drained += 1
                 if isinstance(item, tuple) and item[0] == "status":
+                    try:
+                        self.diagnostics["last_status"] = str(item[1])[:240]
+                    except Exception:
+                        pass
                     self.status_label.configure(text=item[1][:180])
                 elif isinstance(item, tuple) and item[0] == "catalog_available":
                     manifest = item[1]
@@ -4771,8 +4911,18 @@ class SignalBridgeGui:
             pass
         except Exception as exc:
             write_log("GUI queue drain failed", exc)
+            record_error("drain_queue", exc)
             self.status_label.configure(text="Queue error; see logs")
-        self.root.after(150, self.drain_queue)
+        finally:
+            try:
+                self.diagnostics["last_queue_drain_duration_ms"] = int((time.time() - started) * 1000)
+                self.diagnostics["last_queue_items"] = drained
+                self.diagnostics["last_queue_size"] = self.queue.qsize()
+                if self.diagnostics["last_queue_drain_duration_ms"] > 500:
+                    record_event("slow_queue_drain", duration_ms=self.diagnostics["last_queue_drain_duration_ms"], items=drained, queue_size=self.queue.qsize())
+            except Exception:
+                pass
+            self.root.after(150, self.drain_queue)
 
     def handle_esi_resolved(self, query: str, data: dict):
         if is_globally_excluded(query) or is_globally_excluded(str(data.get("name") or "")):
