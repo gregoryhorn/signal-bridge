@@ -511,12 +511,15 @@ class MonitorThread(threading.Thread):
 
 TAB_THEME = {
     "bar_bg": "#0b0f14",
+    "bar_border": "#162231",
     "tab_bg": "#111821",
     "tab_fg": "#c9d2dc",
     "tab_active_bg": "#23405c",
     "tab_active_fg": "#ffffff",
     "tab_hover_bg": "#1a2b3c",
     "tab_border": "#314257",
+    "tab_active_border": "#5ad7ff",
+    "tab_unread_bg": "#1b2735",
     "tab_unread_fg": "#ffffff",
     "unread_bg": "#ffb84d",
     "unread_fg": "#0b0f14",
@@ -524,6 +527,8 @@ TAB_THEME = {
     "close_fg": "#ff8a8f",
     "close_hover_bg": "#5c1f28",
     "empty_fg": "#8b98a8",
+    "restore_bg": "#162231",
+    "restore_fg": "#9be28f",
 }
 
 
@@ -575,6 +580,7 @@ class SignalBridgeGui:
         self.unread_counts: dict[str, int] = {}
         self.tab_widgets: dict[str, object] = {}
         self._tab_drag: dict | None = None
+        self._tab_drop_target: str | None = None
         self._tab_layout_after = None
         self.visible_channel: str | None = str(SETTINGS.get("active_tab_id") or ALL_CHANNELS_TAB)
         self.normalize_tab_state(prefer_all=True)
@@ -712,12 +718,14 @@ class SignalBridgeGui:
                 pass
         self._tab_layout_after = self.root.after(80, self.layout_tab_widgets)
 
-    def tab_style(self, active: bool = False) -> dict:
+    def tab_style(self, active: bool = False, unread: bool = False) -> dict:
+        bg = TAB_THEME["tab_active_bg"] if active else (TAB_THEME["tab_unread_bg"] if unread else TAB_THEME["tab_bg"])
         return {
-            "bg": TAB_THEME["tab_active_bg"] if active else TAB_THEME["tab_bg"],
-            "fg": TAB_THEME["tab_active_fg"] if active else TAB_THEME["tab_fg"],
+            "bg": bg,
+            "fg": TAB_THEME["tab_active_fg"] if active else (TAB_THEME["tab_unread_fg"] if unread else TAB_THEME["tab_fg"]),
             "activebackground": TAB_THEME["tab_hover_bg"],
             "activeforeground": TAB_THEME["tab_active_fg"],
+            "border": TAB_THEME["tab_active_border"] if active else TAB_THEME["tab_border"],
         }
 
     def tab_display_text(self, tab_id: str) -> str:
@@ -746,32 +754,63 @@ class SignalBridgeGui:
             return
         for tab_id in tabs:
             active = tab_id == self.visible_channel
-            style = self.tab_style(active)
-            frame = tk.Frame(self.tab_bar, bg=style["bg"], bd=1, relief="solid", highlightthickness=1, highlightbackground=TAB_THEME["tab_border"])
+            unread = self.unread_counts.get(tab_id, 0) > 0
+            style = self.tab_style(active, unread)
+            border = TAB_THEME["alert_bg"] if tab_id == self._tab_drop_target else style["border"]
+            frame = tk.Frame(self.tab_bar, bg=style["bg"], bd=0, relief="flat", highlightthickness=1, highlightbackground=border, highlightcolor=border)
             frame._tab_id = tab_id  # type: ignore[attr-defined]
             btn = tk.Button(
                 frame,
                 text=self.tab_display_text(tab_id),
                 command=lambda t=tab_id: self.select_tab(t),
-                bg=style["bg"], fg=TAB_THEME["tab_unread_fg"] if self.unread_counts.get(tab_id, 0) else style["fg"],
+                bg=style["bg"], fg=style["fg"],
                 activebackground=style["activebackground"], activeforeground=style["activeforeground"],
-                relief="flat", padx=8, pady=2, font=("Segoe UI", 9, "bold" if active or self.unread_counts.get(tab_id, 0) else "normal")
+                relief="flat", borderwidth=0, padx=10, pady=3,
+                font=("Segoe UI", 9, "bold" if active or unread else "normal")
             )
             btn.pack(side="left")
             close = tk.Button(
-                frame, text="×", command=lambda t=tab_id: self.hide_tab(t),
+                frame, text="x", command=lambda t=tab_id: self.hide_tab(t),
                 bg=style["bg"], fg=TAB_THEME["close_fg"], activebackground=TAB_THEME["close_hover_bg"], activeforeground="#ffffff",
-                relief="flat", padx=5, pady=2, font=("Segoe UI", 9, "bold")
+                relief="flat", borderwidth=0, padx=6, pady=3, font=("Segoe UI", 9, "bold")
             )
             close.pack(side="left")
             for widget in (frame, btn):
+                widget.bind("<Enter>", lambda e, t=tab_id: self.set_tab_hover(t, True), add="+")
+                widget.bind("<Leave>", lambda e, t=tab_id: self.set_tab_hover(t, False), add="+")
                 widget.bind("<ButtonPress-1>", lambda e, t=tab_id: self.begin_tab_drag(e, t), add="+")
                 widget.bind("<B1-Motion>", self.move_tab_drag, add="+")
                 widget.bind("<ButtonRelease-1>", self.end_tab_drag, add="+")
                 widget.bind("<Button-3>", lambda e, t=tab_id: self.show_tab_context_menu(e, t), add="+")
+            close.bind("<Enter>", lambda e, w=close: w.configure(bg=TAB_THEME["close_hover_bg"], fg="#ffffff"), add="+")
+            close.bind("<Leave>", lambda e, w=close, bg=style["bg"]: w.configure(bg=bg, fg=TAB_THEME["close_fg"]), add="+")
             close.bind("<Button-3>", lambda e, t=tab_id: self.show_tab_context_menu(e, t), add="+")
             self.tab_widgets[tab_id] = frame
+        hidden_count = len([t for t in self.tab_order if t in self.hidden_tab_ids and (t == ALL_CHANNELS_TAB or t in self.active_channels)])
+        if hidden_count:
+            restore = tk.Button(
+                self.tab_bar, text=f"+ Hidden ({hidden_count})", command=self.restore_hidden_tabs_dialog,
+                bg=TAB_THEME["restore_bg"], fg=TAB_THEME["restore_fg"], activebackground=TAB_THEME["tab_hover_bg"], activeforeground="#ffffff",
+                relief="flat", borderwidth=0, padx=9, pady=3, font=("Segoe UI", 9)
+            )
+            self.tab_widgets["__restore__"] = restore
         self.layout_tab_widgets()
+
+    def set_tab_hover(self, tab_id: str, hover: bool):
+        if tab_id == self.visible_channel:
+            return
+        widget = self.tab_widgets.get(tab_id)
+        if not widget:
+            return
+        unread = self.unread_counts.get(tab_id, 0) > 0
+        style = self.tab_style(False, unread)
+        bg = TAB_THEME["tab_hover_bg"] if hover else style["bg"]
+        try:
+            widget.configure(bg=bg)
+            for child in widget.winfo_children():
+                child.configure(bg=bg)
+        except Exception:
+            pass
 
     def layout_tab_widgets(self):
         if not hasattr(self, "tab_bar"):
@@ -779,6 +818,8 @@ class SignalBridgeGui:
         for child in self.tab_bar.winfo_children():
             child.grid_forget()
         widgets = [self.tab_widgets[t] for t in self.visible_tabs() if t in self.tab_widgets]
+        if "__restore__" in self.tab_widgets:
+            widgets.append(self.tab_widgets["__restore__"])
         if not widgets and "__empty__" in self.tab_widgets:
             widgets = [self.tab_widgets["__empty__"]]
         width = max(1, self.tab_bar.winfo_width() - 16)
@@ -795,8 +836,8 @@ class SignalBridgeGui:
                 row += 1
                 col = 0
                 x = 0
-            widget.grid(row=row, column=col, sticky="w", padx=3, pady=2)
-            x += req + 8
+            widget.grid(row=row, column=col, sticky="w", padx=4, pady=3)
+            x += req + 10
             col += 1
 
     def select_tab(self, tab_id: str):
@@ -925,15 +966,21 @@ class SignalBridgeGui:
             return
         if abs(event.x_root - self._tab_drag["start_x"]) + abs(event.y_root - self._tab_drag["start_y"]) > 8:
             self._tab_drag["moved"] = True
+            target = self.tab_at_screen_xy(event.x_root, event.y_root)
+            if target != self._tab_drop_target:
+                self._tab_drop_target = target
+                self.update_channel_tabs()
 
     def end_tab_drag(self, event):
         drag = self._tab_drag
         self._tab_drag = None
+        self._tab_drop_target = None
         if not drag or not drag.get("moved"):
             return
         tab_id = drag["tab_id"]
         target = self.tab_at_screen_xy(event.x_root, event.y_root)
         if not target or target == tab_id:
+            self.update_channel_tabs()
             return
         visible = self.visible_tabs()
         if tab_id not in visible or target not in visible:
@@ -945,7 +992,7 @@ class SignalBridgeGui:
 
     def tab_at_screen_xy(self, x: int, y: int) -> str | None:
         for tab_id, widget in self.tab_widgets.items():
-            if tab_id == "__empty__":
+            if tab_id in ("__empty__", "__restore__"):
                 continue
             try:
                 wx, wy = widget.winfo_rootx(), widget.winfo_rooty()

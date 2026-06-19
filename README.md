@@ -12,8 +12,8 @@ Current version: 0.1
 - New chat tabs appear automatically unless manually hidden.
 - New tabs never steal focus.
 - Unread indicators clear when the tab is focused.
-- Hidden tabs can be restored from the Channels menu.
-- Tabs wrap/stack when the window is narrowed and can be drag-reordered.
+- Hidden tabs can be restored from the Channels menu or the `+ Hidden (N)` tab-bar button.
+- Tabs wrap/stack when the window is narrowed and can be drag-reordered with hover/drag visual polish.
 - All tab shows combined chat while channel tabs stay focused.
 
 ## Planned Roadmap

@@ -4,6 +4,14 @@ All notable Signal Bridge changes will be documented here.
 
 ## v0.1 - 2026-06-19
 
+### Tab visual polish
+- Fixed tab label encoding issues so unread markers and close buttons render cleanly.
+- Added hover styling for tabs and close buttons.
+- Added a visible drag/drop target highlight while reordering tabs.
+- Added a `+ Hidden (N)` restore button on the tab bar when hidden tabs exist.
+- Improved tab spacing and theme tokens for future theme customization.
+
+
 ### Tab system refactor
 - Replaced the janky tab strip with a managed tab model.
 - Added default All tab support with combined chat view.
