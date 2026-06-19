@@ -497,4 +497,5 @@ Suggested implementation:
 - Right-clicking systems, ships/items, or generic row text no longer falls back to Pilot Info for the sender.
 - Added stricter clicked-span detection for multi-word pilot names such as `Bigus Dingus DOI`.
 - Diagnostics foundation: structured logs, UI stall watchdog, redraw/queue timing, and richer Settings > Diagnostics summaries are now in place; next diagnostics work can add per-row translation/entity/right-click decision traces and diagnostic bundle export.
+- Diagnostic tracing expanded with feed-row translation decisions, entity recognition summaries, and click-context traces. Future work: diagnostic ZIP export and deeper ESI/Intel History traces.
 

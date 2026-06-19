@@ -3657,6 +3657,116 @@ class SignalBridgeGui:
         )
         self.messagebox.showinfo("ESI Last Check / Diagnostics", text)
 
+    def translation_trace_for_row(self, row: Row | None) -> str:
+        if not row:
+            return "No row detected under the cursor."
+        try:
+            parts = self.row_display_parts(row)
+        except Exception as exc:
+            record_error("translation_trace", exc)
+            return f"Translation trace failed: {type(exc).__name__}: {exc}"
+        decision = getattr(row, "_last_translation_decision", "not rendered yet")
+        lines = [
+            "Translation Decision Trace",
+            "--------------------------",
+            f"Channel: {row.channel}",
+            f"Sender: {row.sender}",
+            f"Raw text: {row.text}",
+            f"Normalized original: {parts.get('original_text','')}",
+            f"Catalog/localized display: {parts.get('display_text','')}",
+            f"Free translation: {parts.get('free_text','') or '(empty)'}",
+            f"Visible translated: {parts.get('translated','')}",
+            f"Source label: {parts.get('source_label','') or '(none)'}",
+            f"Decision: {decision}",
+            f"Preferred engine: {self.translation_preferred_engine.get()}",
+            f"Fallback mode: {self.translation_fallback_mode.get()}",
+            f"Translate free text enabled: {bool(self.translate_chinese_text.get())}",
+            f"Translated only: {bool(self.translated_only.get())}",
+        ]
+        record_event("translation_trace", sender=row.sender, channel=row.channel, decision=decision, localized=len(row.localized), assets=len(row.assets), systems=len(row.systems), has_free=bool(row.free_translation))
+        return "\n".join(lines)
+
+    def entity_trace_for_row(self, row: Row | None) -> str:
+        if not row:
+            return "No row detected under the cursor."
+        try:
+            candidates = candidate_terms(row.text)[:80]
+        except Exception:
+            candidates = []
+        try:
+            esi_candidates = esi_candidates_for_row(row)[:80]
+        except Exception:
+            esi_candidates = []
+        unknown_cjk = []
+        try:
+            known = set(row.systems) | set(row.assets) | set(str(x.get("original", "")) for x in row.localized) | set(str(x.get("canonical", "")) for x in row.localized)
+            for cand in candidates:
+                if re.search(r"[^\x00-\x7f]", cand) and cand not in known:
+                    unknown_cjk.append(cand)
+        except Exception:
+            pass
+        lines = [
+            "Entity Recognition Trace",
+            "------------------------",
+            f"Channel: {row.channel}",
+            f"Sender: {row.sender}",
+            f"Raw text: {row.text}",
+            f"Normalized display: {normalize_feed_text(row.text)}",
+            f"Systems: {', '.join(row.systems) or '(none)'}",
+            f"Assets/modules: {', '.join(row.assets) or '(none)'}",
+            "Localized aliases:",
+        ]
+        if row.localized:
+            for ent in row.localized:
+                lines.append(f"- {ent.get('original','')} -> {ent.get('canonical','')} ({ent.get('kind','')})")
+        else:
+            lines.append("- (none)")
+        lines.extend([
+            f"Candidate terms: {', '.join(candidates[:30]) or '(none)'}",
+            f"ESI candidates: {', '.join(esi_candidates[:30]) or '(none)'}",
+            f"Unknown non-ASCII terms: {', '.join(unique(unknown_cjk)[:30]) or '(none)'}",
+        ])
+        record_event("entity_trace", sender=row.sender, channel=row.channel, systems=len(row.systems), assets=len(row.assets), localized=len(row.localized), esi_candidates=len(esi_candidates), unknown_cjk=len(unknown_cjk))
+        return "\n".join(lines)
+
+    def show_translation_trace_for_row(self, row: Row | None):
+        text = self.translation_trace_for_row(row)
+        self.copy_to_clipboard(text)
+        self.messagebox.showinfo("Translation Trace", text[:5000])
+        self.set_status("Translation trace copied")
+
+    def show_entity_trace_for_row(self, row: Row | None):
+        text = self.entity_trace_for_row(row)
+        self.copy_to_clipboard(text)
+        self.messagebox.showinfo("Entity Recognition Trace", text[:5000])
+        self.set_status("Entity recognition trace copied")
+
+    def show_click_context_trace(self, ctx: dict, row: Row | None, url: str | None = None):
+        lines = [
+            "Right-Click Context Trace",
+            "-------------------------",
+            f"Kind: {ctx.get('kind')}",
+            f"Clicked text: {ctx.get('text') or ''}",
+            f"URL: {url or '(none)'}",
+        ]
+        ent = ctx.get("entity") if isinstance(ctx, dict) else None
+        if ent:
+            lines.append(f"Pilot entity: {ent.get('name') or ent.get('query')} id={ent.get('entity_id')}")
+        if row:
+            lines.extend([
+                f"Row channel: {row.channel}",
+                f"Row sender: {row.sender}",
+                f"Row text: {row.text}",
+                f"Systems: {', '.join(row.systems) or '(none)'}",
+                f"Assets: {', '.join(row.assets) or '(none)'}",
+                f"ESI entities: {', '.join(str(e.get('name') or e.get('query')) for e in getattr(row, 'esi_entities', []) or []) or '(none)'}",
+            ])
+        text = "\n".join(lines)
+        record_event("click_context_trace", kind=ctx.get("kind"), text=ctx.get("text"), has_url=bool(url), sender=getattr(row, "sender", ""), channel=getattr(row, "channel", ""))
+        self.copy_to_clipboard(text)
+        self.messagebox.showinfo("Click Context Trace", text[:5000])
+        self.set_status("Click context trace copied")
+
     def show_esi_candidates_for_row(self, row: Row | None):
         if not row:
             self.messagebox.showinfo("ESI Candidates", "No chat row detected under the cursor. Select text and use Resolve Selected Text with ESI.")
@@ -4470,11 +4580,13 @@ class SignalBridgeGui:
         return {"kind": "row", "text": text}
 
     def show_feed_context_menu(self, event):
+        self.note_action("show_feed_context_menu")
         row_tag, info = self.row_at_event(event)
         url = self.link_at_event(event)
         selected = self.selected_feed_text()
         row = info["row"] if info else None
         ctx = self.clicked_context(event, row)
+        record_event("context_menu", kind=ctx.get("kind"), text=ctx.get("text"), has_row=bool(row), has_url=bool(url), sender=getattr(row, "sender", ""), channel=getattr(row, "channel", ""))
         menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
         if url:
             menu.add_command(label="Open URL", command=lambda u=url: self.open_url(u))
@@ -4516,6 +4628,9 @@ class SignalBridgeGui:
         if row:
             menu.add_separator()
             menu.add_command(label="Show ESI Candidates", command=lambda r=row: self.show_esi_candidates_for_row(r))
+            menu.add_command(label="Show Translation Trace", command=lambda r=row: self.show_translation_trace_for_row(r))
+            menu.add_command(label="Show Entity Recognition Trace", command=lambda r=row: self.show_entity_trace_for_row(r))
+            menu.add_command(label="Show Click Context Trace", command=lambda c=ctx, r=row, u=url: self.show_click_context_trace(c, r, u))
         menu.add_separator()
         menu.add_command(label="Diagnostics / Tools...", command=self.show_esi_diagnostics)
         try:
@@ -4783,8 +4898,25 @@ class SignalBridgeGui:
         # Live monitor already parses with allow_free_translation=False, so most
         # rows have no free_translation. Show only precomputed/cached row text.
         if not bool(self.translate_chinese_text.get()):
+            try:
+                row._last_translation_decision = "skipped: free-text translation display disabled"
+            except Exception:
+                pass
             return ""
-        return row.free_translation or ""
+        if row.free_translation:
+            try:
+                row._last_translation_decision = "used: precomputed free translation"
+            except Exception:
+                pass
+            return row.free_translation
+        try:
+            if row.localized:
+                row._last_translation_decision = "skipped: no precomputed free translation; localized catalog replacements available"
+            else:
+                row._last_translation_decision = "skipped: no precomputed free translation; render path cannot run MT"
+        except Exception:
+            pass
+        return ""
 
     def _render_row(self, row: Row):
         if self.esi_is_enabled():
