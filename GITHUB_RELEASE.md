@@ -18,8 +18,8 @@
 3. Verify package exists:
 
    ```powershell
-   Get-Item .\SignalBridge-v0.1-win64-portable.zip
-   Get-FileHash .\SignalBridge-v0.1-win64-portable.zip -Algorithm SHA256
+   Get-Item .\SignalBridge-v0.2-win64-portable.zip
+   Get-FileHash .\SignalBridge-v0.2-win64-portable.zip -Algorithm SHA256
    ```
 
 4. Extract ZIP to a clean folder and run:
@@ -34,13 +34,13 @@
 
 Upload:
 
-- `SignalBridge-v0.1-win64-portable.zip`
+- `SignalBridge-v0.2-win64-portable.zip`
 - SHA256 checksum in release notes
 
 ## Suggested Release Notes
 
 ```markdown
-# Signal Bridge v0.1
+# Signal Bridge v0.2
 
 Backfill is disabled by default, so opened channel tabs start live-only and do not display old chat history.
 
@@ -59,7 +59,7 @@ Portable Windows release for EVE Online chat intel monitoring and translation.
 
 ## Install
 
-Download and extract `SignalBridge-v0.1-win64-portable.zip`, then run `SignalBridge.exe`.
+Download and extract `SignalBridge-v0.2-win64-portable.zip`, then run `SignalBridge.exe`.
 
 ## SHA256
 

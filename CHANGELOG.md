@@ -2,7 +2,7 @@
 
 All notable Signal Bridge changes will be documented here.
 
-## v0.1 - 2026-06-19
+## v0.2 - 2026-06-19
 
 ### Feed interaction and diagnostics
 - Added a simple nonblocking GitHub update check on launch, with Help > Check for Updates and an on-launch toggle.

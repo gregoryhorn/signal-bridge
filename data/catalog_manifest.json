@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "catalog_version": "2026.06.19",
+  "source": "EVE SDE translations.db compact extraction",
+  "file": "eve_catalog.json",
+  "sha256": "92C0AC0C21CE1010ACDCE71D70B4A0B6CC2E9579365F985B28C85CC9EA815915",
+  "created_at": "2026-06-19T04:04:51Z",
+  "download_url": "https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/eve_catalog.json",
+  "systems": 8437,
+  "types": 48370,
+  "aliases": 235436,
+  "market_groups": 965,
+  "ship_names": 550
+}

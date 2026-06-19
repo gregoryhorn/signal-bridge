@@ -4,7 +4,7 @@ Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN an
 
 This roadmap is planned work, not a guarantee of exact delivery order. The current focus is keeping the app lightweight, portable, low-impact during gameplay, and useful for live chat/intel readability.
 
-## Current v0.1 Baseline
+## Current v0.2 Baseline
 
 - Portable Windows ZIP release.
 - No installer required.
@@ -26,7 +26,7 @@ This roadmap is planned work, not a guarantee of exact delivery order. The curre
 - Custom app icon.
 - GitHub release with SHA256 checksums.
 
-## v0.1.1 - UI Hotfix and Interaction Polish
+## v0.2.1 - UI Hotfix and Interaction Polish
 
 Goal: make the current app feel less prototype-like and remove obvious UI friction.
 

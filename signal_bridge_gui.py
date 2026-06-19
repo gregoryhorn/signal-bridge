@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 import argparse
 import json
+import hashlib
 import queue
 import re
 import sqlite3
@@ -16,7 +17,7 @@ from pathlib import Path
 from typing import Callable
 
 APP_NAME = "Signal Bridge"
-APP_VERSION = "0.1"
+APP_VERSION = "0.2"
 UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
 UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
@@ -36,6 +37,12 @@ MAX_CHUNK = 1024 * 1024
 MAX_ROWS = 600
 GOOGLE_TRANSLATE_TIMEOUT = 2.5
 FREE_TRANSLATION_CACHE: dict[str, str] = {}
+CATALOG_PATH = DATA_DIR / "eve_catalog.json"
+CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
+CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
+PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
+TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
+CATALOG_MANIFEST_URL = "https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/catalog_manifest.json"
 
 
 def candidate_chatlog_dirs() -> list[Path]:
@@ -173,6 +180,7 @@ class Row:
     intent: str
     translation: str
     free_translation: str
+    translation_source: str
     file: str
 
 
@@ -257,6 +265,142 @@ def candidate_terms(text: str) -> list[str]:
     return unique([t.strip().strip("* ,.;:()[]{}\"'`“”‘’") for t in terms])
 
 
+class EveCatalog:
+    def __init__(self, path: Path = CATALOG_PATH):
+        self.path = path
+        self.manifest_path = CATALOG_MANIFEST_PATH
+        self.version = "none"
+        self.source = "none"
+        self.systems: dict[str, str] = {}
+        self.types: dict[str, str] = {}
+        self.aliases: dict[str, str] = {}
+        self.market_groups: dict[str, str] = {}
+        self.ship_names: dict[str, str] = {}
+        self.alias_kinds: dict[str, str] = {}
+        self.loaded = False
+        self.load()
+
+    def load(self):
+        self.systems.clear(); self.types.clear(); self.aliases.clear(); self.market_groups.clear(); self.ship_names.clear(); self.alias_kinds.clear()
+        self.loaded = False; self.version = "none"; self.source = "none"
+        if not self.path.exists():
+            return
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            self.version = str(data.get("catalog_version") or "unknown")
+            self.source = str(data.get("source") or "catalog")
+            self.systems = {str(k).casefold(): str(v) for k, v in dict(data.get("systems") or {}).items()}
+            self.types = {str(k).casefold(): str(v) for k, v in dict(data.get("types") or {}).items()}
+            self.aliases = {str(k).casefold(): str(v) for k, v in dict(data.get("aliases") or {}).items()}
+            self.market_groups = {str(k).casefold(): str(v) for k, v in dict(data.get("market_groups") or {}).items()}
+            self.ship_names = {str(k).casefold(): str(v) for k, v in dict(data.get("ship_names") or {}).items()}
+            self.alias_kinds = {str(k).casefold(): str(v) for k, v in dict(data.get("alias_kinds") or {}).items()}
+            self.loaded = True
+        except Exception as exc:
+            write_log("Catalog load failed", exc)
+
+    def counts(self) -> dict:
+        return {"systems": len(self.systems), "types": len(self.types), "aliases": len(self.aliases), "market_groups": len(self.market_groups), "ship_names": len(self.ship_names)}
+
+    def lookup_type(self, term: str) -> str | None:
+        key = term.strip().strip("* ,.;:()[]{}\"'`“”‘’").casefold()
+        if not key or len(key) < 2:
+            return None
+        return self.types.get(key) or self.aliases.get(key) or self.market_groups.get(key)
+
+    def lookup_system(self, term: str) -> str | None:
+        return self.systems.get(term.strip().casefold())
+
+    def is_ship(self, term: str) -> bool:
+        key = term.strip().strip("* ,.;:()[]{}\"'`“”‘’").casefold()
+        canonical = self.lookup_type(term) or term
+        return key in self.ship_names or canonical.casefold() in self.ship_names or self.alias_kinds.get(key) == "ship"
+
+
+CATALOG = EveCatalog()
+
+
+class TranslationCache:
+    def __init__(self, path: Path = TRANSLATION_CACHE_PATH):
+        self.path = path
+        self._init()
+
+    def _init(self):
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            con = sqlite3.connect(self.path)
+            con.execute("""create table if not exists translation_cache(
+                key text primary key, source_text text not null, source_lang text,
+                target_lang text not null, translated_text text not null, engine text not null,
+                created_at text not null, last_used_at text not null, hit_count integer not null default 0)""")
+            con.commit(); con.close()
+        except Exception as exc:
+            write_log("Translation cache init failed", exc)
+
+    def get(self, key: str) -> str | None:
+        try:
+            con = sqlite3.connect(self.path)
+            row = con.execute("select translated_text, hit_count from translation_cache where key=?", (key,)).fetchone()
+            if row:
+                con.execute("update translation_cache set last_used_at=?, hit_count=? where key=?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), int(row[1]) + 1, key))
+                con.commit(); con.close(); return str(row[0])
+            con.close()
+        except Exception as exc:
+            write_log("Translation cache get failed", exc)
+        return None
+
+    def put(self, key: str, source_text: str, source_lang: str, target_lang: str, translated_text: str, engine: str):
+        try:
+            now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            con = sqlite3.connect(self.path)
+            con.execute("""insert or replace into translation_cache
+                (key, source_text, source_lang, target_lang, translated_text, engine, created_at, last_used_at, hit_count)
+                values (?, ?, ?, ?, ?, ?, ?, ?, coalesce((select hit_count from translation_cache where key=?), 0))""",
+                (key, source_text, source_lang, target_lang, translated_text, engine, now, now, key))
+            con.commit(); con.close()
+        except Exception as exc:
+            write_log("Translation cache put failed", exc)
+
+    def stats(self):
+        try:
+            con = sqlite3.connect(self.path)
+            row = con.execute("select count(*), coalesce(sum(hit_count),0) from translation_cache").fetchone()
+            con.close(); return row or (0, 0)
+        except Exception:
+            return (0, 0)
+
+    def clear(self) -> bool:
+        try:
+            con = sqlite3.connect(self.path); con.execute("delete from translation_cache"); con.commit(); con.close(); return True
+        except Exception as exc:
+            write_log("Translation cache clear failed", exc); return False
+
+
+TRANSLATION_CACHE = TranslationCache()
+
+
+def load_phrase_overrides() -> list[dict]:
+    try:
+        if PHRASE_OVERRIDES_PATH.exists():
+            data = json.loads(PHRASE_OVERRIDES_PATH.read_text(encoding="utf-8"))
+            return [x for x in data.get("overrides", []) if isinstance(x, dict) and x.get("enabled", True)]
+    except Exception as exc:
+        write_log("Phrase overrides load failed", exc)
+    return []
+
+
+PHRASE_OVERRIDES = load_phrase_overrides()
+
+
+def apply_phrase_overrides(text: str, direction: str) -> tuple[str, bool]:
+    out = text; changed = False
+    for item in PHRASE_OVERRIDES:
+        src = str(item.get("source", "")); tgt = str(item.get("target", "")); idir = str(item.get("direction", "zh-en"))
+        if src and tgt and idir in (direction, "auto", "any") and src in out:
+            out = out.replace(src, tgt); changed = True
+    return out, changed
+
+
 class EveDb:
     def __init__(self, path: Path):
         self.path = path
@@ -277,7 +421,10 @@ class EveDb:
         key = term.lower()
         if key in self.cache:
             return self.cache[key]
-        out = None
+        out = CATALOG.lookup_type(term)
+        if out:
+            self.cache[key] = out
+            return out
         if self.con:
             try:
                 row = self.con.execute("select typeName from invTypes where typeName=? collate nocase limit 1", (term,)).fetchone()
@@ -300,7 +447,7 @@ class EveDb:
 
 
 def extract_intel(text: str, db: EveDb):
-    systems = unique(SYSTEM_RE.findall(text))
+    systems = unique(SYSTEM_RE.findall(text) + [CATALOG.lookup_system(t) for t in candidate_terms(text) if CATALOG.lookup_system(t)])
     assets: list[str] = []
     localized: list[dict] = []
     for term in sorted(candidate_terms(text), key=lambda s: -len(s)):
@@ -361,6 +508,10 @@ def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") 
     key = f"google|{source}|{target}|{text}"
     if key in FREE_TRANSLATION_CACHE:
         return FREE_TRANSLATION_CACHE[key]
+    cached = TRANSLATION_CACHE.get(key)
+    if cached:
+        FREE_TRANSLATION_CACHE[key] = cached
+        return cached
     params = urllib.parse.urlencode({"client": "gtx", "sl": source, "tl": target, "dt": "t", "q": text})
     url = "https://translate.googleapis.com/translate_a/single?" + params
     try:
@@ -371,6 +522,7 @@ def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") 
         translated = "".join(part[0] for part in data[0] if part and part[0]).strip()
         if translated:
             FREE_TRANSLATION_CACHE[key] = translated
+            TRANSLATION_CACHE.put(key, text, source, target, translated, "google")
             return translated
     except Exception:
         return None
@@ -404,13 +556,18 @@ def translate_free_text(text: str, systems: list[str], assets: list[str], locali
     else:
         return ""
 
+    override_text, override_changed = apply_phrase_overrides(text, direction)
+    if override_changed and direction == "zh-en" and not has_non_english_signal(override_text):
+        return override_text.strip()
     protected: list[tuple[str, str]] = []
-    work = text
+    work = override_text
     terms: list[str] = []
     terms.extend(systems)
     terms.extend(assets)
     terms.extend(counts)
     terms.extend(links)
+    terms.extend(HTTP_LINK_RE.findall(text))
+    terms.extend(re.findall(r"\b\d+(?:\.\d+)?\s*(?:isk|m|mil|b|bil|kk)\b", text, re.I))
     for ent in localized:
         terms.append(ent.get("original", ""))
         terms.append(ent.get("canonical", ""))
@@ -453,7 +610,7 @@ def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: E
             translation = translate_text(body, localized, intent)
             display_body = translation or body
             free_translation = translate_free_text(display_body, systems, assets, localized, counts, links, "zh-en")
-            rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, file_name))
+            rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, ("catalog/db+google" if free_translation else "catalog/db" if translation or localized else "none"), file_name))
     return rows
 
 
@@ -491,8 +648,8 @@ class MonitorThread(threading.Thread):
             if not CHATLOG_DIR.exists():
                 self.status(f"Missing chatlog folder: {CHATLOG_DIR}")
                 return
-            if not DB_PATH.exists():
-                self.status(f"Warning: DB missing: {DB_PATH}")
+            if not CATALOG.loaded and not DB_PATH.exists():
+                self.status("Warning: no compact catalog or DB available")
             if self.replay_today:
                 recent = sorted(self.chat_files(), key=lambda x: x.stat().st_mtime_ns, reverse=True)[:max(3, len(self.channels) * 3)]
                 replay_rows = []
@@ -509,7 +666,7 @@ class MonitorThread(threading.Thread):
                     self.offsets[str(p)] = p.stat().st_size
                 except OSError:
                     pass
-            self.status(f"Monitoring live: {len(self.channels)} channel(s), existing files snapshotted; DB={'yes' if DB_PATH.exists() else 'no'}")
+            self.status(f"Monitoring live: {len(self.channels)} channel(s), existing files snapshotted; Catalog={'yes' if CATALOG.loaded else 'no'}")
             while not self.stop_event.is_set():
                 for p in self.chat_files():
                     sp = str(p)
@@ -670,7 +827,6 @@ class SignalBridgeGui:
         menubar.add_cascade(label="Channels", menu=channels_menu)
         settings_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
         settings_menu.add_command(label="Choose Chatlog Folder...", command=self.choose_chatlog_folder)
-        settings_menu.add_command(label="Choose Translation DB...", command=self.choose_db_file)
         settings_menu.add_separator()
         settings_menu.add_command(label="Install Argos Offline Fallback", command=self.install_argos_models)
         settings_menu.add_command(label="Open App Folder", command=self.open_app_folder)
@@ -694,7 +850,14 @@ class SignalBridgeGui:
         view_menu.add_command(label="Decrease Font Size", command=lambda: self.adjust_font_size(-1))
         menubar.add_cascade(label="View", menu=view_menu)
         tools_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
-        tools_menu.add_command(label="Backend / DB Health", command=self.show_health)
+        tools_menu.add_command(label="Health / Catalog Status", command=self.show_health)
+        tools_menu.add_command(label="Check Catalog Updates", command=self.check_catalog_updates)
+        tools_menu.add_command(label="Restore Previous Catalog", command=self.restore_previous_catalog)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="Translation Cache Status", command=self.show_translation_cache)
+        tools_menu.add_command(label="Clear Translation Cache", command=self.clear_translation_cache)
+        tools_menu.add_command(label="Open Phrase Overrides", command=self.open_phrase_overrides)
+        tools_menu.add_separator()
         tools_menu.add_command(label="Open Chatlog Folder", command=self.open_folder)
         menubar.add_cascade(label="Tools", menu=tools_menu)
         help_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
@@ -731,6 +894,7 @@ class SignalBridgeGui:
         self.text.tag_configure("sender", foreground="#c9d2dc")
         self.text.tag_configure("system", foreground="#ffd54a", font=self.feed_font(bold=True))
         self.text.tag_configure("asset", foreground="#ff5a5f", font=self.feed_font(bold=True))
+        self.text.tag_configure("module", foreground="#c084fc", font=self.feed_font(bold=True))
         self.text.tag_configure("ess", foreground="#5ad7ff", font=self.feed_font(bold=True))
         self.text.tag_configure("translation", foreground="#9be28f")
         self.text.tag_configure("muted", foreground="#8b98a8")
@@ -1340,6 +1504,67 @@ class SignalBridgeGui:
         else:
             self.set_status("Chatlog folder does not exist; use Settings > Choose Chatlog Folder...")
 
+    def check_catalog_updates(self):
+        def worker():
+            try:
+                req = urllib.request.Request(CATALOG_MANIFEST_URL, headers={"User-Agent": f"SignalBridge/{APP_VERSION}"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    remote = json.loads(resp.read().decode("utf-8", "replace"))
+                local_sha = hashlib.sha256(CATALOG_PATH.read_bytes()).hexdigest().upper() if CATALOG_PATH.exists() else ""
+                if str(remote.get("sha256", "")).upper() == local_sha:
+                    self.queue.put(("catalog_current", remote.get("catalog_version", "current")))
+                    return
+                self.queue.put(("catalog_available", remote))
+            except Exception as exc:
+                write_log("Catalog update check failed", exc); self.queue.put(("catalog_failed", str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def download_catalog_update(self, manifest: dict):
+        def worker():
+            try:
+                url = manifest.get("download_url") or manifest.get("url")
+                expected = str(manifest.get("sha256", "")).upper()
+                if not url or not expected:
+                    raise RuntimeError("Manifest missing download_url or sha256")
+                tmp = DATA_DIR / "eve_catalog.download.json"
+                urllib.request.urlretrieve(url, tmp)
+                actual = hashlib.sha256(tmp.read_bytes()).hexdigest().upper()
+                if actual != expected:
+                    tmp.unlink(missing_ok=True); raise RuntimeError(f"Catalog SHA256 mismatch: {actual}")
+                if CATALOG_PATH.exists():
+                    CATALOG_PREVIOUS_PATH.write_bytes(CATALOG_PATH.read_bytes())
+                tmp.replace(CATALOG_PATH)
+                CATALOG_MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+                CATALOG.load()
+                self.queue.put(("catalog_updated", manifest.get("catalog_version", "updated")))
+            except Exception as exc:
+                write_log("Catalog update failed", exc); self.queue.put(("catalog_failed", str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def restore_previous_catalog(self):
+        if not CATALOG_PREVIOUS_PATH.exists():
+            self.messagebox.showinfo("Translation Catalog", "No previous catalog backup found."); return
+        if not self.messagebox.askyesno("Translation Catalog", "Restore previous EVE catalog?"):
+            return
+        CATALOG_PATH.write_bytes(CATALOG_PREVIOUS_PATH.read_bytes())
+        CATALOG.load(); self.set_status("Previous catalog restored")
+
+    def show_translation_cache(self):
+        count, hits = TRANSLATION_CACHE.stats()
+        self.messagebox.showinfo("Translation Cache", f"Cache file: {TRANSLATION_CACHE_PATH}\nEntries: {count}\nHits: {hits}")
+
+    def clear_translation_cache(self):
+        if self.messagebox.askyesno("Translation Cache", "Clear all cached machine translations?"):
+            if TRANSLATION_CACHE.clear():
+                FREE_TRANSLATION_CACHE.clear(); self.set_status("Translation cache cleared")
+
+    def open_phrase_overrides(self):
+        import os
+        PHRASE_OVERRIDES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if not PHRASE_OVERRIDES_PATH.exists():
+            PHRASE_OVERRIDES_PATH.write_text(json.dumps({"schema_version": 1, "overrides": []}, indent=2), encoding="utf-8")
+        os.startfile(str(PHRASE_OVERRIDES_PATH))
+
     def check_for_updates(self, manual: bool = False):
         def worker():
             try:
@@ -1375,7 +1600,8 @@ class SignalBridgeGui:
             "EVE Online live chat intel translator\n\n"
             "Highlights:\n"
             "- Systems: yellow\n"
-            "- Ships/assets: red\n"
+            "- Ships: red\n"
+            "- Non-ship assets/modules: purple\n"
             "- ESS: light blue\n"
             "- Active chats appear as hideable/reorderable tabs\n"
             "- All tab shows combined chat view\n"
@@ -1383,7 +1609,7 @@ class SignalBridgeGui:
             "- Right-click feed copy actions and HTTP/HTTPS links\n"
             "- Configurable feed font and timestamp display\n\n"
             "Translation:\n"
-            "- EVE DB localization\n"
+            f"- Compact EVE catalog: {CATALOG.version}\n"
             "- Google free auto-detect to English\n"
             "- Argos fallback when available\n"
             "- Simple nonblocking GitHub update check on launch"
@@ -1400,8 +1626,12 @@ class SignalBridgeGui:
             f"Version: {APP_VERSION}\n"
             f"Chatlogs: {CHATLOG_DIR}\n"
             f"Chatlogs exists: {CHATLOG_DIR.exists()}\n"
-            f"DB: {DB_PATH}\n"
-            f"DB exists: {DB_PATH.exists()}\n"
+            f"Catalog: {CATALOG_PATH}\n"
+            f"Catalog loaded: {CATALOG.loaded}\n"
+            f"Catalog version: {CATALOG.version}\n"
+            f"Catalog counts: {CATALOG.counts()}\n"
+            f"Previous catalog backup: {CATALOG_PREVIOUS_PATH.exists()}\n"
+            f"Advanced DB fallback exists: {DB_PATH.exists()}\n"
             f"Discovered channels: {discovered}\n"
             f"Active channels: {active}\n"
             f"Visible tab: {self.visible_channel}\n"
@@ -1444,6 +1674,7 @@ class SignalBridgeGui:
             "visible_line": visible_line,
             "original_line": original_line,
             "translated_line": translated_line,
+            "source_label": row.translation_source,
         }
 
     def row_at_event(self, event) -> tuple[str | None, dict | None]:
@@ -1484,6 +1715,7 @@ class SignalBridgeGui:
             menu.add_command(label="Copy Systems", command=lambda r=row: self.copy_to_clipboard(", ".join(r.systems)))
             menu.add_command(label="Copy Ships / Assets", command=lambda r=row: self.copy_to_clipboard(", ".join(r.assets)))
             menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
+            menu.add_command(label="Copy Translation Details", command=lambda i=info: self.copy_to_clipboard(f"source={i.get('source_label','none')}"))
         else:
             menu.add_command(label="Copy Selected Text", command=self.copy_selected_text)
             menu.add_command(label="Copy Visible Feed", command=self.copy_visible_feed)
@@ -1550,8 +1782,10 @@ class SignalBridgeGui:
         for term in sorted(unique(assets), key=len, reverse=True):
             if term.lower() == "ess":
                 self.tag_term(term, "ess", region_start, region_end)
-            else:
+            elif CATALOG.is_ship(term):
                 self.tag_term(term, "asset", region_start, region_end)
+            else:
+                self.tag_term(term, "module", region_start, region_end)
         # Defensive: highlight literal ESS even if it was not classified as an asset.
         self.tag_term("ESS", "ess", region_start, region_end)
 
@@ -1692,6 +1926,18 @@ class SignalBridgeGui:
                 item = self.queue.get_nowait()
                 if isinstance(item, tuple) and item[0] == "status":
                     self.status_label.configure(text=item[1][:180])
+                elif isinstance(item, tuple) and item[0] == "catalog_available":
+                    manifest = item[1]
+                    if self.messagebox.askyesno("Translation Catalog", f"New EVE catalog available: {manifest.get('catalog_version','unknown')}\n\nDownload and install it now?"):
+                        self.download_catalog_update(manifest)
+                elif isinstance(item, tuple) and item[0] == "catalog_current":
+                    self.status_label.configure(text=f"Catalog current: {item[1]}")
+                elif isinstance(item, tuple) and item[0] == "catalog_updated":
+                    self.status_label.configure(text=f"Catalog updated: {item[1]}")
+                    self.redraw_feed()
+                elif isinstance(item, tuple) and item[0] == "catalog_failed":
+                    self.status_label.configure(text="Catalog update failed; see logs")
+                    self.messagebox.showwarning("Translation Catalog", "Catalog update failed. See logs for details.")
                 elif isinstance(item, tuple) and item[0] == "update_available":
                     self.status_label.configure(text=f"Update available: {item[1]}")
                     self.show_update_available(item[1], item[2])

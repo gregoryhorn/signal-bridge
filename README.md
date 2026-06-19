@@ -1,4 +1,4 @@
-﻿# Signal Bridge v0.1 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
+﻿# Signal Bridge v0.2 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
 
@@ -32,8 +32,8 @@ See [ROADMAP.md](ROADMAP.md) for planned features, including tab polish, right-c
 
 Get the Windows portable app from the GitHub release:
 
-- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.1](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.1)
-- **Direct download:** [SignalBridge-v0.1-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.1/SignalBridge-v0.1-win64-portable.zip)
+- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2)
+- **Direct download:** [SignalBridge-v0.2-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/SignalBridge-v0.2-win64-portable.zip)
 
 Extract the ZIP, then run:
 
@@ -241,3 +241,5 @@ Active channels appear as tabs. When more than one channel is open, an **All Cha
 
 
 
+
+- Ships render red; non-ship catalog assets/modules are purple.

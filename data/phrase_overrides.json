@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "overrides": [
+    {
+      "source": "红名",
+      "target": "hostile/red",
+      "direction": "zh-en",
+      "enabled": true
+    },
+    {
+      "source": "没眼",
+      "target": "no eyes / no visual",
+      "direction": "zh-en",
+      "enabled": true
+    },
+    {
+      "source": "进门",
+      "target": "entered gate",
+      "direction": "zh-en",
+      "enabled": true
+    }
+  ]
+}
