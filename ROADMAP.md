@@ -184,6 +184,67 @@ Current AV-conscious choices:
 - Portable ZIP release.
 - SHA256 checksums published.
 
+
+
+## Planned Feed Interaction / Diagnostics Work
+
+These items are planned next after the tab polish pass. They should preserve the current live-only/no-backfill behavior.
+
+### Feed right-click row menu
+
+Add a context menu on chat feed rows with actions for fast gameplay use.
+
+Planned actions:
+
+- Copy visible line
+- Copy original line
+- Copy translated line
+- Copy sender
+- Copy systems
+- Copy ships/assets
+- Copy URLs
+
+### Nice copy/paste behavior
+
+Copy actions should be clean and predictable:
+
+- Visible line copies exactly what the user sees in the feed.
+- Original line copies the raw parsed chat text before translation/display replacement.
+- Translated line copies the translated/display text.
+- Sender, systems, ships/assets, and URLs copy only those extracted parts.
+- Copy actions should work from right-click and later keyboard shortcuts where safe.
+
+### Auto-link URL support
+
+HTTP/HTTPS links in chat rows should be detected and made clickable.
+
+Planned URL behavior:
+
+- Detect `http://` and `https://` links.
+- Style links visibly in the feed.
+- Open links with the system default browser.
+- Provide right-click options to open or copy a URL.
+- Avoid unsafe/non-web protocols by default.
+
+### Startup/error log improvements
+
+Launch failures should be easy to diagnose on non-dev Windows machines.
+
+Planned diagnostics:
+
+- Write startup logs to the portable `logs/` folder.
+- Capture uncaught exceptions with tracebacks.
+- Add an easy way to open logs from the app or package folder.
+- Keep release mode windowed/no-console while still preserving useful logs.
+
+### Live-only behavior must be preserved
+
+Backfill should remain disabled by default:
+
+- Existing chatlog files are snapshotted at current end position.
+- Opening a tab should not replay old private chats.
+- New rows appended after monitoring starts should be shown normally.
+
 ## v1.0 Target
 
 Before calling the app v1.0, the goal is to have:
