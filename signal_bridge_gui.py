@@ -204,6 +204,7 @@ class Row:
     translation_source: str
     file: str
     esi_entities: list[dict] = field(default_factory=list)
+    esi_candidates: list[str] = field(default_factory=list)
 
 
 def unique(seq):
@@ -602,18 +603,106 @@ class EsiCache:
 ESI_CACHE = EsiCache()
 
 
-COMMON_ESI_NOISE = {"gate", "jump", "jumped", "clear", "eyes", "no visual", "nv", "ess", "isk", "red", "hostile", "neutral", "neut", "local", "system", "fleet", "corp", "alliance"}
+COMMON_ESI_NOISE = {
+    "gate", "jump", "jumped", "jumping", "clear", "clr", "eyes", "no visual", "nv", "ess", "isk", "red",
+    "hostile", "neutral", "neut", "local", "system", "fleet", "corp", "alliance", "ship", "ships",
+    "tackle", "camp", "bubble", "warp", "dock", "undock", "status", "reported", "scout", "pilot",
+    "on", "in", "at", "to", "from", "by", "with", "and", "or", "the", "a", "an", "is", "are", "was",
+}
+NAME_CONTEXT_WORDS = {
+    "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
+    "local", "jumped", "jump", "gate", "camp", "hostile", "neut", "neutral", "red", "pilot", "scout",
+}
+NAME_CHUNK_RE = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9'`-]{2,}(?:\s+[A-Z][A-Za-z0-9'`-]{1,}){0,3})(?![A-Za-z0-9])")
+
+
+def _span_overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
+    a, b = span
+    return any(a < d and c < b for c, d in spans)
+
+
+def _mark_term_spans(text: str, terms: list[str]) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    for term in sorted(unique([t for t in terms if t]), key=len, reverse=True):
+        if len(term) < 2:
+            continue
+        pattern = re.escape(term) if not re.search(r"^[A-Za-z0-9 _.'`+-]+$", term) else word_boundary(term)
+        try:
+            for m in re.finditer(pattern, text, re.I):
+                spans.append((m.start(), m.end()))
+        except re.error:
+            folded = text.casefold(); needle = term.casefold(); start = folded.find(needle)
+            while start >= 0:
+                spans.append((start, start + len(term)))
+                start = folded.find(needle, start + len(term))
+    return spans
+
+
+def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[int, int] | None = None) -> bool:
+    cand = re.sub(r"\s+", " ", candidate.strip().strip(" ,.;:()[]{}\"'`"))
+    key = cand.casefold()
+    if len(cand) < 3 or key in COMMON_ESI_NOISE:
+        return False
+    if CATALOG.lookup_system(cand) or CATALOG.lookup_type(cand) or CATALOG.is_ship(cand):
+        return False
+    if SYSTEM_RE.fullmatch(cand) or LINK_RE.search(cand) or COUNT_RE.fullmatch(cand):
+        return False
+    parts = cand.split()
+    if len(parts) > 4:
+        return False
+    if len(parts) == 1:
+        token = parts[0]
+        if len(token) < 5 or token.isupper() or token.lower() in COMMON_ESI_NOISE:
+            return False
+        if not re.search(r"[A-Z]", token):
+            return False
+        if text and span:
+            before = text[max(0, span[0]-18):span[0]].lower().split()[-3:]
+            after = text[span[1]:span[1]+18].lower().split()[:3]
+            if not any(w in before or w in after for w in NAME_CONTEXT_WORDS):
+                return False
+    for part in parts:
+        if part.casefold() in COMMON_ESI_NOISE or CATALOG.lookup_type(part) or CATALOG.lookup_system(part):
+            return False
+    return True
+
+
+def esi_message_candidates_for_row(row: Row) -> list[str]:
+    text = row.text or ""
+    blocked: list[tuple[int, int]] = []
+    blocked.extend((m.start(), m.end()) for m in LINK_RE.finditer(text))
+    blocked.extend((m.start(), m.end()) for m in HTTP_LINK_RE.finditer(text))
+    blocked.extend((m.start(), m.end()) for m in COUNT_RE.finditer(text))
+    terms: list[str] = []
+    terms.extend(row.systems); terms.extend(row.assets); terms.extend(row.counts); terms.extend(row.links)
+    for ent in row.localized:
+        terms.append(str(ent.get("original", ""))); terms.append(str(ent.get("canonical", "")))
+    blocked.extend(_mark_term_spans(text, terms))
+    out: list[str] = []
+    for m in NAME_CHUNK_RE.finditer(text):
+        span = (m.start(1), m.end(1))
+        if _span_overlaps(span, blocked):
+            continue
+        cand = re.sub(r"\s+", " ", m.group(1).strip())
+        parts = cand.split()
+        while len(parts) > 1 and parts[-1].casefold() in COMMON_ESI_NOISE:
+            parts.pop()
+        cand = " ".join(parts)
+        if is_probable_character_candidate(cand, text, span):
+            out.append(cand)
+    return unique(out)[:4]
 
 
 def esi_candidates_for_row(row: Row) -> list[str]:
-    # Keep automatic ESI lookups conservative to protect ESI rates. Sender names
-    # are reliable; free-text names can be manually refreshed from the row menu.
     out: list[str] = []
     sender = re.sub(r"\s+", " ", row.sender.strip())
-    if sender and sender.lower() != "eve system" and len(sender) >= 3:
-        if sender.casefold() not in COMMON_ESI_NOISE and not CATALOG.lookup_type(sender) and not CATALOG.lookup_system(sender):
-            out.append(sender)
-    return unique(out)[:2]
+    if sender and sender.lower() != "eve system" and is_probable_character_candidate(sender):
+        out.append(sender)
+    if getattr(row, "esi_candidates", None):
+        out.extend(row.esi_candidates)
+    else:
+        out.extend(esi_message_candidates_for_row(row))
+    return unique(out)[:5]
 
 
 class EsiResolver(threading.Thread):
@@ -904,7 +993,7 @@ def argos_translate_fallback(text: str, source: str = "zh", target: str = "en") 
         return None
 
 
-def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en") -> str:
+def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None) -> str:
     direction = direction or "zh-en"
     if direction == "off":
         return ""
@@ -933,6 +1022,8 @@ def translate_free_text(text: str, systems: list[str], assets: list[str], locali
     terms.extend(counts)
     terms.extend(links)
     terms.extend(HTTP_LINK_RE.findall(text))
+    if character_names:
+        terms.extend(character_names)
     terms.extend(re.findall(r"\b\d+(?:\.\d+)?\s*(?:isk|m|mil|b|bil|kk)\b", text, re.I))
     for ent in localized:
         terms.append(ent.get("original", ""))
@@ -975,8 +1066,10 @@ def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: E
             systems, assets, localized, counts, links, intent = extract_intel(body, db)
             translation = translate_text(body, localized, intent)
             display_body = translation or body
-            free_translation = translate_free_text(display_body, systems, assets, localized, counts, links, "zh-en")
-            rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, ("catalog/db+google" if free_translation else "catalog/db" if translation or localized else "none"), file_name))
+            tmp_row = Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, "", "none", file_name)
+            msg_candidates = esi_message_candidates_for_row(tmp_row)
+            free_translation = translate_free_text(display_body, systems, assets, localized, counts, links, "zh-en", msg_candidates)
+            rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, ("catalog/db+google" if free_translation else "catalog/db" if translation or localized else "none"), file_name, [], msg_candidates))
     return rows
 
 
@@ -1270,14 +1363,14 @@ class SignalBridgeGui:
         self.text.tag_configure("time", foreground="#778493")
         self.text.tag_configure("sender", foreground="#c9d2dc")
         self.text.tag_configure("system", foreground="#ffd54a", font=self.feed_font(bold=True))
-        self.text.tag_configure("asset", foreground="#ff5a5f", font=self.feed_font(bold=True))
-        self.text.tag_configure("module", foreground="#c084fc", font=self.feed_font(bold=True))
+        self.text.tag_configure("asset", foreground="#ff9d2e", font=self.feed_font(bold=True))
+        self.text.tag_configure("module", foreground="#b388ff", font=self.feed_font(bold=True))
         self.text.tag_configure("ess", foreground="#5ad7ff", font=self.feed_font(bold=True))
         self.text.tag_configure("translation", foreground="#9be28f")
         self.text.tag_configure("muted", foreground="#8b98a8")
         self.text.tag_configure("error", foreground="#ff5a5f")
         self.text.tag_configure("link", foreground="#5ad7ff", underline=True)
-        self.text.tag_configure("esi", foreground="#9be28f", font=self.feed_font(bold=True))
+        self.text.tag_configure("esi", foreground="#ff5c5c", font=self.feed_font(bold=True))
         self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
 
@@ -2433,6 +2526,22 @@ class SignalBridgeGui:
         else:
             self.mark_unread_for_row(row)
 
+    def character_names_for_row(self, row: Row) -> list[str]:
+        names: list[str] = []
+        sender = re.sub(r"\s+", " ", row.sender.strip())
+        if sender and sender.lower() != "eve system":
+            names.append(sender)
+        for cand in getattr(row, "esi_candidates", []) or []:
+            cached = self.esi_entities.get(normalize_esi_query(cand)) or ESI_CACHE.get_entity(cand)
+            if cached and not cached.get("ignored") and cached.get("entity_type") == "character":
+                names.append(str(cached.get("name") or cand))
+                names.append(cand)
+        for ent in row.esi_entities:
+            if ent.get("entity_type") == "character":
+                names.append(str(ent.get("name") or ent.get("query") or ""))
+                names.append(str(ent.get("query") or ""))
+        return unique([n for n in names if n])
+
     def display_free_translation(self, row: Row, display_text: str) -> str:
         if not bool(self.translate_chinese_text.get()):
             return ""
@@ -2440,9 +2549,9 @@ class SignalBridgeGui:
         if direction == "zh-en":
             if row.free_translation:
                 return row.free_translation
-            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "zh-en")
+            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "zh-en", self.character_names_for_row(row))
         if direction == "en-zh":
-            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "en-zh")
+            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "en-zh", self.character_names_for_row(row))
         return ""
 
     def _render_row(self, row: Row):
@@ -2482,6 +2591,8 @@ class SignalBridgeGui:
             name = str(ent.get("name") or ent.get("query") or "")
             if name:
                 self.tag_term(name, "esi", row_start, row_end)
+        for name in self.character_names_for_row(row):
+            self.tag_term(name, "esi", row_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
         self.rendered_row_map[row_tag] = {"row": row, **parts}
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)

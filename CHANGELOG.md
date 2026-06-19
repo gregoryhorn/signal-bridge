@@ -1,3 +1,10 @@
+
+### v0.3 - message character detection refinement
+- Added conservative ESI character-name candidate detection inside chat message text, not only sender names.
+- Excludes known solar systems, ships, modules, catalog entities, links, counts, and localized EVE aliases before ESI lookup.
+- Confirmed ESI character names are protected from machine translation, including EN -> CN mode.
+- Changed ship highlighting to orange and ESI character highlighting to red; non-ship modules/assets remain purple.
+
 ## v0.3 - 2026-06-19
 
 - ESI public entity recognition is now enabled by default for new installs; OAuth remains disabled and optional.

@@ -80,5 +80,8 @@ Download and extract `SignalBridge-v0.3-win64-portable.zip`, then run `SignalBri
 
 Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. This does not necessarily mean malware; it is common for new unsigned PyInstaller apps. Long-term mitigation is code signing and reputation building.
 
-
-
+### v0.3 message character detection update
+- ESI now detects likely character names inside message bodies using a cache-first, conservative candidate extractor.
+- System names and EVE catalog entities are excluded before ESI checks to protect API rate limits.
+- Detected character names are preserved during translation and are not translated into Chinese.
+- Ship highlights are orange; message/sender ESI characters are red; non-ship modules/assets remain purple.

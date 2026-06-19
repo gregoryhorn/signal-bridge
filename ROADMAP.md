@@ -281,3 +281,8 @@ Before calling the app v1.0, the goal is to have:
 - Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
 
 - Default ESI behavior updated: public cache-first entity recognition is enabled by default, while OAuth/location-aware features remain opt-in.
+
+### Completed v0.3 refinement
+- Message-body ESI character candidate detection with system/catalog/link/count exclusion.
+- Translation protection for confirmed character names so player names are not translated in EN -> CN mode.
+- Color split: ships orange, ESI characters red, non-ship catalog assets/modules purple.
