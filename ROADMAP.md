@@ -321,3 +321,4 @@ Before calling the app v1.0, the goal is to have:
 - Completed: bundle starter free-text translation cache for faster first-run/offline reuse of known translations.
 - Completed: initial manual review/curation pass for bundled starter translation cache.
 - Completed: Appearance dialog fixed footer for mobile-style layouts.
+- Completed: non-destructive channel add workflow and automatic newly active channel tabs.

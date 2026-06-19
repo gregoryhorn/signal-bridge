@@ -1411,16 +1411,23 @@ class MonitorThread(threading.Thread):
         self.db = EveDb(DB_PATH, use_sqlite=False)
 
     def chat_files(self):
-        if not self.channels:
-            return []
         files: list[Path] = []
-        for channel in sorted(self.channels):
-            files.extend(CHATLOG_DIR.glob(channel + "_*.txt"))
+        if self.channels:
+            for channel in sorted(self.channels):
+                files.extend(CHATLOG_DIR.glob(channel + "_*.txt"))
+        # Also watch discovered chatlogs so newly active channels can open tabs
+        # automatically without forcing the user through a destructive chooser.
+        try:
+            files.extend(CHATLOG_DIR.glob("*.txt"))
+        except Exception:
+            pass
         return sorted(set(files), key=lambda p: p.stat().st_mtime_ns)
 
     def emit_row(self, row: Row):
         if row.channel not in self.channels:
-            return
+            self.channels.add(row.channel)
+            self.outq.put(("channel_discovered", row.channel))
+            write_log(f"Monitor discovered active channel={row.channel!r}")
         key = (row.channel.lower(), row.sender.lower(), row.text.lower())
         if key in self.seen:
             return
@@ -2104,35 +2111,53 @@ class SignalBridgeGui:
         tk = self.tk
         channels = discover_channels()
         win = tk.Toplevel(self.root)
-        win.title("Choose Chat Channels")
-        win.geometry("420x520")
+        win.title("Choose / Open Chat Channels")
+        win.geometry("460x560")
         win.configure(bg="#0b0f14")
         win.transient(self.root)
-        tk.Label(win, text="Select channels to monitor", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
+        tk.Label(win, text="Select channels to add/open", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
+        tk.Label(win, text="Add Selected keeps current channels. Replace All is explicit.", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9)).pack(anchor="w", padx=10, pady=(0, 6))
         lb = tk.Listbox(win, selectmode="extended", bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
         lb.pack(fill="both", expand=True, padx=10, pady=6)
         for idx, channel in enumerate(channels):
-            lb.insert("end", channel)
+            marker = "✓ " if channel in self.active_channels else "  "
+            lb.insert("end", marker + channel)
             if channel in self.active_channels:
                 lb.selection_set(idx)
         btns = tk.Frame(win, bg="#0b0f14")
         btns.pack(fill="x", padx=10, pady=8)
-        def apply_selection():
-            selected = {channels[i] for i in lb.curselection()}
-            self.set_channels(selected, manual=True)
+        def selected_channels():
+            return {channels[i] for i in lb.curselection()}
+        def add_selected():
+            selected = selected_channels()
+            if selected:
+                self.add_channels(selected, manual=True)
+            win.destroy()
+        def replace_selection():
+            selected = selected_channels()
+            self.set_channels(selected, manual=True, clear_existing=True)
             win.destroy()
         def select_all():
             lb.selection_set(0, "end")
         def select_none():
             lb.selection_clear(0, "end")
-        tk.Button(btns, text="Apply", command=apply_selection).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Add Selected", command=add_selected).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Replace All", command=replace_selection).pack(side="left", padx=6)
         tk.Button(btns, text="All", command=select_all).pack(side="left", padx=6)
         tk.Button(btns, text="None", command=select_none).pack(side="left", padx=6)
         tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
 
-    def set_channels(self, channels: set[str], manual: bool = False):
+    def add_channels(self, channels: set[str], manual: bool = False):
+        channels = {str(c) for c in channels if str(c).strip()}
+        if not channels:
+            self.set_status("No channels selected")
+            return
+        self.set_channels(self.active_channels | channels, manual=manual, clear_existing=False)
+
+    def set_channels(self, channels: set[str], manual: bool = False, clear_existing: bool = False):
         old_channels = set(self.active_channels)
         self.active_channels = set(channels)
+        added = self.active_channels - old_channels
         removed = old_channels - self.active_channels
         self.hidden_tab_ids -= removed
         self.unread_counts = {k: v for k, v in self.unread_counts.items() if k == ALL_CHANNELS_TAB or k in self.active_channels}
@@ -2143,15 +2168,18 @@ class SignalBridgeGui:
         self.title_label.configure(text=f"{APP_NAME} v{APP_VERSION}")
         self.update_channel_tabs()
         self.persist_settings()
-        self.clear_feed()
+        if clear_existing or removed:
+            self.clear_feed()
         self.stop_monitor()
         if self.active_channels:
             self.start_monitor()
+            if added and not removed and not clear_existing:
+                self.set_status(f"Added {len(added)} channel(s); monitoring {len(self.active_channels)}")
         else:
             self.set_status("No channels selected")
 
     def close_selected_channels(self):
-        self.set_channels(set(), manual=True)
+        self.set_channels(set(), manual=True, clear_existing=True)
 
     def is_all_channels_view(self) -> bool:
         return self.visible_channel == ALL_CHANNELS_TAB
@@ -3468,6 +3496,20 @@ class SignalBridgeGui:
             self.unread_counts[ALL_CHANNELS_TAB] = self.unread_counts.get(ALL_CHANNELS_TAB, 0) + 1
         self.update_channel_tabs()
 
+    def add_discovered_channel(self, channel: str):
+        if not channel or channel in self.active_channels:
+            return
+        self.active_channels.add(channel)
+        if channel not in self.tab_order:
+            self.tab_order.append(channel)
+        # Do not steal focus and do not auto-restore channels the user explicitly hid.
+        if channel not in self.hidden_tab_ids:
+            self.unread_counts[channel] = self.unread_counts.get(channel, 0) + 1
+        self.normalize_tab_state(prefer_all=True)
+        self.update_channel_tabs()
+        self.persist_settings()
+        self.status_label.configure(text=f"New channel opened: {channel}")
+
     def append_row(self, row: Row):
         self.rows.append(row)
         if self.esi_is_enabled():
@@ -3650,6 +3692,8 @@ class SignalBridgeGui:
                 elif isinstance(item, tuple) and item[0] == "esi_oauth_failed":
                     self.status_label.configure(text="ESI OAuth failed")
                     self.messagebox.showwarning("ESI OAuth", str(item[1])[:500])
+                elif isinstance(item, tuple) and item[0] == "channel_discovered":
+                    self.add_discovered_channel(str(item[1]))
                 elif isinstance(item, Row):
                     try:
                         self.append_row(item)

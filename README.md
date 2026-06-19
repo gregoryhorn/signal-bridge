@@ -314,3 +314,4 @@ The portable build also includes `data/default_esi_entities.json`, a starter cac
 - Bundled starter translation cache seeds known free-text translations into new installs without overwriting local cache rows.
 - Starter translation-cache entries include curated EVE terminology fixes for common ship/item/intel phrases.
 - Appearance / Display Options keeps Apply/OK/Cancel in a fixed footer with a scrollable settings body for small windows.
+- Channels can be added non-destructively with Add Selected; Replace All is explicit, and newly active EVE chat channels auto-open as tabs while keeping focus where it is.

@@ -114,3 +114,4 @@ Initial portable Windows preview release.
 - Bundled a starter translation cache exported from the maintainer client and seeded it idempotently for new installs.
 - Reviewed and curated bundled starter translation cache entries for common EVE terminology mistakes such as Stabber, Caracal Navy Issue, Pacifier, Draugur, Sabre, Sisters Combat Scanner Probe, MTUs, and ISK.
 - Fixed Appearance / Display Options so Apply/OK/Cancel remain visible on smaller mobile-style windows.
+- Improved channel UX: Choose / Open Channels now adds selected channels by default, keeps Replace All explicit, and live monitoring auto-opens newly active chat channels without stealing focus.
