@@ -1825,6 +1825,12 @@ class SignalBridgeGui:
         self.filedialog = filedialog
         self.root = tk.Tk()
         self.root.title(f"{APP_NAME} v{APP_VERSION}")
+        try:
+            icon = APP_DIR / "assets" / "signal_bridge_icon.ico"
+            if icon.exists():
+                self.root.iconbitmap(str(icon))
+        except Exception as exc:
+            write_log(f"Root icon failed: {exc}")
         # Mobile-style default: narrow, tall layout suitable for side-panel/overlay use.
         # Users can still resize freely, and their OS/window-manager placement persists normally.
         self.root.geometry("430x720")
@@ -2359,6 +2365,128 @@ class SignalBridgeGui:
     def close_selected_channels(self):
         self.set_channels(set(), manual=True, clear_existing=True)
 
+    def app_icon_path(self):
+        path = APP_DIR / "assets" / "signal_bridge_icon.ico"
+        return path if path.exists() else None
+
+    def polish_window(self, win, parent=None, *, width=None, height=None, minsize=None, modal=False, center=True, title=None):
+        """Apply consistent Signal Bridge chrome, icon, stacking, and placement to child windows."""
+        parent = parent or self.root
+        if title:
+            try:
+                win.title(title)
+            except Exception:
+                pass
+        try:
+            icon = self.app_icon_path()
+            if icon:
+                win.iconbitmap(str(icon))
+        except Exception as exc:
+            write_log(f"Window icon failed: {exc}")
+        try:
+            win.configure(bg="#0b0f14")
+        except Exception:
+            pass
+        if minsize:
+            try:
+                win.minsize(*minsize)
+            except Exception:
+                pass
+        if width and height:
+            try:
+                if center:
+                    parent.update_idletasks()
+                    win.update_idletasks()
+                    px = parent.winfo_rootx()
+                    py = parent.winfo_rooty()
+                    pw = max(1, parent.winfo_width())
+                    ph = max(1, parent.winfo_height())
+                    x = max(0, px + (pw - width) // 2)
+                    y = max(0, py + (ph - height) // 2)
+                    win.geometry(f"{width}x{height}+{x}+{y}")
+                else:
+                    win.geometry(f"{width}x{height}")
+            except Exception:
+                win.geometry(f"{width}x{height}")
+        try:
+            win.transient(parent)
+        except Exception:
+            pass
+        if modal:
+            try:
+                win.grab_set()
+            except Exception:
+                pass
+        try:
+            win.lift(parent)
+            win.focus_force()
+        except Exception:
+            pass
+        return win
+
+    def friendly_datetime(self, value: str) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return "unknown"
+        import datetime as _dt
+        candidates = []
+        cleaned = raw.replace("T", " ").replace("Z", "").strip()
+        candidates.append(cleaned)
+        candidates.append(cleaned.replace(".", "-", 2))
+        parsed = None
+        for item in candidates:
+            for fmt in ("%Y.%m.%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y.%m.%d %H:%M"):
+                try:
+                    parsed = _dt.datetime.strptime(item[:19], fmt)
+                    break
+                except Exception:
+                    pass
+            if parsed:
+                break
+        if not parsed:
+            return raw
+        now = _dt.datetime.now()
+        date = parsed.date()
+        if date == now.date():
+            prefix = "Today"
+        elif date == (now.date() - _dt.timedelta(days=1)):
+            prefix = "Yesterday"
+        elif parsed.year == now.year:
+            prefix = parsed.strftime("%d %B").lstrip("0")
+        else:
+            prefix = parsed.strftime("%d %B %Y").lstrip("0")
+        hour = parsed.strftime("%I").lstrip("0") or "0"
+        minute = parsed.strftime("%M")
+        ampm = parsed.strftime("%p").lower()
+        return f"{prefix} {hour}:{minute}{ampm}"
+
+    def card_frame(self, parent, bg="#121a24", border="#1f2f42", padx=9, pady=8):
+        outer = self.tk.Frame(parent, bg=border, padx=1, pady=1)
+        outer.pack(fill="x", padx=8, pady=6)
+        inner = self.tk.Frame(outer, bg=bg, padx=padx, pady=pady)
+        inner.pack(fill="x")
+        return inner
+
+    def schedule_redraw(self, delay_ms: int = 80):
+        """Coalesce expensive redraw requests so toggles do not block repeatedly."""
+        if hasattr(self, "_redraw_after") and self._redraw_after:
+            try:
+                self.root.after_cancel(self._redraw_after)
+            except Exception:
+                pass
+        def run():
+            self._redraw_after = None
+            try:
+                self.redraw_feed()
+            except Exception as exc:
+                write_log(f"Scheduled redraw failed: {exc}")
+        self._redraw_after = self.root.after(delay_ms, run)
+
+    def persist_and_schedule_redraw(self):
+        self.persist_settings()
+        self.set_status("Updating display...")
+        self.schedule_redraw()
+
     def is_all_channels_view(self) -> bool:
         return self.visible_channel == ALL_CHANNELS_TAB
 
@@ -2727,11 +2855,7 @@ class SignalBridgeGui:
         if initial_page not in pages:
             initial_page = "General"
         win = tk.Toplevel(self.root)
-        win.title("Signal Bridge Settings")
-        win.geometry("860x620")
-        win.minsize(560, 430)
-        win.configure(bg="#0b0f14")
-        win.transient(self.root)
+        self.polish_window(win, self.root, width=860, height=620, minsize=(560, 430), title="Signal Bridge Settings")
         nav = tk.Frame(win, bg="#0f1722", width=190); nav.pack(side="left", fill="y")
         main = tk.Frame(win, bg="#0b0f14"); main.pack(side="left", fill="both", expand=True)
         title = tk.Label(main, text="", bg="#0b0f14", fg="#ffffff", font=("Segoe UI", 14, "bold")); title.pack(anchor="w", padx=18, pady=(16, 2))
@@ -2791,8 +2915,8 @@ class SignalBridgeGui:
             r = row(c); action(r, "Open Appearance Editor...", self.show_appearance_dialog); action(r, "Increase Font", lambda: self.adjust_font_size(1)); action(r, "Decrease Font", lambda: self.adjust_font_size(-1))
         def render_translation():
             c = card(body, "Translation", "Free-text translation is optional and live rows are never blocked by translation work.")
-            check(c, "Translated only", self.translated_only, self.persist_and_redraw); check(c, "Translate free text", self.translate_chinese_text, self.persist_and_redraw)
-            rr = row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left")
+            check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw); check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
+            rr = row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_schedule_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_schedule_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left")
             count, hits = TRANSLATION_CACHE.stats(); label(c, f"Translation cache: {count} entries, {hits} hits", "#8b98a8")
             r = row(c); action(r, "Cache Status", self.show_translation_cache); action(r, "Clear Cache", self.clear_translation_cache); action(r, "Open Phrase Overrides", self.open_phrase_overrides); action(r, "Install Argos Fallback", self.install_argos_models)
         def render_catalog():
@@ -2865,12 +2989,7 @@ class SignalBridgeGui:
         from tkinter import colorchooser
         original = copy.deepcopy(self.appearance)
         win = tk.Toplevel(self.root)
-        win.title("Appearance / Display Options")
-        win.geometry("760x620")
-        win.minsize(520, 420)
-        win.configure(bg="#0b0f14")
-        win.transient(self.root)
-        win.grab_set()
+        self.polish_window(win, self.root, width=760, height=620, minsize=(520, 420), modal=True, title="Appearance / Display Options")
         vars = {}
 
         # Keep action buttons visible on narrow/mobile-style layouts by making
@@ -3922,15 +4041,14 @@ class SignalBridgeGui:
         pilot_id = int(pilot.get("pilot_id") or 0)
         name = pilot.get("name") or "Unknown Pilot"
         win = tk.Toplevel(self.root)
-        win.title(f"Pilot Info - {name}")
-        win.geometry("430x680")
-        win.minsize(360, 420)
-        win.configure(bg="#0b0f14")
+        self.polish_window(win, self.root, width=430, height=680, minsize=(360, 420), title=f"Pilot Info - {name}")
         header = tk.Frame(win, bg="#111821", padx=10, pady=8)
         header.pack(fill="x")
-        title = tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(12, int(self.font_size.get()) + 2), "bold"))
+        corp = pilot.get("corp_name") or "Unknown corporation"
+        alliance = pilot.get("alliance_name") or "No alliance"
+        title = tk.Label(header, text=f"{name}, {corp}", bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(12, int(self.font_size.get()) + 2), "bold"), wraplength=390, justify="left")
         title.pack(anchor="w")
-        sub = tk.Label(header, text=f"{pilot.get('corp_name') or 'Unknown corp'} / {pilot.get('alliance_name') or 'No alliance'}\nCharacter ID: {pilot_id}", bg="#111821", fg="#8b98a8", justify="left")
+        sub = tk.Label(header, text=f"{alliance}\n" + "─" * 28, bg="#111821", fg="#8b98a8", justify="left")
         sub.pack(anchor="w")
         nav = tk.Label(header, text="Summary", bg="#111821", fg="#5ad7ff")
         nav.pack(anchor="w", pady=(4, 0))
@@ -3945,9 +4063,8 @@ class SignalBridgeGui:
                 child.destroy()
 
         def card(parent, title_text):
-            f = tk.Frame(parent, bg="#121a24", padx=8, pady=7)
-            f.pack(fill="x", padx=8, pady=5)
-            tk.Label(f, text=title_text, bg="#121a24", fg="#d7dde5", font=(self.font_family.get(), int(self.font_size.get()), "bold")).pack(anchor="w")
+            f = self.card_frame(parent)
+            tk.Label(f, text=title_text, bg=f.cget("bg"), fg="#f2f5f8", font=(self.font_family.get(), int(self.font_size.get()), "bold")).pack(anchor="w")
             return f
 
         def label(parent, text, color="#d7dde5"):
@@ -3983,7 +4100,7 @@ class SignalBridgeGui:
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Add/Edit Flags", render_flags)
             c = card(body, "Recent Activity")
             for r0 in recent[:5]:
-                label(c, f"{r0.get('timestamp')}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}")
+                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}")
             if not recent:
                 label(c, "No local sightings yet.", "#8b98a8")
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_sightings)
@@ -3998,7 +4115,7 @@ class SignalBridgeGui:
             clear_body("Recent Sightings")
             c = card(body, "Recent Sightings")
             for r0 in profile.get("recent_sightings", [])[:25]:
-                label(c, f"{r0.get('timestamp')}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}  [{r0.get('source','local')}]")
+                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}  [{r0.get('source','local')}]")
             if not profile.get("recent_sightings"):
                 label(c, "No local sightings yet.", "#8b98a8")
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
@@ -4058,56 +4175,82 @@ class SignalBridgeGui:
         button(actions, "Close", win.destroy)
         render_summary()
 
+    def clicked_context(self, event, row: Row | None) -> dict:
+        text = ""
+        try:
+            index = self.text.index(f"@{event.x},{event.y}")
+            start = self.text.index(f"{index} wordstart")
+            end = self.text.index(f"{index} wordend")
+            text = self.text.get(start, end).strip(" [](),;:>\n\t")
+        except Exception:
+            text = ""
+        if not row:
+            return {"kind": "none", "text": text}
+        names = self.character_names_for_row(row)
+        for ent in row.esi_entities:
+            name = str(ent.get("name") or ent.get("query") or "")
+            if name and (text.casefold() in name.casefold() or name.casefold() in str(row.text).casefold()):
+                return {"kind": "pilot", "text": name, "entity": ent}
+        for name in names:
+            if name and (text.casefold() in name.casefold() or name.casefold() in str(row.text).casefold()):
+                return {"kind": "pilot", "text": name}
+        if text and any(text.casefold() == str(sysname).casefold() for sysname in row.systems):
+            return {"kind": "system", "text": text}
+        if text and any(text.casefold() == str(asset).casefold() for asset in row.assets):
+            return {"kind": "asset", "text": text}
+        return {"kind": "row", "text": text}
+
     def show_feed_context_menu(self, event):
         row_tag, info = self.row_at_event(event)
         url = self.link_at_event(event)
         selected = self.selected_feed_text()
         row = info["row"] if info else None
+        ctx = self.clicked_context(event, row)
         menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
+        added = False
         if url:
             menu.add_command(label="Open URL", command=lambda u=url: self.open_url(u))
             menu.add_command(label="Copy URL", command=lambda u=url: self.copy_to_clipboard(u))
-            menu.add_separator()
+            menu.add_separator(); added = True
+        if row and ctx.get("kind") == "pilot":
+            menu.add_command(label="Open Pilot Info", command=lambda r=row: self.open_pilot_info_for_row(r))
+            menu.add_command(label="Mark Watchlist", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Watchlist", "★"))
+            menu.add_command(label="Mark High Threat", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "High Threat", "⚠"))
+            menu.add_command(label="Mark Do Not Track", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Do Not Track", "DNT"))
+            menu.add_command(label="Copy ESI Details", command=lambda r=row: self.copy_to_clipboard(self.esi_details_for_row(r)))
+            menu.add_separator(); added = True
+        elif row and ctx.get("kind") == "system" and ctx.get("text"):
+            menu.add_command(label="Copy System", command=lambda t=ctx.get("text"): self.copy_to_clipboard(t))
+            menu.add_separator(); added = True
+        elif row and ctx.get("kind") == "asset" and ctx.get("text"):
+            menu.add_command(label="Copy Ship / Item", command=lambda t=ctx.get("text"): self.copy_to_clipboard(t))
+            menu.add_separator(); added = True
         if info:
             menu.add_command(label="Copy Visible Line", command=lambda i=info: self.copy_to_clipboard(i["visible_line"]))
             menu.add_command(label="Copy Original Line", command=lambda i=info: self.copy_to_clipboard(i["original_line"]))
             menu.add_command(label="Copy Translated Line", command=lambda i=info: self.copy_to_clipboard(i["translated_line"]))
-            menu.add_separator()
-            menu.add_command(label="Copy Sender", command=lambda r=row: self.copy_to_clipboard(r.sender))
-            menu.add_command(label="Copy Systems", command=lambda r=row: self.copy_to_clipboard(", ".join(r.systems)))
-            menu.add_command(label="Copy Ships / Assets", command=lambda r=row: self.copy_to_clipboard(", ".join(r.assets)))
-            menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
-            menu.add_command(label="Copy Translation Details", command=lambda i=info: self.copy_to_clipboard(f"source={i.get('source_label','none')}"))
-            menu.add_separator()
+            if row and row.systems:
+                menu.add_command(label="Copy Systems", command=lambda r=row: self.copy_to_clipboard(", ".join(r.systems)))
+            if row and row.assets:
+                menu.add_command(label="Copy Ships / Assets", command=lambda r=row: self.copy_to_clipboard(", ".join(r.assets)))
+            links = self.http_links_for_row(row) if row else []
+            if links:
+                menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
+            added = True
         else:
             menu.add_command(label="Copy Selected Text", command=self.copy_selected_text)
             menu.add_command(label="Copy Visible Feed", command=self.copy_visible_feed)
-            menu.add_separator()
-        # Keep ESI actions visible even when row detection misses, so users can diagnose and use selected text.
+            added = True
         if selected:
+            menu.add_separator()
             menu.add_command(label="Resolve Selected Text with ESI", command=self.resolve_selected_esi_text)
             menu.add_command(label="Add Selected Text as ESI Character", command=self.add_selected_esi_character)
             menu.add_command(label="Add Selected Text to Exclusion List", command=self.ignore_selected_esi_text)
-        else:
-            menu.add_command(label="Resolve Selected Text with ESI", command=self.resolve_selected_esi_text, state="disabled")
-            menu.add_command(label="Add Selected Text as ESI Character", command=self.add_selected_esi_character, state="disabled")
-            menu.add_command(label="Add Selected Text to Exclusion List", command=self.ignore_selected_esi_text, state="disabled")
         if row:
-            menu.add_command(label="Open Pilot Info", command=lambda r=row: self.open_pilot_info_for_row(r))
-            menu.add_command(label="Mark Pilot Watchlist", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Watchlist", "⭐"))
-            menu.add_command(label="Mark Pilot High Threat", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "High Threat", "⚠"))
-            menu.add_command(label="Mark Pilot Do Not Track", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Do Not Track", "DNT"))
             menu.add_separator()
-            menu.add_command(label="Resolve Sender with ESI", command=lambda r=row: self.refresh_esi_entity(r.sender))
-            menu.add_command(label="Refresh Sender ESI Data", command=lambda r=row: self.refresh_esi_entity(r.sender))
-            menu.add_command(label="Show ESI Candidates for Message", command=lambda r=row: self.show_esi_candidates_for_row(r))
-            menu.add_command(label="Copy ESI Details", command=lambda r=row: self.copy_to_clipboard(self.esi_details_for_row(r)))
-            menu.add_command(label="Add Sender to Exclusion List", command=lambda r=row: self.ignore_esi_entity(r.sender))
-        else:
-            menu.add_command(label="Show ESI Candidates for Message", command=lambda: self.show_esi_candidates_for_row(None), state="disabled")
-        menu.add_command(label="ESI Last Check / Diagnostics", command=self.show_esi_diagnostics)
-        menu.add_command(label="Manual ESI Character Check...", command=self.manual_esi_check_dialog)
-        menu.add_command(label="General Exclusion List...", command=self.show_esi_exclusion_list)
+            menu.add_command(label="Show ESI Candidates", command=lambda r=row: self.show_esi_candidates_for_row(r))
+        menu.add_separator()
+        menu.add_command(label="Diagnostics / Tools...", command=self.show_esi_diagnostics)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:

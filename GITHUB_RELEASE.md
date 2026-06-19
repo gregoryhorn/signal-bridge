@@ -159,3 +159,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Feed badges reuse the existing compact flag display, while Pilot Info exposes the underlying reason.
 - Translation cache fix: `天鹤级` now resolves to `Crane` instead of the literal `Tianhe class`.
 - Translation cache fix: `短剑级` now resolves to `Stabber` instead of literal `Stabber grade` style output.
+- UI polish pass: consistent Signal Bridge window icons, better child-window placement/stacking, cleaner Pilot Info header/date display, more context-aware right-click menus, clearer flag icons, and a less blocking redraw path for translation display toggles.

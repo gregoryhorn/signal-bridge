@@ -467,3 +467,4 @@ Suggested implementation:
 
 - Completed Intel History Auto Hot Drop Risk v0.1: high-confidence cyno ship classes create temporary explainable flags.
 - Future tuning: expose Hot Drop Risk ship classes/duration in settings, add optional watch-only classes such as HICs/Covert Ops, and add dismiss/convert controls for auto flags.
+- Completed first UI polish pass covering window chrome/icons, dialog placement, Pilot Info header/date cleanup, context-aware right-click menus, and translation-toggle redraw responsiveness. Remaining polish includes deeper contrast audit, Argos preferred-engine/status flow, more iconography, and optional zKill card integration.

@@ -1,5 +1,8 @@
 
 
+- Added a focused UI polish pass: Signal Bridge icons now apply to the main window and key child windows, Settings/Appearance/Pilot Info dialogs are centered/stacked over their parent, Pilot Info uses the cleaner `Character, Corporation` + `Alliance` header without visible character IDs, Pilot Info dates are friendlier, right-click menus are more context-aware, flag icons are cleaned up, and translation display toggles use a coalesced redraw path to reduce UI stalls.
+
+
 - Corrected the Chinese EVE ship translation `短剑级` from literal `Stabber grade` style output to `Stabber` in the bundled starter translation cache.
 
 
