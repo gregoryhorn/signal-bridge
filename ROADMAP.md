@@ -462,3 +462,5 @@ Suggested implementation:
 - Initial add-on package skeleton exists under `addons/intel-history`.
 - Same-EXE guarded loader, event bridge, SQLite sighting storage, dedupe, and health/status display are implemented.
 - Next milestones: Pilot Intelligence Card v0.1, manual flags, Hot Drop Risk auto flag, zKill enrichment, import/export packs, and Intel Query Service / LLM entry point.
+
+- Completed first Pilot Info Card slice: feed right-click opens compact pilot summaries with recent sightings, top ships/systems drill-downs, manual flag editing, and copyable summaries. Next milestones: richer threat reasons, auto Hot Drop Risk flags, zKill enrichment, import/export intel packs, and Intel Query Service / LLM entry point.

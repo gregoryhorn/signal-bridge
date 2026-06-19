@@ -1,3 +1,4 @@
+- Intel History Pilot Info Card v0.1 has landed in source: right-click `Open Pilot Info` for ESI-confirmed pilots, view compact local history summaries, drill into recent sightings/top ships/top systems, edit manual flags, and copy summaries.
 ﻿# GitHub Release Checklist
 
 ## Before Release

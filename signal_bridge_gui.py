@@ -280,6 +280,9 @@ class AddonRuntime:
         context = {"addon_id": self.addon_id, "manifest": self.manifest, "module_dir": str(self.code_dir), "data_dir": str(self.data_dir), "app_version": APP_VERSION}
         init = getattr(module, "init", None)
         self.instance = init(context) if callable(init) else module
+        start = getattr(self.instance, "start", None)
+        if callable(start):
+            start()
         self.enabled = True
 
     def safe_call(self, method: str, *args, **kwargs):
@@ -3773,6 +3776,198 @@ class SignalBridgeGui:
             pass
         return None
 
+
+    def intel_history_call(self, method: str, *args, **kwargs):
+        runtime = self.intel_history_runtime
+        if not runtime or not runtime.enabled:
+            self.messagebox.showinfo("Intel History", "Intel History is not installed/enabled yet.\n\nInstall and enable it from Settings > Add-ons.")
+            return None
+        return runtime.safe_call(method, *args, **kwargs)
+
+    def first_character_for_row(self, row: Row | None) -> dict | None:
+        if not row:
+            return None
+        self.hydrate_esi_entities_for_row(row)
+        for ent in row.esi_entities:
+            if ent.get("entity_type") == "character" and ent.get("entity_id"):
+                return ent
+        return None
+
+    def open_pilot_info_for_row(self, row: Row | None):
+        ent = self.first_character_for_row(row)
+        if not ent:
+            self.messagebox.showinfo("Pilot Info", "No ESI-confirmed pilot was found for this row yet.")
+            return
+        self.open_pilot_info(ent)
+
+    def open_pilot_info(self, ent: dict):
+        pilot_id = ent.get("entity_id")
+        if not pilot_id:
+            return
+        profile = self.intel_history_call("get_pilot_profile", pilot_id=int(pilot_id), name=ent.get("name") or ent.get("query"))
+        if not profile:
+            return
+        if not profile.get("found"):
+            profile = {
+                "found": True,
+                "pilot": {
+                    "pilot_id": pilot_id,
+                    "name": ent.get("name") or ent.get("query") or "Unknown Pilot",
+                    "corp_name": ent.get("corporation_name") or "",
+                    "alliance_name": ent.get("alliance_name") or "",
+                    "first_seen": "",
+                    "last_seen": "",
+                },
+                "report_count": 0,
+                "recent_sightings": [],
+                "top_ships": [],
+                "top_systems": [],
+                "flags": [],
+            }
+        self.show_pilot_info_card(profile)
+
+    def show_pilot_info_card(self, profile: dict):
+        tk = self.tk
+        pilot = profile.get("pilot") or {}
+        pilot_id = int(pilot.get("pilot_id") or 0)
+        name = pilot.get("name") or "Unknown Pilot"
+        win = tk.Toplevel(self.root)
+        win.title(f"Pilot Info - {name}")
+        win.geometry("430x680")
+        win.minsize(360, 420)
+        win.configure(bg="#0b0f14")
+        header = tk.Frame(win, bg="#111821", padx=10, pady=8)
+        header.pack(fill="x")
+        title = tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(12, int(self.font_size.get()) + 2), "bold"))
+        title.pack(anchor="w")
+        sub = tk.Label(header, text=f"{pilot.get('corp_name') or 'Unknown corp'} / {pilot.get('alliance_name') or 'No alliance'}\nCharacter ID: {pilot_id}", bg="#111821", fg="#8b98a8", justify="left")
+        sub.pack(anchor="w")
+        nav = tk.Label(header, text="Summary", bg="#111821", fg="#5ad7ff")
+        nav.pack(anchor="w", pady=(4, 0))
+        body = tk.Frame(win, bg="#0b0f14")
+        body.pack(fill="both", expand=True)
+        actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
+        actions.pack(fill="x")
+
+        def clear_body(view="Summary"):
+            nav.configure(text=view)
+            for child in body.winfo_children():
+                child.destroy()
+
+        def card(parent, title_text):
+            f = tk.Frame(parent, bg="#121a24", padx=8, pady=7)
+            f.pack(fill="x", padx=8, pady=5)
+            tk.Label(f, text=title_text, bg="#121a24", fg="#d7dde5", font=(self.font_family.get(), int(self.font_size.get()), "bold")).pack(anchor="w")
+            return f
+
+        def label(parent, text, color="#d7dde5"):
+            tk.Label(parent, text=str(text), bg=parent.cget("bg"), fg=color, justify="left", wraplength=380).pack(anchor="w")
+
+        def button(parent, text, command):
+            tk.Button(parent, text=text, command=command, bg="#1c2835", fg="#d7dde5", activebackground="#263544", activeforeground="#ffffff", relief="flat").pack(side="left", padx=3, pady=2)
+
+        def active_flags():
+            return [f for f in profile.get("flags", []) if int(f.get("active", 0) or 0)]
+
+        def refresh_profile():
+            nonlocal profile, pilot
+            fresh = self.intel_history_call("get_pilot_profile", pilot_id=pilot_id)
+            if fresh and fresh.get("found"):
+                profile = fresh
+                pilot = profile.get("pilot") or pilot
+            render_summary()
+
+        def render_summary():
+            clear_body("Summary")
+            recent = profile.get("recent_sightings", [])
+            last = recent[0] if recent else {}
+            c = card(body, "Summary")
+            label(c, f"Reports: {profile.get('report_count', 0)}")
+            label(c, f"First seen: {pilot.get('first_seen') or 'unknown'}")
+            label(c, f"Last seen: {pilot.get('last_seen') or 'unknown'}")
+            label(c, f"Last sighting: {last.get('timestamp','none')} — {last.get('system_name') or '-'} — {last.get('ship_name') or '-'}")
+            c = card(body, "Flags")
+            flags = active_flags()
+            flag_text = ", ".join(((f.get("icon") or "") + " " + (f.get("label") or f.get("flag") or "")).strip() for f in flags) if flags else "No active flags."
+            label(c, flag_text)
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Add/Edit Flags", render_flags)
+            c = card(body, "Recent Activity")
+            for r0 in recent[:5]:
+                label(c, f"{r0.get('timestamp')}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}")
+            if not recent:
+                label(c, "No local sightings yet.", "#8b98a8")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_sightings)
+            c = card(body, "Top Ships")
+            label(c, "; ".join(f"{x.get('name')} {x.get('reports') or x.get('sightings')}" for x in profile.get("top_ships", [])[:5]) or "No ship history yet.")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_ships)
+            c = card(body, "Top Systems")
+            label(c, "; ".join(f"{x.get('name')} {x.get('reports') or x.get('sightings')}" for x in profile.get("top_systems", [])[:5]) or "No system history yet.")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_systems)
+
+        def render_sightings():
+            clear_body("Recent Sightings")
+            c = card(body, "Recent Sightings")
+            for r0 in profile.get("recent_sightings", [])[:25]:
+                label(c, f"{r0.get('timestamp')}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}  [{r0.get('source','local')}]")
+            if not profile.get("recent_sightings"):
+                label(c, "No local sightings yet.", "#8b98a8")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
+
+        def render_ships():
+            clear_body("Top Ships")
+            c = card(body, "Top Ships")
+            for x in profile.get("top_ships", [])[:25]:
+                label(c, f"{x.get('name')} — reports {x.get('reports') or 0}, sightings {x.get('sightings') or 0}, first {x.get('first_seen') or '-'}, last {x.get('last_seen') or '-'}")
+            if not profile.get("top_ships"):
+                label(c, "No ship history yet.", "#8b98a8")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
+
+        def render_systems():
+            clear_body("Top Systems")
+            c = card(body, "Top Systems")
+            for x in profile.get("top_systems", [])[:25]:
+                label(c, f"{x.get('name')} — reports {x.get('reports') or 0}, sightings {x.get('sightings') or 0}, first {x.get('first_seen') or '-'}, last {x.get('last_seen') or '-'}")
+            if not profile.get("top_systems"):
+                label(c, "No system history yet.", "#8b98a8")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
+
+        def render_flags():
+            clear_body("Flags")
+            c = card(body, "Edit Manual Flags")
+            choices = [("Watchlist", "⭐"), ("FC", "👑"), ("Scout", "👁"), ("Hot Dropper", "🔥"), ("High Threat", "⚠️"), ("Extreme Threat", "☠️"), ("Friendly", ""), ("Do Not Track", "")]
+            current = {f.get("label") or f.get("flag") for f in active_flags() if f.get("source") == "manual"}
+            vars = []
+            for label_text, icon in choices:
+                var = tk.BooleanVar(value=label_text in current)
+                tk.Checkbutton(c, text=f"{icon} {label_text}".strip(), variable=var, bg=c.cget("bg"), fg="#d7dde5", selectcolor="#0b0f14", activebackground=c.cget("bg"), activeforeground="#ffffff").pack(anchor="w")
+                vars.append((label_text, icon, var))
+            note_label = tk.Label(c, text="Optional note/reason", bg=c.cget("bg"), fg="#8b98a8"); note_label.pack(anchor="w", pady=(6,0))
+            notes = tk.Entry(c, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); notes.pack(fill="x", pady=(2,2))
+            def save_flags():
+                selected = [{"flag": label_text, "label": label_text, "icon": icon, "reason": notes.get().strip()} for label_text, icon, var in vars if var.get()]
+                result = self.intel_history_call("set_manual_flags", pilot_id, selected)
+                if result and result.get("ok"):
+                    self.set_status(f"Pilot flags saved: {name}")
+                    refresh_profile()
+                else:
+                    self.messagebox.showwarning("Pilot Flags", f"Could not save flags: {result}")
+            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "Save", save_flags); button(r, "< Back", render_summary)
+
+        def copy_summary():
+            text = self.intel_history_call("copyable_pilot_summary", pilot_id)
+            if text:
+                self.copy_to_clipboard(text)
+                self.set_status(f"Copied pilot summary: {name}")
+
+        def open_zkill():
+            webbrowser.open(f"https://zkillboard.com/character/{pilot_id}/")
+
+        button(actions, "Copy Summary", copy_summary)
+        button(actions, "Flags", render_flags)
+        button(actions, "Open zKill", open_zkill)
+        button(actions, "Close", win.destroy)
+        render_summary()
+
     def show_feed_context_menu(self, event):
         row_tag, info = self.row_at_event(event)
         url = self.link_at_event(event)
@@ -3808,6 +4003,8 @@ class SignalBridgeGui:
             menu.add_command(label="Add Selected Text as ESI Character", command=self.add_selected_esi_character, state="disabled")
             menu.add_command(label="Add Selected Text to Exclusion List", command=self.ignore_selected_esi_text, state="disabled")
         if row:
+            menu.add_command(label="Open Pilot Info", command=lambda r=row: self.open_pilot_info_for_row(r))
+            menu.add_separator()
             menu.add_command(label="Resolve Sender with ESI", command=lambda r=row: self.refresh_esi_entity(r.sender))
             menu.add_command(label="Refresh Sender ESI Data", command=lambda r=row: self.refresh_esi_entity(r.sender))
             menu.add_command(label="Show ESI Candidates for Message", command=lambda r=row: self.show_esi_candidates_for_row(r))

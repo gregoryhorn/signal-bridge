@@ -167,6 +167,110 @@ class IntelHistoryModule:
         total = sum(int(r[1]) for r in rows) or 1
         return json.dumps([{"name": r[0], "count": int(r[1]), "percent": round(int(r[1]) * 100 / total)} for r in rows], ensure_ascii=False)
 
+    def get_pilot_profile(self, pilot_id: int | None = None, name: str | None = None) -> dict:
+        """Return a compact profile for the Pilot Info card."""
+        if not self.db_path.exists():
+            return {"found": False, "error": "database not initialized"}
+        try:
+            with sqlite3.connect(self.db_path) as con:
+                con.row_factory = sqlite3.Row
+                if pilot_id:
+                    pilot = con.execute("select * from pilots where pilot_id=?", (int(pilot_id),)).fetchone()
+                else:
+                    pilot = con.execute("select * from pilots where lower(name)=lower(?) order by last_seen desc limit 1", (name or "",)).fetchone()
+                if not pilot:
+                    return {"found": False, "pilot_id": pilot_id, "name": name or ""}
+                pid = int(pilot["pilot_id"])
+                stat = con.execute("select * from pilot_stats where pilot_id=?", (pid,)).fetchone()
+                recent = [dict(r) for r in con.execute("""
+                    select timestamp, system_name, ship_name, duplicate_count, source, channel
+                    from sightings where pilot_id=? order by timestamp desc limit 25
+                """, (pid,)).fetchall()]
+                top_ships = [dict(r) for r in con.execute("""
+                    select ship_name as name, count(*) as sightings, sum(duplicate_count) as reports,
+                           min(timestamp) as first_seen, max(timestamp) as last_seen
+                    from sightings where pilot_id=? and ship_name<>''
+                    group by ship_name order by reports desc, sightings desc, ship_name limit 25
+                """, (pid,)).fetchall()]
+                top_systems = [dict(r) for r in con.execute("""
+                    select system_name as name, count(*) as sightings, sum(duplicate_count) as reports,
+                           min(timestamp) as first_seen, max(timestamp) as last_seen
+                    from sightings where pilot_id=? and system_name<>''
+                    group by system_name order by reports desc, sightings desc, system_name limit 25
+                """, (pid,)).fetchall()]
+                flags = [dict(r) for r in con.execute("""
+                    select id, flag, label, icon, source, confidence, reason, created_at, expires_at, active
+                    from pilot_flags where pilot_id=? order by active desc, created_at desc, flag
+                """, (pid,)).fetchall()]
+                report_count = int(stat["report_count"] if stat else 0)
+                if not report_count:
+                    row = con.execute("select count(*) from sightings where pilot_id=?", (pid,)).fetchone()
+                    report_count = int(row[0] if row else 0)
+                return {
+                    "found": True,
+                    "pilot": dict(pilot),
+                    "stats": dict(stat) if stat else {},
+                    "report_count": report_count,
+                    "recent_sightings": recent,
+                    "top_ships": top_ships,
+                    "top_systems": top_systems,
+                    "flags": flags,
+                }
+        except Exception as exc:
+            self.last_error = f"profile {type(exc).__name__}: {exc}"
+            return {"found": False, "error": self.last_error, "pilot_id": pilot_id, "name": name or ""}
+
+    def set_manual_flags(self, pilot_id: int, flags: list[dict]) -> dict:
+        """Replace active manual flags for a pilot. Keeps inactive rows as history."""
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            with sqlite3.connect(self.db_path) as con:
+                con.execute("update pilot_flags set active=0 where pilot_id=? and source='manual' and active=1", (int(pilot_id),))
+                for item in flags:
+                    flag = str(item.get("flag") or item.get("label") or "").strip()
+                    if not flag:
+                        continue
+                    con.execute("""
+                        insert into pilot_flags(pilot_id, flag, label, icon, source, confidence, reason, created_at, expires_at, active)
+                        values(?,?,?,?,?,?,?,?,?,1)
+                    """, (int(pilot_id), flag, str(item.get("label") or flag), str(item.get("icon") or ""), "manual", "high", str(item.get("reason") or ""), now, None))
+            return {"ok": True}
+        except Exception as exc:
+            self.last_error = f"flags {type(exc).__name__}: {exc}"
+            return {"ok": False, "error": self.last_error}
+
+    def copyable_pilot_summary(self, pilot_id: int) -> str:
+        profile = self.get_pilot_profile(pilot_id=pilot_id)
+        if not profile.get("found"):
+            return "No Intel History profile found."
+        pilot = profile.get("pilot") or {}
+        flags = [f.get("label") or f.get("flag") for f in profile.get("flags", []) if f.get("active")]
+        recent = profile.get("recent_sightings", [])[:10]
+        top_ships = profile.get("top_ships", [])[:5]
+        top_systems = profile.get("top_systems", [])[:5]
+        last = recent[0] if recent else {}
+        lines = [
+            f"Pilot: {pilot.get('name','')}",
+            f"Corp: {pilot.get('corp_name') or 'unknown'}",
+            f"Alliance: {pilot.get('alliance_name') or 'none'}",
+            f"Character ID: {pilot.get('pilot_id')}",
+            f"Flags: {', '.join(flags) if flags else 'none'}",
+            f"Reports: {profile.get('report_count', 0)}",
+            f"First seen: {pilot.get('first_seen') or 'unknown'}",
+            f"Last seen: {pilot.get('last_seen') or 'unknown'}",
+            f"Last sighting: {last.get('timestamp','unknown')} — {last.get('system_name') or '-'} — {last.get('ship_name') or '-'}",
+            "",
+            "Top ships:",
+        ]
+        lines.extend([f"- {r.get('name')}: {r.get('reports') or r.get('sightings')}" for r in top_ships] or ["- none"])
+        lines.append("")
+        lines.append("Top systems:")
+        lines.extend([f"- {r.get('name')}: {r.get('reports') or r.get('sightings')}" for r in top_systems] or ["- none"])
+        lines.append("")
+        lines.append("Recent sightings:")
+        lines.extend([f"- {r.get('timestamp')} {r.get('system_name') or '-'} {r.get('ship_name') or '-'} x{r.get('duplicate_count', 1)}" for r in recent] or ["- none"])
+        return "\n".join(lines)
+
     def _db_stats(self) -> dict:
         if not self.db_path.exists():
             return {"pilots": 0, "sightings": 0, "flags": 0}

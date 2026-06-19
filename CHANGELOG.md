@@ -1,6 +1,7 @@
 
 
 ### Intel History add-on MVP foundation
+- Added Intel History Pilot Info Card v0.1 planning implementation: feed right-click `Open Pilot Info`, compact pilot summary, recent sightings/top ships/top systems drill-downs, direct manual flag editing, copyable pilot summaries, and automatic add-on worker startup.
 - Added the first installable `Intel History / Pilot Intelligence` add-on skeleton under `addons/intel-history`.
 - Added guarded same-EXE module loading for the official Intel History add-on.
 - Added live row event emission to the add-on without blocking feed rendering.

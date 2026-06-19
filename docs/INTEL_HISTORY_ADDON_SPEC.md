@@ -343,6 +343,8 @@ Default dedupe window:
 
 ## 12. Pilot Intelligence Card
 
+Implementation status: first v0.1 source slice completed. The current source supports right-click `Open Pilot Info`, compact summary view, same-window drill-downs for recent sightings/top ships/top systems, manual flag editing, and copyable summaries. zKill, richer threat scoring, auto flags, imports, and the LLM query entry remain planned.
+
 Right-click an ESI-resolved pilot:
 
 ```text
