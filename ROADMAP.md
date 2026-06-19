@@ -491,3 +491,8 @@ Suggested implementation:
 ### Feed text normalization polish
 - Normalized common shorthand `clr` to `clear` in visible feed/copy-visible text.
 - Removed noisy display punctuation `(`, `)`, and `*` from rendered feed text while keeping raw stored chat rows unchanged.
+
+### Right-click Pilot Info targeting fix
+- Fixed context-menu targeting so Pilot Info and pilot flag actions use the exact clicked pilot text span, not the sender or first ESI entity on the row.
+- Right-clicking systems, ships/items, or generic row text no longer falls back to Pilot Info for the sender.
+- Added stricter clicked-span detection for multi-word pilot names such as `Bigus Dingus DOI`.
