@@ -444,6 +444,19 @@ def clean(line: str) -> str:
     return s
 
 
+def normalize_feed_text(text: str) -> str:
+    """Display-only cleanup for common intel shorthand/noisy punctuation.
+
+    Raw chat text remains stored unchanged; this only affects visible feed and
+    copy-visible text to reduce common shorthand/noise.
+    """
+    s = str(text or "")
+    s = re.sub(r"\bclr\b", "clear", s, flags=re.I)
+    s = re.sub(r"[()*]", "", s)
+    s = re.sub(r"[ \t]{2,}", " ", s).strip()
+    return s
+
+
 def is_header(line: str) -> bool:
     s = clean(line)
     return (not s) or (set(s) <= {"-"} and len(s) > 8) or any(s.startswith(k) for k in HEADER_KEYS)
@@ -3956,8 +3969,9 @@ class SignalBridgeGui:
         self.root.after(100, self.root.destroy)
 
     def row_display_parts(self, row: Row) -> dict:
+        original_text = normalize_feed_text(row.text)
         display_text = self.localized_display_text(row)
-        free_text = self.display_free_translation(row, display_text)
+        free_text = normalize_feed_text(self.display_free_translation(row, display_text))
         translated = free_text or display_text
         show_channel = bool(self.show_channel_names.get()) or (self.visible_channel == ALL_CHANNELS_TAB and bool(self.show_channel_names_in_all.get()))
         prefix = ""
@@ -3966,11 +3980,12 @@ class SignalBridgeGui:
         if show_channel:
             prefix += f"[{row.channel}] "
         sender_prefix = f"{row.sender} > "
-        visible_text = translated if bool(self.translated_only.get()) else row.text
+        visible_text = translated if bool(self.translated_only.get()) else original_text
         visible_line = prefix + sender_prefix + visible_text
-        original_line = prefix + sender_prefix + row.text
+        original_line = prefix + sender_prefix + original_text
         translated_line = prefix + sender_prefix + translated
         return {
+            "original_text": original_text,
             "display_text": display_text,
             "free_text": free_text,
             "translated": translated,
@@ -4475,7 +4490,7 @@ class SignalBridgeGui:
             canonical = ent.get("canonical", "")
             if original and canonical:
                 display = display.replace(original, canonical)
-        return display
+        return normalize_feed_text(display)
 
     def redraw_feed(self):
         self.text.configure(state="normal")
@@ -4632,15 +4647,15 @@ class SignalBridgeGui:
             self.insert_tagged_text(body + "\n", row.systems, row.assets)
             self.tag_urls(body_start, self.text.index("end-1c"), body)
         else:
-            body = self.apply_pilot_flag_badges(row, row.text)
-            self.insert_tagged_text(body + "\n", row.systems, row.assets + [x.get("original", "") for x in row.localized])
+            body = self.apply_pilot_flag_badges(row, parts["original_text"])
+            self.insert_tagged_text(body + "\n", row.systems, row.assets + [normalize_feed_text(x.get("original", "")) for x in row.localized])
             self.tag_urls(body_start, self.text.index("end-1c"), body)
-            if parts["free_text"] and parts["free_text"] != row.text:
+            if parts["free_text"] and parts["free_text"] != parts["original_text"]:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")
                 self.insert_tagged_text(parts["free_text"] + "\n", row.systems, row.assets)
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["free_text"])
-            elif parts["display_text"] != row.text:
+            elif parts["display_text"] != parts["original_text"]:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")
                 self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets)
