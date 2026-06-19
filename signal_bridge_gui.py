@@ -2793,14 +2793,25 @@ class SignalBridgeGui:
     def tag_term_whole_word(self, term: str, tag: str, start: str, end: str):
         if not term:
             return
-        pattern = word_boundary(term)
+        # Tk's regexp engine does not support Python lookbehind/lookahead used by
+        # word_boundary(). Search literal text and verify boundaries in Python so
+        # ESS highlighting cannot crash the feed renderer.
         pos = start
+        needle_len = len(term)
         while True:
-            pos = self.text.search(pattern, pos, end, regexp=True, nocase=True)
+            pos = self.text.search(term, pos, end, nocase=True)
             if not pos:
                 break
-            last = f"{pos}+{len(term)}c"
-            self.text.tag_add(tag, pos, last)
+            last = f"{pos}+{needle_len}c"
+            try:
+                before = self.text.get(f"{pos}-1c", pos) if self.text.compare(pos, ">", "1.0") else ""
+                after = self.text.get(last, f"{last}+1c") if self.text.compare(last, "<", end) else ""
+                before_word = bool(before) and (before.isalnum() or before == "_")
+                after_word = bool(after) and (after.isalnum() or after == "_")
+                if not before_word and not after_word:
+                    self.text.tag_add(tag, pos, last)
+            except Exception as exc:
+                write_log(f"Tag whole-word failed for {term!r}: {type(exc).__name__}")
             pos = last
 
     def tag_term(self, term: str, tag: str, start: str, end: str):
@@ -3038,9 +3049,16 @@ class SignalBridgeGui:
                     self.status_label.configure(text="ESI OAuth failed")
                     self.messagebox.showwarning("ESI OAuth", str(item[1])[:500])
                 elif isinstance(item, Row):
-                    self.append_row(item)
+                    try:
+                        self.append_row(item)
+                    except Exception as exc:
+                        write_log(f"GUI render/append failed for sender={getattr(item, 'sender', '')!r}: {type(exc).__name__}", exc)
+                        self.status_label.configure(text="Render error; see logs")
         except queue.Empty:
             pass
+        except Exception as exc:
+            write_log("GUI queue drain failed", exc)
+            self.status_label.configure(text="Queue error; see logs")
         self.root.after(150, self.drain_queue)
 
     def handle_esi_resolved(self, query: str, data: dict):

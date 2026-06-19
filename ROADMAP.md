@@ -295,3 +295,4 @@ Before calling the app v1.0, the goal is to have:
 - ESI action diagnostics improved: menu checks now show dialogs/logs instead of silently queueing work.
 - Live monitor reliability hotfix completed: monitor parsing no longer performs blocking online translation before emitting rows.
 - Live monitor DB-stall hotfix completed: runtime monitor uses compact catalog-only enrichment and avoids large SQLite translation DB lookups.
+- Feed-render stability hotfix completed: ESS highlighting is Tcl-safe and render errors are logged without stopping queue draining.

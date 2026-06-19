@@ -277,3 +277,5 @@ ESI diagnostics: use Tools > Manual ESI Character Check... or right-click select
 Live monitoring emits new chat rows before any optional online/free-text translation so chat reception is not blocked by translation services.
 
 Live monitoring uses compact catalog-only enrichment and avoids the optional large `translations.db` path so new chat rows are not delayed by DB lookups.
+
+Feed rendering now guards highlight errors so one malformed/highlighted row cannot stop later live chat rows from appearing.

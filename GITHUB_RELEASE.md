@@ -94,3 +94,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - ESI menu actions now show visible result dialogs and logs for manual, selected-text, sender, and status checks.
 - Fixed live monitoring stalls by preventing online/free-text translation from blocking chat-log parsing; new rows now emit immediately with monitor diagnostics.
 - Fixed live monitor stalls from large optional `translations.db` lookups; live monitoring now uses the compact catalog path so new chat rows are not delayed by DB scans.
+- Fixed a GUI render crash in ESS highlighting that could make live chat appear stuck after the first row while the monitor kept reading logs.
