@@ -334,3 +334,19 @@ The Settings Center uses a sidebar with pages for:
 - About / Support
 
 Menus are now cleaner and mostly act as shortcuts into the Settings Center or common runtime actions.
+## Planned: LAN Web Viewer / Phone View
+
+A must-have planned feature is an optional LAN web viewer. When enabled, Signal Bridge will show a local network URL and QR code so the live translated feed can be viewed from a phone, tablet, laptop, or another PC on the same LAN.
+
+Planned behavior:
+
+- disabled by default,
+- explicit user enable/disable,
+- local LAN only,
+- read-only mobile-friendly webpage,
+- live feed streaming,
+- QR code for quick phone access,
+- tokenized URL or similar privacy protection,
+- no cache/settings/log/ESI-token exposure.
+
+This is tracked in `ROADMAP.md` as a must-have future feature.

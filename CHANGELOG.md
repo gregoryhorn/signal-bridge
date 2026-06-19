@@ -121,3 +121,6 @@ Initial portable Windows preview release.
 - Added a dedicated **Settings Center** with sidebar pages for General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support.
 - Cleaned up top-level menus so configuration is centralized instead of scattered across View/Tools/Settings.
 - Added a copyable diagnostics summary from the Settings Center and Tools menu.
+### Planning
+
+- Documented the planned must-have LAN Web Viewer / Phone View feature: optional local webpage streaming, LAN URL, QR code, read-only mobile-friendly viewer, and privacy/security requirements.

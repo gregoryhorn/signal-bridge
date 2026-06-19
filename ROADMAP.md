@@ -334,3 +334,90 @@ Future settings polish:
 - Inline editing for channel lists and exclusions directly inside the Settings Center.
 - Import/export profile bundles for appearance, exclusions, and starter data.
 - More detailed live monitor diagnostics inside the Diagnostics page.
+## Must-Have Planned Feature: LAN Web Viewer / Phone View
+
+Signal Bridge should support an optional local LAN web viewer so the app output can be viewed from another device on the same network, such as a phone, tablet, laptop, or second PC.
+
+### User Goal
+
+When enabled, Signal Bridge should serve a lightweight read-only webpage that mirrors the live feed. The app should display:
+
+- a local network URL, for example `http://192.168.x.x:port/`,
+- a QR code that can be scanned from a phone,
+- basic connection/status information,
+- a clear Stop Sharing button.
+
+This lets users keep the main app on the EVE machine while reading translated intel from another screen or phone on the same LAN.
+
+### Required Behavior
+
+- Disabled by default.
+- User must explicitly enable LAN sharing.
+- Bind to LAN only when enabled; no public internet service by default.
+- Show the exact URL and QR code in the app.
+- Stream live feed rows to connected browsers.
+- Preserve the same selected view/filter when practical, or provide simple browser-side channel filtering.
+- Keep the webpage lightweight and mobile-friendly.
+- Work on phones and other PCs on the same LAN.
+- Continue working if internet is down, because it is local network only.
+- Stop the web server cleanly when disabled or when the app exits.
+
+### Security / Privacy Requirements
+
+- Clearly warn that anyone on the same LAN with the URL can view the feed unless a protection option is enabled.
+- Prefer a random session token in the URL by default, for example `http://192.168.x.x:port/?token=...`.
+- Optional PIN/passphrase protection later.
+- Do not expose cache files, settings, logs, ESI tokens, or local filesystem paths through the webpage.
+- Read-only viewer only for the first version; no remote control from the phone.
+- Localhost/LAN only; no cloud relay.
+
+### Suggested UI Location
+
+Add this under the Settings Center:
+
+```text
+Settings > Settings... > LAN Web Viewer
+```
+
+Controls:
+
+- Enable LAN Web Viewer
+- Port setting, default automatic or `8765`
+- Show URL
+- Show QR code
+- Copy URL
+- Regenerate token
+- Stop Sharing
+- Connected clients count
+
+Add a quick menu shortcut later if useful:
+
+```text
+Tools > LAN Web Viewer...
+```
+
+### Suggested Implementation
+
+- Use Python standard library or a very small dependency-free HTTP/WebSocket/SSE server.
+- Prefer Server-Sent Events for simple live feed streaming if adequate.
+- Serve a static mobile-friendly HTML page from memory.
+- Keep only a bounded recent-feed buffer, for example last 200-500 rendered rows.
+- Send new feed rows to connected clients as JSON.
+- Reuse existing sanitized/rendered row data; do not expose raw private internals.
+- Generate QR code locally if a small bundled QR implementation is acceptable; otherwise use a simple dependency-light QR module during packaging.
+
+### First Release Scope
+
+Version target: future `v0.4` or `v0.3.x` if small enough.
+
+Initial version should include:
+
+- start/stop LAN viewer,
+- URL display,
+- QR code display,
+- mobile-friendly live feed page,
+- read-only streaming,
+- tokenized URL,
+- basic diagnostics/logging.
+
+Do not include remote control, public internet relay, account login, or ESI/token management through the web page in the first version.

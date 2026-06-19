@@ -123,3 +123,6 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Added a dedicated **Settings > Settings...** window with sidebar pages for General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support.
 - Cleaned up the menu bar so advanced configuration no longer pollutes every menu.
 - Added a copyable diagnostics summary for easier bug reports.
+### Planned Must-Have: LAN Web Viewer / Phone View
+
+A future release should add an optional LAN web viewer that streams Signal Bridge output to a local read-only webpage. When enabled, the app should show a LAN URL and QR code so users can view translated chat from a phone or another PC on the same network. This is documented in the roadmap and should remain local-first, disabled by default, and read-only for the first version.
