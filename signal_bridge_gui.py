@@ -2980,7 +2980,7 @@ class SignalBridgeGui:
             label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}"); label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", "#8b98a8")
             r = row(c); action(r, "Open Appearance Editor...", self.show_appearance_dialog); action(r, "Increase Font", lambda: self.adjust_font_size(1)); action(r, "Decrease Font", lambda: self.adjust_font_size(-1))
         def render_translation():
-            c = card(body, "Translation", "Choose online/offline translation behavior and see clear Argos status.")
+            c = card(body, "Translation", "Translation display is hardened so redraws never perform blocking network/offline MT work.")
             check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw); check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
             rr = row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_schedule_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_schedule_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left")
             c_engine = card(body, "Translation Engine", "Argos is offline/local when installed; Google is online and remains lightweight by default.")
@@ -3385,9 +3385,10 @@ class SignalBridgeGui:
         if pref == "argos" or self.translation_fallback_mode.get() in ("argos-google", "google-argos", "offline-only"):
             result = "Argos is temporarily disabled because the current runtime/probe path can hang the app. Use Auto/Google for now."
         else:
-            result = translate_free_text(sample, [], [], [], [], [], self.translation_direction.get(), [], pref, self.translation_fallback_mode.get())
+            # Do not run network MT from this dialog. Keep the UI nonblocking.
+            result = TRANSLATION_CACHE.get("google|auto|en|" + sample) or ""
         if not result:
-            result = "No machine/free-text translation returned. Curated EVE cache still handles known ship aliases in live rows."
+            result = "No blocking machine translation test was run. Curated EVE cache still handles known ship aliases in live rows."
         self.messagebox.showinfo("Translation Test", f"Preferred engine: {self.translation_preferred_engine.get()}\nFallback: {self.translation_fallback_mode.get()}\n\nInput:\n{sample}\n\nOutput:\n{result}\n\nArgos status is shown on the Translation settings page. Use Refresh Argos Status to check it without blocking the app.")
 
     def install_argos_models(self):
@@ -4602,16 +4603,12 @@ class SignalBridgeGui:
         return unique([n for n in names if n])
 
     def display_free_translation(self, row: Row, display_text: str) -> str:
+        # Rendering/redraw must never perform network, DB-heavy, or MT work.
+        # Live monitor already parses with allow_free_translation=False, so most
+        # rows have no free_translation. Show only precomputed/cached row text.
         if not bool(self.translate_chinese_text.get()):
             return ""
-        direction = self.translation_direction.get()
-        if direction == "zh-en":
-            if row.free_translation:
-                return row.free_translation
-            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "zh-en", self.character_names_for_row(row), self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
-        if direction == "en-zh":
-            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "en-zh", self.character_names_for_row(row), self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
-        return ""
+        return row.free_translation or ""
 
     def _render_row(self, row: Row):
         if self.esi_is_enabled():

@@ -173,3 +173,9 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Temporarily disabled direct in-process Argos status probing, install/repair, and translation calls after the current Argos runtime path was found to hang/crash the Tk app.
 - Translation defaults now stay on Auto/Google (`online-only`) until Argos is reintroduced through a safe optional add-on/offline package flow with isolated install, model checks, and translation execution.
 - Settings still explains the disabled Argos state instead of silently hanging.
+
+### UI hang hardening and local data refresh
+- Hardened feed redraw so rendering never performs blocking machine translation, network calls, or offline MT work on the Tk UI thread.
+- `Translated only` and redraw now show only precomputed row translations instead of triggering live translation work during display.
+- Synced current local General Exclusion List and local translation cache into bundled starter data files with refreshed SHA256 checksums.
+- This keeps the app responsive and improves first-run defaults without overwriting existing user cache/settings.

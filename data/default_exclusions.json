@@ -1,108 +1,186 @@
-{
-  "version": 1,
-  "description": "Bundled default general exclusions exported from maintainer/test user list. Seeded into local cache on first run without overwriting user edits.",
-  "exclusions": [
-    {
-      "text": "and",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "armor",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "combat scanning probe",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "dscan",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "fleet",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "gate",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "ignore me",
-      "action": "ignore",
-      "note": "bundled default exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "isk",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "jump",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "link",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "moon",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "scanning probe",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "ship",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "shuttle",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "star",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "the",
-      "action": "ignore",
-      "note": "user requested individual word exclusion",
-      "source": "user-export-2026-06-19"
-    },
-    {
-      "text": "trying",
-      "action": "ignore",
-      "note": "user exclusion list",
-      "source": "user-export-2026-06-19"
-    }
-  ]
-}
+[
+  {
+    "text": "[multiple",
+    "note": "user ignored"
+  },
+  {
+    "text": "almost",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "and",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "armor",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "caldari",
+    "note": "user ignored"
+  },
+  {
+    "text": "changed",
+    "note": "user ignored"
+  },
+  {
+    "text": "channel",
+    "note": "user ignored"
+  },
+  {
+    "text": "channel changed",
+    "note": "user ignored"
+  },
+  {
+    "text": "combat scanning probe",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "description",
+    "note": "bundled default exclusion"
+  },
+  {
+    "text": "disbanding",
+    "note": "user ignored"
+  },
+  {
+    "text": "dscan",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "e of pochven nv",
+    "note": "user ignored"
+  },
+  {
+    "text": "exclusions",
+    "note": "bundled default exclusion"
+  },
+  {
+    "text": "exile",
+    "note": "user ignored"
+  },
+  {
+    "text": "fleet",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "gate",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "ignore me",
+    "note": "local exported exclusion"
+  },
+  {
+    "text": "inked3",
+    "note": "user ignored"
+  },
+  {
+    "text": "intel",
+    "note": "user ignored"
+  },
+  {
+    "text": "isk",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "item exchange",
+    "note": "user ignored"
+  },
+  {
+    "text": "jump",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "lemme see what",
+    "note": "user ignored"
+  },
+  {
+    "text": "link",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "moon",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "multiple",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "multiple items",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "one more",
+    "note": "user ignored"
+  },
+  {
+    "text": "patrol",
+    "note": "user ignored"
+  },
+  {
+    "text": "registered",
+    "note": "user ignored"
+  },
+  {
+    "text": "scanning probe",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "seconds",
+    "note": "user ignored"
+  },
+  {
+    "text": "ship",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "shuttle",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "someone",
+    "note": "user ignored"
+  },
+  {
+    "text": "standing",
+    "note": "user ignored"
+  },
+  {
+    "text": "star",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "status",
+    "note": "user ignored"
+  },
+  {
+    "text": "still",
+    "note": "user ignored"
+  },
+  {
+    "text": "takel",
+    "note": "user ignored"
+  },
+  {
+    "text": "the",
+    "note": "user requested individual word exclusion"
+  },
+  {
+    "text": "ticks",
+    "note": "user ignored"
+  },
+  {
+    "text": "trying",
+    "note": "user exclusion list"
+  },
+  {
+    "text": "ty fc",
+    "note": "user ignored"
+  },
+  {
+    "text": "version",
+    "note": "bundled default exclusion"
+  }
+]
