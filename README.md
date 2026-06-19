@@ -350,3 +350,8 @@ Planned behavior:
 - no cache/settings/log/ESI-token exposure.
 
 This is tracked in `ROADMAP.md` as a must-have future feature.
+### Planned LAN Viewer Appearance
+
+The planned LAN Web Viewer should use the same look as the desktop app where practical. It should reuse the current Appearance settings, including font, feed background, text color, category colors, bold settings, background highlights, sender-neutral styling, and General Exclusion List behavior.
+
+The web viewer should remain mobile-friendly and use fallback fonts when a phone does not have the selected desktop font.

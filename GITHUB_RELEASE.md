@@ -126,3 +126,6 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 ### Planned Must-Have: LAN Web Viewer / Phone View
 
 A future release should add an optional LAN web viewer that streams Signal Bridge output to a local read-only webpage. When enabled, the app should show a LAN URL and QR code so users can view translated chat from a phone or another PC on the same network. This is documented in the roadmap and should remain local-first, disabled by default, and read-only for the first version.
+### Planned LAN Viewer Theme Matching
+
+The planned LAN Web Viewer should mirror the desktop app's appearance settings where practical, including feed colors, fonts, bold/background highlight styles, sender-neutral styling, and exclusion behavior, while remaining mobile-friendly on phones.

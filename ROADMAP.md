@@ -421,3 +421,25 @@ Initial version should include:
 - basic diagnostics/logging.
 
 Do not include remote control, public internet relay, account login, or ESI/token management through the web page in the first version.
+### LAN Web Viewer Theme Matching Requirement
+
+The LAN Web Viewer should visually match the desktop Signal Bridge feed as closely as practical.
+
+Required behavior:
+
+- Reuse the current app appearance settings for the browser view.
+- Match normal feed text color, background color, font family, font size, and opacity-friendly contrast where practical.
+- Match per-category styles for systems, ESI characters, ships, modules/assets, ESS, translation text, timestamps, links, and sender neutrality.
+- Respect user choices for color, bold, and background highlight styles.
+- Respect General Exclusion List behavior so hidden/excluded terms are not highlighted in the browser view either.
+- Keep the browser view mobile-friendly even when using the same theme.
+- Provide a browser fallback theme if a local font is unavailable on the phone.
+- Include a refresh/sync mechanism so changing Appearance settings in the app updates or reloads the web viewer theme.
+
+Suggested implementation:
+
+- Export the active appearance settings as a small theme JSON object for the web page.
+- Convert Signal Bridge text-tag styles into CSS classes, for example `.system`, `.esi-character`, `.ship`, `.asset`, `.ess`, `.translation`, `.timestamp`, `.link`.
+- Send feed rows with semantic spans instead of only plain text so the browser can apply the same colors/backgrounds.
+- Use CSS variables generated from the app theme, such as `--feed-bg`, `--text-fg`, `--system-fg`, and `--ship-bg`.
+- Keep the first version read-only; theme sync should not allow remote settings edits.

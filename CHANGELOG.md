@@ -124,3 +124,6 @@ Initial portable Windows preview release.
 ### Planning
 
 - Documented the planned must-have LAN Web Viewer / Phone View feature: optional local webpage streaming, LAN URL, QR code, read-only mobile-friendly viewer, and privacy/security requirements.
+### Planning
+
+- Added LAN Web Viewer appearance requirements: the future phone/browser stream should mirror the desktop app theme, colors, fonts, bold/background highlight styles, and General Exclusion List behavior where practical.
