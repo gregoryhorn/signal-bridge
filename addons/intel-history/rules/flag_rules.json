@@ -1,9 +1,37 @@
 {
-  "schema": 1,
+  "schema": 2,
   "hot_drop_risk": {
     "enabled": true,
     "duration_minutes": 120,
-    "ships": ["Redeemer", "Widow", "Sin", "Panther", "Arazu", "Rapier", "Falcon", "Pilgrim"],
-    "flag": "Hot Drop Risk"
+    "flag": "Hot Drop Risk",
+    "label": "Hot Drop Risk",
+    "icon": "\ud83d\udd25",
+    "high_confidence_classes": {
+      "force_recon_cruiser": [
+        "Arazu",
+        "Rapier",
+        "Falcon",
+        "Pilgrim"
+      ],
+      "expedition_frigate": [
+        "Prospect",
+        "Endurance"
+      ]
+    },
+    "watch_classes": {
+      "heavy_interdiction_cruiser": [
+        "Onyx",
+        "Broadsword",
+        "Devoter",
+        "Phobos"
+      ],
+      "covert_ops_frigate": [
+        "Anathema",
+        "Buzzard",
+        "Cheetah",
+        "Helios"
+      ]
+    },
+    "notes": "Default inline Hot Drop Risk triggers only for likely cyno ships: Force Recon Cruisers and Expedition Frigates. Black Ops battleships are drop-fleet context, not default hot-drop caller flags."
   }
 }

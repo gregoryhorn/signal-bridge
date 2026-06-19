@@ -23,6 +23,8 @@ class IntelHistoryModule:
         self.module_dir = Path(context["module_dir"])
         self.db_path = self.data_dir / "intel_history.sqlite"
         self.schema_path = self.module_dir / "schema.sql"
+        self.flag_rules_path = self.module_dir / "rules" / "flag_rules.json"
+        self.flag_rules = self._load_flag_rules()
         self.queue: queue.Queue = queue.Queue(maxsize=1000)
         self.stop_event = threading.Event()
         self.worker: threading.Thread | None = None
@@ -33,6 +35,67 @@ class IntelHistoryModule:
         self.duplicates = 0
         self.dropped = 0
         self.started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+    def _load_flag_rules(self) -> dict:
+        default = {
+            "hot_drop_risk": {
+                "enabled": True,
+                "duration_minutes": 120,
+                "flag": "Hot Drop Risk",
+                "label": "Hot Drop Risk",
+                "icon": "🔥",
+                "high_confidence_classes": {
+                    "force_recon_cruiser": ["Arazu", "Rapier", "Falcon", "Pilgrim"],
+                    "expedition_frigate": ["Prospect", "Endurance"],
+                },
+            }
+        }
+        try:
+            if self.flag_rules_path.exists():
+                loaded = json.loads(self.flag_rules_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    return loaded
+        except Exception as exc:
+            self.last_error = f"flag_rules {type(exc).__name__}: {exc}"
+        return default
+
+    def _hot_drop_ship_class(self, ship: str) -> str:
+        ship_key = str(ship or "").strip().casefold()
+        if not ship_key:
+            return ""
+        rule = self.flag_rules.get("hot_drop_risk") or {}
+        classes = rule.get("high_confidence_classes") or {}
+        for class_name, ships in classes.items():
+            for item in ships or []:
+                if ship_key == str(item).strip().casefold():
+                    return str(class_name).replace("_", " ").title()
+        return ""
+
+    def _upsert_auto_flag(self, con: sqlite3.Connection, pilot_id: int, label: str, icon: str, reason: str, now: str, expires_at: str | None):
+        con.execute("""
+            update pilot_flags
+               set active=0
+             where pilot_id=? and source='auto' and label=? and active=1
+        """, (int(pilot_id), label))
+        con.execute("""
+            insert into pilot_flags(pilot_id, flag, label, icon, source, confidence, reason, created_at, expires_at, active)
+            values(?,?,?,?,?,?,?,?,?,1)
+        """, (int(pilot_id), label, label, icon, "auto", "high", reason, now, expires_at))
+
+    def _maybe_hot_drop_auto_flag(self, con: sqlite3.Connection, pilot_id: int, ship: str, system: str, timestamp: str, now: str):
+        rule = self.flag_rules.get("hot_drop_risk") or {}
+        if not rule.get("enabled", True):
+            return
+        ship_class = self._hot_drop_ship_class(ship)
+        if not ship_class:
+            return
+        minutes = int(rule.get("duration_minutes") or 120)
+        expires_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + minutes * 60))
+        label = str(rule.get("label") or rule.get("flag") or "Hot Drop Risk")
+        icon = str(rule.get("icon") or "🔥")
+        reason = f"Reported in {ship}, a {ship_class}, likely cyno-capable, in {system or 'unknown'} at {timestamp}."
+        self._upsert_auto_flag(con, pilot_id, label, icon, reason, now, expires_at)
 
     def start(self):
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -148,6 +211,7 @@ class IntelHistoryModule:
                     self.duplicates += 1
                 else:
                     self.inserted += 1
+            self._maybe_hot_drop_auto_flag(con, pilot_id, ship, system, timestamp, now)
             con.execute("""
                 insert into pilot_stats(pilot_id, report_count, first_seen, last_seen, top_ships_json, top_systems_json, threat_level, threat_reasons_json, updated_at)
                 values(?, 1, ?, ?, ?, ?, 'Low', '[]', ?)
@@ -180,9 +244,9 @@ class IntelHistoryModule:
                 rows = con.execute("""
                     select id, flag, label, icon, source, confidence, reason, created_at, expires_at, active
                     from pilot_flags
-                    where pilot_id=? and active=1
+                    where pilot_id=? and active=1 and (expires_at is null or expires_at='' or expires_at>?)
                     order by source='manual' desc, created_at desc, flag
-                """, (int(pilot_id),)).fetchall()
+                """, (int(pilot_id), time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))).fetchall()
                 return [dict(r) for r in rows]
         except Exception as exc:
             self.last_error = f"active_flags {type(exc).__name__}: {exc}"

@@ -1,5 +1,10 @@
 
 
+- Added Intel History Auto Hot Drop Risk v0.1: likely cyno ships now create temporary auto flags that reuse the live-feed badge path.
+- Corrected hot-drop detection so default inline triggers are Force Recon Cruisers and Expedition Frigates only; Black Ops battleships such as Redeemer/Widow/Sin/Panther are treated as drop-fleet context, not default hot-drop caller flags.
+- Auto Hot Drop Risk reasons now include ship, class, system, timestamp, and expiry context.
+
+
 ### Intel History add-on MVP foundation
 - Added Manual Flags v0.1 feed integration: active Intel History flags now render as compact badges beside ESI-confirmed pilot names in the feed, right-click quick actions can mark Watchlist/High Threat/Do Not Track, and Do Not Track prevents future Intel History recordings for that pilot.
 - Added Intel History Pilot Info Card v0.1 planning implementation: feed right-click `Open Pilot Info`, compact pilot summary, recent sightings/top ships/top systems drill-downs, direct manual flag editing, copyable pilot summaries, and automatic add-on worker startup.

@@ -150,3 +150,10 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Added the first optional Intel History add-on skeleton and runtime loader foundation.
 - The MVP add-on records ESI-confirmed pilot sightings into a local SQLite database, dedupes repeated reports, and exposes health/status counters in Settings > Add-ons.
 - This is an early foundation only; Pilot Intelligence Cards, flags, zKill enrichment, import/export, and LLM query support remain planned next steps.
+
+### Intel History Auto Hot Drop Risk
+
+- Adds temporary `Hot Drop Risk` auto flags for ESI-confirmed pilots reported in likely cyno ships.
+- Default high-confidence triggers: Force Recon Cruisers and Expedition Frigates.
+- Black Ops battleships such as Redeemer, Widow, Sin, and Panther no longer trigger default hot-drop caller flags; they remain useful profile/context data.
+- Feed badges reuse the existing compact flag display, while Pilot Info exposes the underlying reason.

@@ -797,3 +797,14 @@ Not yet implemented:
 - zKill enrichment,
 - import/export packs,
 - Intel Query Service / LLM entry point.
+
+## Implemented: Auto Hot Drop Risk v0.1
+
+The first auto-flag rule is intentionally conservative. It creates a temporary `Hot Drop Risk` flag only for ESI-confirmed pilots reported in high-confidence likely-cyno ship classes:
+
+- Force Recon Cruiser
+- Expedition Frigate
+
+Black Ops battleships such as Redeemer, Widow, Sin, and Panther are not default inline hot-drop caller triggers. They are drop-fleet/profile context and can later inform zKill/profile analytics without making every Black Ops sighting an immediate caller flag.
+
+The flag reason stores the ship, ship class, system, timestamp, and likely-cyno explanation. The default expiry is 120 minutes.
