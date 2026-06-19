@@ -6,6 +6,10 @@ Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN an
 
 Current version: 0.1
 
+## Planned Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features, including tab polish, right-click/copy support, automatic translation catalog updates from GitHub, ESI character detection, URL auto-linking, and release/signing improvements.
+
 ## Download
 
 Get the Windows portable app from the GitHub release:

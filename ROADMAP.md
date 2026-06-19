@@ -1,0 +1,211 @@
+﻿# Signal Bridge Roadmap
+
+Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN.
+
+This roadmap is planned work, not a guarantee of exact delivery order. The current focus is keeping the app lightweight, portable, low-impact during gameplay, and useful for live chat/intel readability.
+
+## Current v0.1 Baseline
+
+- Portable Windows ZIP release.
+- No installer required.
+- Dynamic chatlog/channel discovery.
+- Active channels shown as tabs.
+- All Channels view.
+- Live-only monitoring by default; backfill is disabled by default.
+- DB-backed EVE localized ship/item translation where available.
+- Google free translation primary.
+- Argos Translate fallback planned/optional.
+- Auto -> EN translation for non-English text.
+- EN -> CN translation mode.
+- System highlighting in yellow.
+- Ship/asset highlighting in red.
+- ESS highlighting in light blue.
+- Always-on-top support.
+- Font size/font selection support.
+- Timestamp toggle.
+- Custom app icon.
+- GitHub release with SHA256 checksums.
+
+## v0.1.1 - UI Hotfix and Interaction Polish
+
+Goal: make the current app feel less prototype-like and remove obvious UI friction.
+
+Planned items:
+
+- Fix tab UX/jank.
+- Improve tab active state, hover state, close buttons, and spacing.
+- Keep All Channels pinned first when multiple channels are open.
+- Add better handling for long channel names and many open tabs.
+- Add right-click tab menu:
+  - Close Channel
+  - Close Other Channels
+  - Close All Channels
+  - Copy Channel Name
+- Add right-click feed row menu.
+- Add nice copy/paste actions:
+  - Copy visible line
+  - Copy original line
+  - Copy translated line
+  - Copy sender
+  - Copy systems
+  - Copy ships/assets
+  - Copy URLs
+- Add auto-link URL support for HTTP/HTTPS links.
+- Add startup/error log improvements so launch failures are easy to diagnose.
+- Preserve live-only/no-backfill behavior.
+
+## v0.2 - Translation Catalog and DB Updates
+
+Goal: make translation setup easier and avoid requiring users to manually provide the large EVE translation DB.
+
+Planned items:
+
+- Add GitHub-based translation catalog update support.
+- Check for updated compact EVE translation catalog from GitHub.
+- Download catalog updates automatically after user confirmation.
+- Verify downloaded catalog with SHA256 before replacing the local catalog.
+- Backup previous catalog before updating.
+- Show catalog version/status in Health/About.
+- Keep full `translations.db` import as an advanced/manual option.
+- Add translation cache viewer/clearer.
+- Add manual phrase override support for EVE slang.
+- Improve protected terms so Google/Argos do not corrupt systems, ships, names, URLs, counts, or ISK values.
+- Add source labels for DB, Google, Argos, cache, and manual overrides.
+
+Preferred catalog approach:
+
+```text
+data/eve_catalog.json
+data/catalog_manifest.json
+data/eve_catalog.previous.json
+```
+
+The normal release should use a compact catalog, not the full large SQLite DB.
+
+## v0.2.x - Feed Interaction Polish
+
+Goal: make the feed faster and more practical during gameplay.
+
+Planned items:
+
+- Auto-link URLs in the feed.
+- Link styling with underline/light-blue text.
+- Hover URL preview in the status bar.
+- Left-click to open links.
+- Right-click to open/copy links.
+- Safety option for external link confirmation.
+- Search within visible feed.
+- Copy clean intel line.
+- Copy selected structured entities.
+- Optional original-on-hover for translated text.
+
+## v0.3 - ESI Entity Recognition
+
+Goal: improve character, corporation, and alliance detection using EVE ESI while keeping the app responsive.
+
+Planned items:
+
+- Optional ESI support for character name detection.
+- Corporation and alliance detection.
+- Local ESI entity cache.
+- Rate limiting and negative caching.
+- Background-only resolver queue.
+- Offline fallback when ESI is unavailable.
+- Manual corrections/ignore list for false positives.
+
+Potential cache location:
+
+```text
+cache/esi_entities.sqlite
+```
+
+Important rule:
+
+```text
+ESI lookups must never block live chat rendering.
+```
+
+## v0.3.x - Intel Awareness
+
+Goal: make Signal Bridge more useful as an intel reader, not just a translator.
+
+Planned items:
+
+- Intel classification:
+  - hostile
+  - clear
+  - movement
+  - ESS
+  - cyno
+  - bubble
+  - fleet
+  - camp
+- Watchlist alerts for systems, pilots, ships, or keywords.
+- Optional sound alerts.
+- Tab flash on watched terms.
+- Better count/time parsing such as `+5`, `x3`, `4:30`, and `229m`.
+- zKill/EVEWho lookup actions from right-click menus.
+
+## v0.4 - Settings and UX Polish
+
+Goal: centralize configuration and improve overlay usability.
+
+Planned items:
+
+- Proper Settings dialog.
+- Theme editor.
+- Configurable highlight colors.
+- Opacity slider.
+- Lock window position.
+- Remember window location/monitor.
+- Better compact/overlay mode.
+- Diagnostics export bundle that avoids including chat logs unless the user explicitly opts in.
+
+## v0.5 - Distribution, Trust, and Release Automation
+
+Goal: make public releases safer and more professional.
+
+Planned items:
+
+- GitHub Actions build pipeline.
+- Reproducible release ZIP builds.
+- Automatic SHA256 generation.
+- Release notes from CHANGELOG.
+- Optional VirusTotal scan link/check.
+- App version/update check.
+- Code signing path to reduce SmartScreen/AV warnings.
+
+Current AV-conscious choices:
+
+- No UPX packing.
+- No installer.
+- No admin rights.
+- Heavy ML packages excluded from the default build.
+- Portable ZIP release.
+- SHA256 checksums published.
+
+## v1.0 Target
+
+Before calling the app v1.0, the goal is to have:
+
+- Stable Windows 10/11 portable build.
+- No hard-coded channels or user paths.
+- Polished tabs and feed interactions.
+- Live-only monitoring by default.
+- Stable translation modes.
+- GitHub catalog updater.
+- Settings dialog.
+- Right-click/copy/link support.
+- Startup logs and recovery.
+- Clear public release process.
+- Better AV/signing story.
+
+## Guiding Principles
+
+- Keep the app lightweight.
+- Keep gameplay impact low.
+- Never block live chat rendering.
+- Keep network features optional or clearly visible.
+- Prefer local EVE data for EVE terms.
+- Use machine translation only for normal free text.
+- Avoid surprising users with old/private chat backfill.
