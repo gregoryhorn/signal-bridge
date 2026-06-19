@@ -4,6 +4,15 @@ All notable Signal Bridge changes will be documented here.
 
 ## v0.1 - 2026-06-19
 
+### Feed interaction and diagnostics
+- Added right-click feed row menu.
+- Added copy actions for visible line, original line, translated line, sender, systems, ships/assets, and URLs.
+- Added HTTP/HTTPS URL auto-linking with click-to-open and right-click copy/open support.
+- Added startup/error logging to the portable `logs/` folder.
+- Added Settings > Open Logs Folder.
+- Preserved live-only monitoring with backfill disabled by default.
+
+
 ### Tab visual polish
 - Fixed tab label encoding issues so unread markers and close buttons render cleanly.
 - Added hover styling for tabs and close buttons.

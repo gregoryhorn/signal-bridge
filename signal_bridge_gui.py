@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import traceback
+import webbrowser
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ CONFIG_DIR = USER_DIR / "config"
 CACHE_DIR = USER_DIR / "cache"
 MODEL_DIR = USER_DIR / "models" / "argos"
 LOG_DIR = USER_DIR / "logs"
+LOG_PATH = LOG_DIR / "signal_bridge.log"
 CONFIG_PATH = CONFIG_DIR / "settings.json"
 DATA_DIR = USER_DIR / "data"
 DEFAULT_DB_PATH = Path(r"D:\AI\Rift\signal-bridge-v2\signal-bridge-v3\src-tauri\bundle-resources\translations.db")
@@ -108,10 +110,37 @@ def ensure_app_dirs() -> None:
 
 ensure_app_dirs()
 
+
+def write_log(message: str, exc: BaseException | None = None) -> None:
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        with LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {message}\n")
+            if exc is not None:
+                f.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+                f.write("\n")
+    except Exception:
+        pass
+
+
+def install_exception_logging() -> None:
+    def _hook(exc_type, exc, tb):
+        try:
+            LOG_DIR.mkdir(parents=True, exist_ok=True)
+            with LOG_PATH.open("a", encoding="utf-8") as f:
+                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Uncaught exception\n")
+                traceback.print_exception(exc_type, exc, tb, file=f)
+                f.write("\n")
+        finally:
+            sys.__excepthook__(exc_type, exc, tb)
+    sys.excepthook = _hook
+
 LIVE_INLINE = re.compile(r"^\[\s*(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*\]\s*(.+?)\s*(?:>|:)\s*(.+)$", re.I)
 HEADER_CHANNEL = re.compile(r"^Channel Name:\s*(.+)$", re.I)
 SYSTEM_RE = re.compile(r"\b[A-Z0-9]{1,6}-[A-Z0-9]{1,4}\b")
 LINK_RE = re.compile(r"https?://\S+|www\.\S+|dscan\.info/\S+", re.I)
+HTTP_LINK_RE = re.compile(r"https?://[^\s<>()\[\]{}\"']+", re.I)
 COUNT_RE = re.compile(r"(?<![A-Za-z0-9-])(?:\+?\d+|\d+\+|x\d+|\d+x|\d+(?:\.\d+)?\s*(?:km|m|b|bil|mil|kk|isk))\b", re.I)
 PAREN_RE = re.compile(r"\(([^)]+)\)")
 HEADER_KEYS = ("Channel ID:", "Channel Name:", "Listener:", "Session started:")
@@ -589,6 +618,10 @@ class SignalBridgeGui:
         self.monitor: MonitorThread | None = None
         self.row_count = 0
         self.rows: list[Row] = []
+        self.rendered_row_map: dict[str, dict] = {}
+        self.link_map: dict[str, str] = {}
+        self.render_seq = 0
+        write_log(f"Starting {APP_NAME} v{APP_VERSION}")
         self._build_menu()
         self._build_widgets()
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
@@ -619,6 +652,7 @@ class SignalBridgeGui:
         settings_menu.add_separator()
         settings_menu.add_command(label="Install Argos Offline Fallback", command=self.install_argos_models)
         settings_menu.add_command(label="Open App Folder", command=self.open_app_folder)
+        settings_menu.add_command(label="Open Logs Folder", command=self.open_logs_folder)
         menubar.add_cascade(label="Settings", menu=settings_menu)
         view_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
         view_menu.add_checkbutton(label="Always on Top", variable=self.always_on_top, command=self.apply_topmost)
@@ -676,6 +710,8 @@ class SignalBridgeGui:
         self.text.tag_configure("translation", foreground="#9be28f")
         self.text.tag_configure("muted", foreground="#8b98a8")
         self.text.tag_configure("error", foreground="#ff5a5f")
+        self.text.tag_configure("link", foreground="#5ad7ff", underline=True)
+        self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
 
     def normalize_tab_state(self, prefer_all: bool = False):
@@ -702,11 +738,12 @@ class SignalBridgeGui:
     def visible_tabs(self) -> list[str]:
         valid_channels = set(self.active_channels)
         tabs = []
+        if ALL_CHANNELS_TAB not in self.hidden_tab_ids:
+            tabs.append(ALL_CHANNELS_TAB)
         for tab_id in self.tab_order:
             if tab_id == ALL_CHANNELS_TAB:
-                if tab_id not in self.hidden_tab_ids:
-                    tabs.append(tab_id)
-            elif tab_id in valid_channels and tab_id not in self.hidden_tab_ids:
+                continue
+            if tab_id in valid_channels and tab_id not in self.hidden_tab_ids:
                 tabs.append(tab_id)
         return tabs
 
@@ -934,12 +971,15 @@ class SignalBridgeGui:
 
     def show_tab_context_menu(self, event, tab_id: str):
         menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
-        menu.add_command(label="Hide Tab", command=lambda: self.hide_tab(tab_id))
+        label = "Close / Hide All Tab" if tab_id == ALL_CHANNELS_TAB else "Close Channel"
+        menu.add_command(label=label, command=lambda: self.hide_tab(tab_id))
+        menu.add_command(label="Close Other Channels", command=lambda: self.hide_other_tabs(tab_id))
+        menu.add_command(label="Close All Channels", command=self.close_selected_channels)
         if tab_id != ALL_CHANNELS_TAB:
+            menu.add_separator()
             menu.add_command(label="Copy Channel Name", command=lambda: self.copy_to_clipboard(tab_id))
         menu.add_separator()
         menu.add_command(label="Restore Hidden Tabs...", command=self.restore_hidden_tabs_dialog)
-        menu.add_command(label="Close Other Tabs", command=lambda: self.hide_other_tabs(tab_id))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -1199,6 +1239,11 @@ class SignalBridgeGui:
         import os
         os.startfile(str(USER_DIR))
 
+    def open_logs_folder(self):
+        import os
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        os.startfile(str(LOG_DIR))
+
     def install_argos_models(self):
         if not self.messagebox.askyesno("Install Argos Offline Fallback", "Download and install Argos offline translation models into this portable app folder?\n\nThis may take time and uses internet once."):
             return
@@ -1245,11 +1290,13 @@ class SignalBridgeGui:
             return
         self.monitor = MonitorThread(self.queue, self.stop_event, self.set_status, set(self.active_channels), replay_today=False)
         self.monitor.start()
+        write_log(f"Monitor starting live-only for {len(self.active_channels)} channel(s); replay_today=False")
         self.set_status("Starting monitor...")
 
     def stop_monitor(self):
         if self.stop_event:
             self.stop_event.set()
+        write_log("Monitor stopped")
         self.set_status("Stopped")
 
     def clear_feed(self):
@@ -1258,6 +1305,8 @@ class SignalBridgeGui:
         self.text.delete("1.0", "end")
         self.text.configure(state="disabled")
         self.row_count = 0
+        self.rendered_row_map.clear()
+        self.link_map.clear()
 
     def open_folder(self):
         import os
@@ -1278,6 +1327,7 @@ class SignalBridgeGui:
             "- Active chats appear as hideable/reorderable tabs\n"
             "- All tab shows combined chat view\n"
             "- Unread indicators appear on inactive tabs\n"
+            "- Right-click feed copy actions and HTTP/HTTPS links\n"
             "- Configurable feed font and timestamp display\n\n"
             "Translation:\n"
             "- EVE DB localization\n"
@@ -1304,6 +1354,7 @@ class SignalBridgeGui:
             f"Hidden tabs: {len(self.hidden_tab_ids)}\n"
             f"Config: {CONFIG_PATH}\n"
             f"App folder: {USER_DIR}\n"
+            f"Log file: {LOG_PATH}\n"
             f"Font: {self.font_family.get()} {int(self.font_size.get())}\n"
             f"Show timestamps: {bool(self.show_timestamps.get())}\n"
             "Free MT: Google primary, Argos fallback\n"
@@ -1315,6 +1366,123 @@ class SignalBridgeGui:
         self.persist_settings()
         self.stop_monitor()
         self.root.after(100, self.root.destroy)
+
+    def row_display_parts(self, row: Row) -> dict:
+        display_text = self.localized_display_text(row)
+        free_text = self.display_free_translation(row, display_text)
+        translated = free_text or display_text
+        show_channel = bool(self.show_channel_names.get()) or (self.visible_channel == ALL_CHANNELS_TAB and bool(self.show_channel_names_in_all.get()))
+        prefix = ""
+        if bool(self.show_timestamps.get()):
+            prefix += f"[{row.received_at.split()[-1]}] "
+        if show_channel:
+            prefix += f"[{row.channel}] "
+        sender_prefix = f"{row.sender} > "
+        visible_text = translated if bool(self.translated_only.get()) else row.text
+        visible_line = prefix + sender_prefix + visible_text
+        original_line = prefix + sender_prefix + row.text
+        translated_line = prefix + sender_prefix + translated
+        return {
+            "display_text": display_text,
+            "free_text": free_text,
+            "translated": translated,
+            "visible_line": visible_line,
+            "original_line": original_line,
+            "translated_line": translated_line,
+        }
+
+    def row_at_event(self, event) -> tuple[str | None, dict | None]:
+        try:
+            index = self.text.index(f"@{event.x},{event.y}")
+            for tag in self.text.tag_names(index):
+                if tag.startswith("row_"):
+                    return tag, self.rendered_row_map.get(tag)
+        except Exception:
+            pass
+        return None, None
+
+    def link_at_event(self, event) -> str | None:
+        try:
+            index = self.text.index(f"@{event.x},{event.y}")
+            for tag in self.text.tag_names(index):
+                if tag.startswith("link_"):
+                    return self.link_map.get(tag)
+        except Exception:
+            pass
+        return None
+
+    def show_feed_context_menu(self, event):
+        row_tag, info = self.row_at_event(event)
+        url = self.link_at_event(event)
+        menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
+        if url:
+            menu.add_command(label="Open URL", command=lambda u=url: self.open_url(u))
+            menu.add_command(label="Copy URL", command=lambda u=url: self.copy_to_clipboard(u))
+            menu.add_separator()
+        if info:
+            row = info["row"]
+            menu.add_command(label="Copy Visible Line", command=lambda i=info: self.copy_to_clipboard(i["visible_line"]))
+            menu.add_command(label="Copy Original Line", command=lambda i=info: self.copy_to_clipboard(i["original_line"]))
+            menu.add_command(label="Copy Translated Line", command=lambda i=info: self.copy_to_clipboard(i["translated_line"]))
+            menu.add_separator()
+            menu.add_command(label="Copy Sender", command=lambda r=row: self.copy_to_clipboard(r.sender))
+            menu.add_command(label="Copy Systems", command=lambda r=row: self.copy_to_clipboard(", ".join(r.systems)))
+            menu.add_command(label="Copy Ships / Assets", command=lambda r=row: self.copy_to_clipboard(", ".join(r.assets)))
+            menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
+        else:
+            menu.add_command(label="Copy Selected Text", command=self.copy_selected_text)
+            menu.add_command(label="Copy Visible Feed", command=self.copy_visible_feed)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def copy_selected_text(self):
+        try:
+            self.copy_to_clipboard(self.text.get("sel.first", "sel.last"))
+        except Exception:
+            self.set_status("No text selected")
+
+    def copy_visible_feed(self):
+        self.copy_to_clipboard(self.text.get("1.0", "end-1c"))
+
+    def http_links_for_row(self, row: Row) -> list[str]:
+        terms = []
+        for value in list(row.links) + HTTP_LINK_RE.findall(row.text):
+            if value and value.lower().startswith(("http://", "https://")):
+                terms.append(value.rstrip('.,;:)]}'))
+        return unique(terms)
+
+    def open_url(self, url: str):
+        if not url.lower().startswith(("http://", "https://")):
+            self.set_status("Blocked non-web URL")
+            return
+        try:
+            webbrowser.open(url)
+            self.set_status("Opened URL")
+        except Exception as exc:
+            write_log("Failed to open URL", exc)
+            self.set_status("Failed to open URL")
+
+    def tag_urls(self, start: str, end: str, source_text: str):
+        for url in unique(HTTP_LINK_RE.findall(source_text)):
+            clean_url = url.rstrip('.,;:)]}')
+            if not clean_url.lower().startswith(("http://", "https://")):
+                continue
+            pos = start
+            while True:
+                pos = self.text.search(clean_url, pos, end, nocase=True)
+                if not pos:
+                    break
+                last = f"{pos}+{len(clean_url)}c"
+                tag = f"link_{len(self.link_map)}"
+                self.link_map[tag] = clean_url
+                self.text.tag_add("link", pos, last)
+                self.text.tag_add(tag, pos, last)
+                self.text.tag_bind(tag, "<Button-1>", lambda e, u=clean_url: self.open_url(u))
+                self.text.tag_bind(tag, "<Enter>", lambda e, u=clean_url: self.status_label.configure(text=u[:180]))
+                self.text.tag_bind(tag, "<Leave>", lambda e: self.status_label.configure(text="Ready"))
+                pos = last
 
     def insert_tagged_text(self, text: str, systems: list[str], assets: list[str]):
         start_index = self.text.index("end-1c")
@@ -1357,6 +1525,8 @@ class SignalBridgeGui:
         self.text.configure(state="normal")
         self.text.delete("1.0", "end")
         self.text.configure(state="disabled")
+        self.rendered_row_map.clear()
+        self.link_map.clear()
         old_rows = list(self.rows[-MAX_ROWS:])
         self.row_count = 0
         for row in old_rows:
@@ -1416,9 +1586,11 @@ class SignalBridgeGui:
 
     def _render_row(self, row: Row):
         self.text.configure(state="normal")
+        row_tag = f"row_{self.render_seq}"
+        self.render_seq += 1
+        row_start = self.text.index("end-1c")
+        parts = self.row_display_parts(row)
         ts = row.received_at.split()[-1]
-        display_text = self.localized_display_text(row)
-        free_text = self.display_free_translation(row, display_text)
         translated_only = bool(self.translated_only.get())
         if bool(self.show_timestamps.get()):
             self.text.insert("end", f"[{ts}] ", "time")
@@ -1426,18 +1598,28 @@ class SignalBridgeGui:
         if show_channel:
             self.text.insert("end", f"[{row.channel}] ", "muted")
         self.text.insert("end", f"{row.sender} > ", "sender")
+        body_start = self.text.index("end-1c")
         if translated_only:
-            # Main row displays English: DB-localized EVE terms plus optional free Chinese sentence translation.
-            self.insert_tagged_text((free_text or display_text) + "\n", row.systems, row.assets)
+            body = parts["translated"]
+            self.insert_tagged_text(body + "\n", row.systems, row.assets)
+            self.tag_urls(body_start, self.text.index("end-1c"), body)
         else:
-            # Review mode: show original first, then translated line only when actual DB/free translation changed text.
             self.insert_tagged_text(row.text + "\n", row.systems, row.assets + [x.get("original", "") for x in row.localized])
-            if free_text and free_text != row.text:
+            self.tag_urls(body_start, self.text.index("end-1c"), row.text)
+            if parts["free_text"] and parts["free_text"] != row.text:
                 self.text.insert("end", "    translated: ", "muted")
-                self.insert_tagged_text(free_text + "\n", row.systems, row.assets)
-            elif display_text != row.text:
+                t_start = self.text.index("end-1c")
+                self.insert_tagged_text(parts["free_text"] + "\n", row.systems, row.assets)
+                self.tag_urls(t_start, self.text.index("end-1c"), parts["free_text"])
+            elif parts["display_text"] != row.text:
                 self.text.insert("end", "    translated: ", "muted")
-                self.insert_tagged_text(display_text + "\n", row.systems, row.assets)
+                t_start = self.text.index("end-1c")
+                self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets)
+                self.tag_urls(t_start, self.text.index("end-1c"), parts["display_text"])
+        row_end = self.text.index("end-1c")
+        self.text.tag_add(row_tag, row_start, row_end)
+        self.rendered_row_map[row_tag] = {"row": row, **parts}
+        self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
         self.text.see("end")
         self.text.configure(state="disabled")
         self.row_count += 1
@@ -1486,14 +1668,20 @@ def self_test(limit: int = 20):
 
 
 def main(argv=None):
+    install_exception_logging()
+    write_log("Process entry")
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--limit", type=int, default=20)
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test(args.limit)
-    SignalBridgeGui().run()
-    return 0
+    try:
+        SignalBridgeGui().run()
+        return 0
+    except Exception as exc:
+        write_log("Fatal GUI error", exc)
+        raise
 
 if __name__ == "__main__":
     raise SystemExit(main())

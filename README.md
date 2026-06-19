@@ -6,6 +6,13 @@ Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN an
 
 Current version: 0.1
 
+## Current Interaction Behavior
+
+- Right-click a feed row for copy actions.
+- HTTP/HTTPS URLs can be clicked or copied from the context menu.
+- Use `Settings > Open Logs Folder` to inspect startup/error logs.
+- Monitoring remains live-only by default; old chat history is not backfilled.
+
 ## Current Tab Behavior
 
 - `All` is the default combined chat tab.
