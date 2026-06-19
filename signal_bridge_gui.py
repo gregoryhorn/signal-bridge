@@ -614,6 +614,21 @@ class EsiCache:
         except Exception:
             pass
 
+    def list_entities(self, entity_type: str | None = None, limit: int = 5000) -> list[dict]:
+        try:
+            con = self._connect()
+            if entity_type:
+                rows = con.execute("""select query, entity_type, entity_id, name, corporation_id, corporation_name, alliance_id, alliance_name, source
+                                      from esi_entities where entity_type=? order by resolved_at desc limit ?""", (entity_type, int(limit))).fetchall()
+            else:
+                rows = con.execute("""select query, entity_type, entity_id, name, corporation_id, corporation_name, alliance_id, alliance_name, source
+                                      from esi_entities order by resolved_at desc limit ?""", (int(limit),)).fetchall()
+            con.close()
+            return [{"query": r[0], "entity_type": r[1], "entity_id": r[2], "name": r[3], "corporation_id": r[4], "corporation_name": r[5], "alliance_id": r[6], "alliance_name": r[7], "source": r[8] or "esi-cache"} for r in rows]
+        except Exception as exc:
+            write_log("ESI entity list failed", exc)
+            return []
+
     def stats(self) -> dict:
         try:
             con = self._connect()
@@ -1501,6 +1516,7 @@ class SignalBridgeGui:
         self.text.tag_configure("error", foreground="#ff5a5f")
         self.text.tag_configure("link", foreground="#5ad7ff", underline=True)
         self.text.tag_configure("esi", foreground="#ff5c5c", font=self.feed_font(bold=True))
+        self.text.tag_raise("esi")
         self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
 
@@ -1908,6 +1924,7 @@ class SignalBridgeGui:
         self.text.tag_configure("asset", font=self.feed_font(bold=True))
         self.text.tag_configure("ess", font=self.feed_font(bold=True))
         self.text.tag_configure("esi", font=self.feed_font(bold=True))
+        self.text.tag_raise("esi")
         self.persist_settings()
         self.redraw_feed()
 
@@ -2794,6 +2811,7 @@ class SignalBridgeGui:
         self.rows.append(row)
         if self.esi_is_enabled():
             self.ensure_esi_resolver()
+            self.hydrate_esi_entities_for_row(row)
             if self.esi_resolver:
                 for candidate in esi_candidates_for_row(row):
                     self.esi_resolver.submit(candidate)
@@ -2804,6 +2822,37 @@ class SignalBridgeGui:
             self._render_row(row)
         else:
             self.mark_unread_for_row(row)
+
+    def hydrate_esi_entities_for_row(self, row: Row) -> bool:
+        """Attach cached/resolved ESI character entities that appear in this row.
+
+        ESI can resolve asynchronously or from cache before/after the row is drawn.
+        This method makes rendering cache-backed, so the screen reflects resolved
+        characters even when the resolver event did not exactly match a candidate
+        string or the row was rendered before the cache hit arrived.
+        """
+        changed = False
+        existing = {normalize_esi_query(e.get("query") or e.get("name") or "") for e in row.esi_entities}
+        text_blob = f"{row.sender} {row.text}"
+        for cand in esi_candidates_for_row(row):
+            cached = self.esi_entities.get(normalize_esi_query(cand)) or ESI_CACHE.get_entity(cand)
+            if cached and not cached.get("ignored") and cached.get("entity_type") == "character":
+                key = normalize_esi_query(cached.get("query") or cached.get("name") or cand)
+                if key and key not in existing:
+                    row.esi_entities.append(cached); existing.add(key); changed = True
+        # Also scan known cached characters by exact displayed name/query. This fixes rows
+        # whose message candidate was too broad, e.g. "threeleggedweasel Abraxas Shaw",
+        # while individual names are already in the cache.
+        for ent in ESI_CACHE.list_entities("character", limit=1000):
+            if ent.get("ignored"):
+                continue
+            names = unique([str(ent.get("name") or ""), str(ent.get("query") or "")])
+            if not any(n and re.search(word_boundary(n), text_blob, re.I) for n in names):
+                continue
+            key = normalize_esi_query(ent.get("query") or ent.get("name") or "")
+            if key and key not in existing:
+                row.esi_entities.append(ent); existing.add(key); changed = True
+        return changed
 
     def character_names_for_row(self, row: Row) -> list[str]:
         names: list[str] = []
@@ -2834,6 +2883,8 @@ class SignalBridgeGui:
         return ""
 
     def _render_row(self, row: Row):
+        if self.esi_is_enabled():
+            self.hydrate_esi_entities_for_row(row)
         self.text.configure(state="normal")
         row_tag = f"row_{self.render_seq}"
         self.render_seq += 1
@@ -2930,7 +2981,10 @@ class SignalBridgeGui:
         changed = False
         for row in self.rows:
             candidates = [normalize_esi_query(x) for x in esi_candidates_for_row(row)]
-            if key in candidates and not any(normalize_esi_query(e.get("query") or e.get("name") or "") == key for e in row.esi_entities):
+            text_blob = f"{row.sender} {row.text}"
+            names = unique([str(data.get("name") or ""), str(data.get("query") or query)])
+            appears = any(n and re.search(word_boundary(n), text_blob, re.I) for n in names)
+            if (key in candidates or appears) and not any(normalize_esi_query(e.get("query") or e.get("name") or "") == key for e in row.esi_entities):
                 row.esi_entities.append(data)
                 changed = True
         self.status_label.configure(text=f"ESI resolved: {data.get('name') or query}")

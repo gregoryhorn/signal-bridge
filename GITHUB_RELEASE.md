@@ -90,3 +90,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Negative ESI answers now stay in the negative cache for 90 days to prevent repeat lookups from burning ESI rates.
 - Added ESI diagnostics, selected-text ESI resolve/ignore, always-visible ESI context actions, and a character exclusion list for badly named characters.
 - Added built-in and local-DB ESI individual-word exclusions: `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`.
+- Fixed ESI screen rendering: resolved/cached characters now hydrate onto visible rows and highlight red reliably.

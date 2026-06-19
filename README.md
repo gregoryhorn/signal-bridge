@@ -271,3 +271,4 @@ ESI cache policy: successful entity lookups cache for 30 days; negative ESI answ
 
 ESI usability: right-click menu includes selected-text resolve/ignore, last-check diagnostics, and an exclusion list for badly named characters.
 Built-in ESI exclusions include common individual words such as `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`; these can also be stored in the local ESI exclusion DB.
+ESI rendering note: resolved/cached character names are hydrated onto visible rows so the feed highlights detected characters in red.

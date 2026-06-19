@@ -90,3 +90,4 @@ Initial portable Windows preview release.
 - Changed negative ESI answer cache TTL to 90 days to prevent unnecessary rechecks and protect ESI rate limits.
 - Added ESI diagnostics, visible right-click ESI actions, selected-text ESI resolve/ignore, and a character exclusion list for badly named characters.
 - Added built-in and local-DB ESI individual-word exclusions for `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`.
+- Fixed ESI screen rendering so cached/resolved characters are hydrated onto rows and visibly highlighted red even when the resolver result arrives after render or the candidate text was broad.
