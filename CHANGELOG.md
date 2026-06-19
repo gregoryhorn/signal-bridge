@@ -4,6 +4,18 @@ All notable Signal Bridge changes will be documented here.
 
 ## v0.1 - 2026-06-19
 
+### Tab system refactor
+- Replaced the janky tab strip with a managed tab model.
+- Added default All tab support with combined chat view.
+- All and channel tabs can now be hidden and restored.
+- New chat tabs auto-open only when they were not manually hidden.
+- New messages never steal focus from the current tab.
+- Inactive tabs show unread indicators that clear when focused.
+- Tabs wrap/stack when the window is narrowed instead of clipping off screen.
+- Tabs can be drag-reordered and the order persists.
+- Tab styling now uses centralized theme tokens for future theme work.
+
+
 - Added an All Channels tab and a global View option to show/hide channel names in feed rows. Channel names are hidden by default in normal per-channel tabs.
 
 - Backfill is disabled by default; channels open live-only to avoid showing old private chat history.

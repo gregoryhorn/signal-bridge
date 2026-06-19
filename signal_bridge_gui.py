@@ -63,6 +63,13 @@ def load_settings() -> dict:
         "font_size": 10,
         "show_timestamps": True,
         "show_channel_names": False,
+        "show_channel_names_in_all": True,
+        "active_tab_id": ALL_CHANNELS_TAB,
+        "tab_order": [ALL_CHANNELS_TAB],
+        "hidden_tab_ids": [],
+        "auto_open_new_channels": True,
+        "auto_switch_to_new_channel": False,
+        "max_tab_rows": 3,
         "replay_on_start": False,
     }
     try:
@@ -502,6 +509,37 @@ class MonitorThread(threading.Thread):
             self.db.close()
 
 
+TAB_THEME = {
+    "bar_bg": "#0b0f14",
+    "tab_bg": "#111821",
+    "tab_fg": "#c9d2dc",
+    "tab_active_bg": "#23405c",
+    "tab_active_fg": "#ffffff",
+    "tab_hover_bg": "#1a2b3c",
+    "tab_border": "#314257",
+    "tab_unread_fg": "#ffffff",
+    "unread_bg": "#ffb84d",
+    "unread_fg": "#0b0f14",
+    "alert_bg": "#ff5a5f",
+    "close_fg": "#ff8a8f",
+    "close_hover_bg": "#5c1f28",
+    "empty_fg": "#8b98a8",
+}
+
+
+def tab_id_for_channel(channel: str) -> str:
+    return channel
+
+
+def tab_label(tab_id: str) -> str:
+    return "All" if tab_id == ALL_CHANNELS_TAB else tab_id
+
+
+def short_tab_label(label: str, max_chars: int = 28) -> str:
+    label = str(label)
+    return label if len(label) <= max_chars else label[: max_chars - 1] + "…"
+
+
 class SignalBridgeGui:
     def __init__(self):
         import tkinter as tk
@@ -529,10 +567,17 @@ class SignalBridgeGui:
         self.font_size = tk.IntVar(value=max(8, min(28, initial_font_size)))
         self.show_timestamps = tk.BooleanVar(value=bool(SETTINGS.get("show_timestamps", True)))
         self.show_channel_names = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names", False)))
+        self.show_channel_names_in_all = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names_in_all", True)))
         self.root.attributes("-topmost", bool(self.always_on_top.get()))
         self.active_channels: set[str] = default_channels()
-        self.visible_channel: str | None = sorted(self.active_channels)[0] if self.active_channels else None
-        self.channel_tab_buttons: dict[str, object] = {}
+        self.hidden_tab_ids: set[str] = set(str(x) for x in (SETTINGS.get("hidden_tab_ids") or []))
+        self.tab_order: list[str] = [str(x) for x in (SETTINGS.get("tab_order") or [ALL_CHANNELS_TAB])]
+        self.unread_counts: dict[str, int] = {}
+        self.tab_widgets: dict[str, object] = {}
+        self._tab_drag: dict | None = None
+        self._tab_layout_after = None
+        self.visible_channel: str | None = str(SETTINGS.get("active_tab_id") or ALL_CHANNELS_TAB)
+        self.normalize_tab_state(prefer_all=True)
         self.queue: queue.Queue = queue.Queue()
         self.stop_event: threading.Event | None = None
         self.monitor: MonitorThread | None = None
@@ -556,6 +601,9 @@ class SignalBridgeGui:
         menubar.add_cascade(label="File", menu=file_menu)
         channels_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
         channels_menu.add_command(label="Choose / Open Channels...", command=self.choose_channels)
+        channels_menu.add_command(label="Restore Hidden Tabs...", command=self.restore_hidden_tabs_dialog)
+        channels_menu.add_command(label="Restore Last Hidden Tab", command=self.restore_last_hidden_tab)
+        channels_menu.add_separator()
         channels_menu.add_command(label="Close All Active Channels", command=self.close_selected_channels)
         channels_menu.add_command(label="Refresh Channel List", command=self.refresh_channel_status)
         menubar.add_cascade(label="Channels", menu=channels_menu)
@@ -577,6 +625,7 @@ class SignalBridgeGui:
         view_menu.add_checkbutton(label="Compact Mode", variable=self.compact, command=self.persist_settings)
         view_menu.add_checkbutton(label="Show Timestamps", variable=self.show_timestamps, command=self.persist_and_redraw)
         view_menu.add_checkbutton(label="Show Channel Names in Feed", variable=self.show_channel_names, command=self.persist_and_redraw)
+        view_menu.add_checkbutton(label="Show Channel Names in All", variable=self.show_channel_names_in_all, command=self.persist_and_redraw)
         view_menu.add_separator()
         view_menu.add_command(label="Choose Font...", command=self.choose_font)
         view_menu.add_command(label="Increase Font Size", command=lambda: self.adjust_font_size(1))
@@ -602,8 +651,9 @@ class SignalBridgeGui:
         self.mode_label.pack(side="left")
         self.status_label = tk.Label(top, text="Idle", bg="#111821", fg="#8b98a8", font=("Segoe UI", 9), padx=8)
         self.status_label.pack(side="right")
-        self.tab_bar = tk.Frame(self.root, bg="#0b0f14", padx=6, pady=4)
+        self.tab_bar = tk.Frame(self.root, bg=TAB_THEME["bar_bg"], padx=6, pady=4)
         self.tab_bar.pack(fill="x")
+        self.tab_bar.bind("<Configure>", self.on_tab_bar_configure)
         self.update_channel_tabs()
         frame = tk.Frame(self.root, bg="#0b0f14")
         frame.pack(fill="both", expand=True)
@@ -622,88 +672,298 @@ class SignalBridgeGui:
         self.text.tag_configure("error", foreground="#ff5a5f")
         self.text.configure(state="disabled")
 
+    def normalize_tab_state(self, prefer_all: bool = False):
+        valid = set(self.active_channels)
+        valid.add(ALL_CHANNELS_TAB)
+        self.hidden_tab_ids = {x for x in self.hidden_tab_ids if x in valid}
+        ordered: list[str] = []
+        for tab_id in self.tab_order:
+            if tab_id in valid and tab_id not in ordered:
+                ordered.append(tab_id)
+        if ALL_CHANNELS_TAB not in ordered:
+            ordered.insert(0, ALL_CHANNELS_TAB)
+        for channel in sorted(self.active_channels):
+            if channel not in ordered:
+                ordered.append(channel)
+        self.tab_order = ordered
+        visible = self.visible_tabs()
+        if self.visible_channel not in visible:
+            if prefer_all and ALL_CHANNELS_TAB in visible:
+                self.visible_channel = ALL_CHANNELS_TAB
+            else:
+                self.visible_channel = visible[0] if visible else None
+
+    def visible_tabs(self) -> list[str]:
+        valid_channels = set(self.active_channels)
+        tabs = []
+        for tab_id in self.tab_order:
+            if tab_id == ALL_CHANNELS_TAB:
+                if tab_id not in self.hidden_tab_ids:
+                    tabs.append(tab_id)
+            elif tab_id in valid_channels and tab_id not in self.hidden_tab_ids:
+                tabs.append(tab_id)
+        return tabs
+
+    def on_tab_bar_configure(self, _event=None):
+        if self._tab_layout_after:
+            try:
+                self.root.after_cancel(self._tab_layout_after)
+            except Exception:
+                pass
+        self._tab_layout_after = self.root.after(80, self.layout_tab_widgets)
+
+    def tab_style(self, active: bool = False) -> dict:
+        return {
+            "bg": TAB_THEME["tab_active_bg"] if active else TAB_THEME["tab_bg"],
+            "fg": TAB_THEME["tab_active_fg"] if active else TAB_THEME["tab_fg"],
+            "activebackground": TAB_THEME["tab_hover_bg"],
+            "activeforeground": TAB_THEME["tab_active_fg"],
+        }
+
+    def tab_display_text(self, tab_id: str) -> str:
+        label = short_tab_label(tab_label(tab_id))
+        unread = self.unread_counts.get(tab_id, 0)
+        if unread:
+            suffix = str(unread) if unread < 100 else "99+"
+            return f"{label}  •{suffix}"
+        return label
+
     def update_channel_tabs(self):
         tk = self.tk
-        # Lightweight custom tab bar: each active channel gets a tab button plus an X close button.
         for child in self.tab_bar.winfo_children():
             child.destroy()
-        self.channel_tab_buttons = {}
-        if not self.active_channels:
-            self.visible_channel = None
-            label = self.tk.Label(self.tab_bar, text="No active channels - use Channels > Choose / Open Channels...", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9))
+        self.tab_widgets = {}
+        self.normalize_tab_state(prefer_all=True)
+        tabs = self.visible_tabs()
+        if not tabs:
+            container = tk.Frame(self.tab_bar, bg=TAB_THEME["bar_bg"])
+            label = tk.Label(container, text="No visible tabs - restore hidden tabs or choose channels", bg=TAB_THEME["bar_bg"], fg=TAB_THEME["empty_fg"], font=("Segoe UI", 9))
             label.pack(side="left", padx=4)
+            btn = tk.Button(container, text="Restore...", command=self.restore_hidden_tabs_dialog, bg=TAB_THEME["tab_bg"], fg=TAB_THEME["tab_fg"], relief="flat", padx=6, pady=1)
+            btn.pack(side="left", padx=6)
+            self.tab_widgets["__empty__"] = container
+            self.layout_tab_widgets()
             return
-        if self.visible_channel not in self.active_channels:
-            self.visible_channel = sorted(self.active_channels)[0]
-        if len(self.active_channels) > 1:
-            all_frame = tk.Frame(self.tab_bar, bg=("#24384f" if self.visible_channel == ALL_CHANNELS_TAB else "#111821"), bd=1, relief="solid")
-            all_frame.pack(side="left", padx=(0, 6), pady=2)
-            all_btn = tk.Button(all_frame, text="All Channels", command=self.select_all_channels_tab, bg=all_frame["bg"], fg="#d7dde5", relief="flat", padx=8, pady=2, font=("Segoe UI", 9, "bold"))
-            all_btn.pack(side="left")
-
-        for channel in sorted(self.active_channels):
-            active = channel == self.visible_channel
-            tab = self.tk.Frame(self.tab_bar, bg="#23405c" if active else "#111821", bd=1, relief="solid")
-            tab.pack(side="left", padx=3, pady=1)
-            btn = self.tk.Button(
-                tab,
-                text=channel,
-                command=lambda c=channel: self.select_channel_tab(c),
-                bg="#23405c" if active else "#111821",
-                fg="#ffffff" if active else "#c9d2dc",
-                activebackground="#2e557a",
-                activeforeground="#ffffff",
-                relief="flat",
-                padx=8,
-                pady=2,
-                font=("Segoe UI", 9, "bold" if active else "normal"),
+        for tab_id in tabs:
+            active = tab_id == self.visible_channel
+            style = self.tab_style(active)
+            frame = tk.Frame(self.tab_bar, bg=style["bg"], bd=1, relief="solid", highlightthickness=1, highlightbackground=TAB_THEME["tab_border"])
+            frame._tab_id = tab_id  # type: ignore[attr-defined]
+            btn = tk.Button(
+                frame,
+                text=self.tab_display_text(tab_id),
+                command=lambda t=tab_id: self.select_tab(t),
+                bg=style["bg"], fg=TAB_THEME["tab_unread_fg"] if self.unread_counts.get(tab_id, 0) else style["fg"],
+                activebackground=style["activebackground"], activeforeground=style["activeforeground"],
+                relief="flat", padx=8, pady=2, font=("Segoe UI", 9, "bold" if active or self.unread_counts.get(tab_id, 0) else "normal")
             )
             btn.pack(side="left")
-            close = self.tk.Button(
-                tab,
-                text="x",
-                command=lambda c=channel: self.close_channel(c),
-                bg="#23405c" if active else "#111821",
-                fg="#ff8a8f",
-                activebackground="#5c1f28",
-                activeforeground="#ffffff",
-                relief="flat",
-                padx=5,
-                pady=2,
-                font=("Segoe UI", 9, "bold"),
+            close = tk.Button(
+                frame, text="×", command=lambda t=tab_id: self.hide_tab(t),
+                bg=style["bg"], fg=TAB_THEME["close_fg"], activebackground=TAB_THEME["close_hover_bg"], activeforeground="#ffffff",
+                relief="flat", padx=5, pady=2, font=("Segoe UI", 9, "bold")
             )
             close.pack(side="left")
-            self.channel_tab_buttons[channel] = tab
+            for widget in (frame, btn):
+                widget.bind("<ButtonPress-1>", lambda e, t=tab_id: self.begin_tab_drag(e, t), add="+")
+                widget.bind("<B1-Motion>", self.move_tab_drag, add="+")
+                widget.bind("<ButtonRelease-1>", self.end_tab_drag, add="+")
+                widget.bind("<Button-3>", lambda e, t=tab_id: self.show_tab_context_menu(e, t), add="+")
+            close.bind("<Button-3>", lambda e, t=tab_id: self.show_tab_context_menu(e, t), add="+")
+            self.tab_widgets[tab_id] = frame
+        self.layout_tab_widgets()
 
-    def select_channel_tab(self, channel: str):
-        if channel not in self.active_channels:
+    def layout_tab_widgets(self):
+        if not hasattr(self, "tab_bar"):
             return
-        self.visible_channel = channel
-        self.title_label.configure(text=f"{APP_NAME} v{APP_VERSION}")
+        for child in self.tab_bar.winfo_children():
+            child.grid_forget()
+        widgets = [self.tab_widgets[t] for t in self.visible_tabs() if t in self.tab_widgets]
+        if not widgets and "__empty__" in self.tab_widgets:
+            widgets = [self.tab_widgets["__empty__"]]
+        width = max(1, self.tab_bar.winfo_width() - 16)
+        x = 0
+        row = 0
+        col = 0
+        max_rows = max(1, int(SETTINGS.get("max_tab_rows", 3) or 3))
+        for widget in widgets:
+            try:
+                req = max(85, min(240, widget.winfo_reqwidth() + 8))
+            except Exception:
+                req = 140
+            if col > 0 and x + req > width and row + 1 < max_rows:
+                row += 1
+                col = 0
+                x = 0
+            widget.grid(row=row, column=col, sticky="w", padx=3, pady=2)
+            x += req + 8
+            col += 1
+
+    def select_tab(self, tab_id: str):
+        if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:
+            return
+        if tab_id in self.hidden_tab_ids:
+            return
+        self.visible_channel = tab_id
+        self.unread_counts.pop(tab_id, None)
         self.update_channel_tabs()
+        self.persist_settings()
         self.redraw_feed()
 
-    def close_channel(self, channel: str):
-        if channel not in self.active_channels:
+    def select_channel_tab(self, channel: str):
+        self.select_tab(channel)
+
+    def select_all_channels_tab(self):
+        self.select_tab(ALL_CHANNELS_TAB)
+
+    def hide_tab(self, tab_id: str):
+        if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:
             return
-        remaining = set(self.active_channels)
-        remaining.discard(channel)
-        self.set_channels(remaining)
+        self.hidden_tab_ids.add(tab_id)
+        self.unread_counts.pop(tab_id, None)
+        if self.visible_channel == tab_id:
+            visible = [t for t in self.visible_tabs() if t != tab_id]
+            self.visible_channel = visible[0] if visible else None
+        self.update_channel_tabs()
+        self.persist_settings()
+        self.redraw_feed()
+        self.set_status(f"Hidden tab: {tab_label(tab_id)}")
+
+    def close_channel(self, channel: str):
+        self.hide_tab(channel)
+
+    def restore_tab(self, tab_id: str, focus: bool = False):
+        if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:
+            self.active_channels.add(tab_id)
+        self.hidden_tab_ids.discard(tab_id)
+        if tab_id not in self.tab_order:
+            if tab_id == ALL_CHANNELS_TAB:
+                self.tab_order.insert(0, tab_id)
+            else:
+                self.tab_order.append(tab_id)
+        if focus or not self.visible_channel or not self.visible_tabs():
+            self.visible_channel = tab_id
+            self.unread_counts.pop(tab_id, None)
+        self.update_channel_tabs()
+        self.persist_settings()
+        self.redraw_feed()
+
+    def restore_last_hidden_tab(self):
+        valid_hidden = [t for t in self.tab_order if t in self.hidden_tab_ids and (t == ALL_CHANNELS_TAB or t in self.active_channels)]
+        if not valid_hidden:
+            self.set_status("No hidden tabs to restore")
+            return
+        self.restore_tab(valid_hidden[-1], focus=False)
+        self.set_status(f"Restored tab: {tab_label(valid_hidden[-1])}")
+
+    def restore_hidden_tabs_dialog(self):
+        tk = self.tk
+        hidden = [t for t in self.tab_order if t in self.hidden_tab_ids and (t == ALL_CHANNELS_TAB or t in self.active_channels)]
+        if not hidden:
+            self.messagebox.showinfo("Restore Hidden Tabs", "No hidden tabs.")
+            return
+        win = tk.Toplevel(self.root)
+        win.title("Restore Hidden Tabs")
+        win.geometry("360x420")
+        win.configure(bg="#0b0f14")
+        win.transient(self.root)
+        tk.Label(win, text="Select tabs to restore", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
+        lb = tk.Listbox(win, selectmode="extended", bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
+        lb.pack(fill="both", expand=True, padx=10, pady=6)
+        for tab_id in hidden:
+            lb.insert("end", tab_label(tab_id))
+        btns = tk.Frame(win, bg="#0b0f14")
+        btns.pack(fill="x", padx=10, pady=8)
+        def restore_selected():
+            chosen = [hidden[i] for i in lb.curselection()]
+            for tab_id in chosen:
+                self.hidden_tab_ids.discard(tab_id)
+            if not self.visible_channel and chosen:
+                self.visible_channel = chosen[0]
+            self.update_channel_tabs(); self.persist_settings(); self.redraw_feed(); win.destroy()
+        def restore_all():
+            for tab_id in hidden:
+                self.hidden_tab_ids.discard(tab_id)
+            if not self.visible_channel and hidden:
+                self.visible_channel = hidden[0]
+            self.update_channel_tabs(); self.persist_settings(); self.redraw_feed(); win.destroy()
+        tk.Button(btns, text="Restore Selected", command=restore_selected).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Restore All", command=restore_all).pack(side="left", padx=6)
+        tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
+
+    def show_tab_context_menu(self, event, tab_id: str):
+        menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
+        menu.add_command(label="Hide Tab", command=lambda: self.hide_tab(tab_id))
+        if tab_id != ALL_CHANNELS_TAB:
+            menu.add_command(label="Copy Channel Name", command=lambda: self.copy_to_clipboard(tab_id))
+        menu.add_separator()
+        menu.add_command(label="Restore Hidden Tabs...", command=self.restore_hidden_tabs_dialog)
+        menu.add_command(label="Close Other Tabs", command=lambda: self.hide_other_tabs(tab_id))
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def copy_to_clipboard(self, text: str):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self.set_status("Copied")
+
+    def hide_other_tabs(self, keep_tab_id: str):
+        for tab_id in list(self.visible_tabs()):
+            if tab_id != keep_tab_id:
+                self.hidden_tab_ids.add(tab_id)
+                self.unread_counts.pop(tab_id, None)
+        self.visible_channel = keep_tab_id
+        self.update_channel_tabs(); self.persist_settings(); self.redraw_feed()
+
+    def begin_tab_drag(self, event, tab_id: str):
+        self._tab_drag = {"tab_id": tab_id, "start_x": event.x_root, "start_y": event.y_root, "moved": False}
+
+    def move_tab_drag(self, event):
+        if not self._tab_drag:
+            return
+        if abs(event.x_root - self._tab_drag["start_x"]) + abs(event.y_root - self._tab_drag["start_y"]) > 8:
+            self._tab_drag["moved"] = True
+
+    def end_tab_drag(self, event):
+        drag = self._tab_drag
+        self._tab_drag = None
+        if not drag or not drag.get("moved"):
+            return
+        tab_id = drag["tab_id"]
+        target = self.tab_at_screen_xy(event.x_root, event.y_root)
+        if not target or target == tab_id:
+            return
+        visible = self.visible_tabs()
+        if tab_id not in visible or target not in visible:
+            return
+        visible.remove(tab_id)
+        visible.insert(visible.index(target), tab_id)
+        self.tab_order = visible + [t for t in self.tab_order if t not in visible]
+        self.update_channel_tabs(); self.persist_settings()
+
+    def tab_at_screen_xy(self, x: int, y: int) -> str | None:
+        for tab_id, widget in self.tab_widgets.items():
+            if tab_id == "__empty__":
+                continue
+            try:
+                wx, wy = widget.winfo_rootx(), widget.winfo_rooty()
+                ww, wh = widget.winfo_width(), widget.winfo_height()
+                if wx <= x <= wx + ww and wy <= y <= wy + wh:
+                    return tab_id
+            except Exception:
+                pass
+        return None
 
     def channel_title(self) -> str:
         if not self.active_channels:
             return "No channels selected"
-        if self.visible_channel:
-            extra = len(self.active_channels) - 1
-            return self.visible_channel if extra <= 0 else f"{self.visible_channel}  (+{extra} active)"
-        names = sorted(self.active_channels)
-        if len(names) <= 3:
-            return " | ".join(names)
-        return " | ".join(names[:3]) + f" +{len(names)-3}"
+        return f"{len(self.active_channels)} active channel(s), {len(self.hidden_tab_ids)} hidden tab(s)"
 
     def refresh_channel_status(self):
         channels = discover_channels()
-        self.set_status(f"Found {len(channels)} chat channels. Active: {len(self.active_channels)}")
+        self.set_status(f"Found {len(channels)} chat channels. Active: {len(self.active_channels)} Hidden tabs: {len(self.hidden_tab_ids)}")
 
     def choose_channels(self):
         tk = self.tk
@@ -724,7 +984,7 @@ class SignalBridgeGui:
         btns.pack(fill="x", padx=10, pady=8)
         def apply_selection():
             selected = {channels[i] for i in lb.curselection()}
-            self.set_channels(selected)
+            self.set_channels(selected, manual=True)
             win.destroy()
         def select_all():
             lb.selection_set(0, "end")
@@ -735,12 +995,16 @@ class SignalBridgeGui:
         tk.Button(btns, text="None", command=select_none).pack(side="left", padx=6)
         tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
 
-    def set_channels(self, channels: set[str]):
+    def set_channels(self, channels: set[str], manual: bool = False):
+        old_channels = set(self.active_channels)
         self.active_channels = set(channels)
-        if self.visible_channel != ALL_CHANNELS_TAB and self.visible_channel not in self.active_channels:
-            self.visible_channel = sorted(self.active_channels)[0] if self.active_channels else None
-        if self.visible_channel == ALL_CHANNELS_TAB and not self.active_channels:
-            self.visible_channel = None
+        removed = old_channels - self.active_channels
+        self.hidden_tab_ids -= removed
+        self.unread_counts = {k: v for k, v in self.unread_counts.items() if k == ALL_CHANNELS_TAB or k in self.active_channels}
+        if manual:
+            for channel in self.active_channels:
+                self.hidden_tab_ids.discard(channel)
+        self.normalize_tab_state(prefer_all=True)
         self.title_label.configure(text=f"{APP_NAME} v{APP_VERSION}")
         self.update_channel_tabs()
         self.persist_settings()
@@ -752,17 +1016,10 @@ class SignalBridgeGui:
             self.set_status("No channels selected")
 
     def close_selected_channels(self):
-        self.set_channels(set())
+        self.set_channels(set(), manual=True)
 
     def is_all_channels_view(self) -> bool:
         return self.visible_channel == ALL_CHANNELS_TAB
-
-    def select_all_channels_tab(self):
-        if not self.active_channels:
-            return
-        self.visible_channel = ALL_CHANNELS_TAB
-        self.update_channel_tabs()
-        self.redraw_feed()
 
     def feed_font(self, bold: bool = False):
         weight = "bold" if bold else "normal"
@@ -851,6 +1108,13 @@ class SignalBridgeGui:
             "font_size": int(self.font_size.get()),
             "show_timestamps": bool(self.show_timestamps.get()),
             "show_channel_names": bool(self.show_channel_names.get()),
+            "show_channel_names_in_all": bool(self.show_channel_names_in_all.get()),
+            "active_tab_id": self.visible_channel or ALL_CHANNELS_TAB,
+            "tab_order": list(self.tab_order),
+            "hidden_tab_ids": sorted(self.hidden_tab_ids),
+            "auto_open_new_channels": True,
+            "auto_switch_to_new_channel": False,
+            "max_tab_rows": int(SETTINGS.get("max_tab_rows", 3) or 3),
             "replay_on_start": False,
         })
         save_settings(SETTINGS)
@@ -866,6 +1130,9 @@ class SignalBridgeGui:
             return
         CHATLOG_DIR = Path(selected)
         self.active_channels = set()
+        self.hidden_tab_ids = set()
+        self.tab_order = [ALL_CHANNELS_TAB]
+        self.visible_channel = ALL_CHANNELS_TAB
         self.title_label.configure(text=f"{APP_NAME} v{APP_VERSION}")
         self.persist_settings()
         self.clear_feed()
@@ -961,7 +1228,9 @@ class SignalBridgeGui:
             "- Systems: yellow\n"
             "- Ships/assets: red\n"
             "- ESS: light blue\n"
-            "- Active channels appear as tabs with x close buttons\n"
+            "- Active chats appear as hideable/reorderable tabs\n"
+            "- All tab shows combined chat view\n"
+            "- Unread indicators appear on inactive tabs\n"
             "- Configurable feed font and timestamp display\n\n"
             "Translation:\n"
             "- EVE DB localization\n"
@@ -984,6 +1253,8 @@ class SignalBridgeGui:
             f"DB exists: {DB_PATH.exists()}\n"
             f"Discovered channels: {discovered}\n"
             f"Active channels: {active}\n"
+            f"Visible tab: {self.visible_channel}\n"
+            f"Hidden tabs: {len(self.hidden_tab_ids)}\n"
             f"Config: {CONFIG_PATH}\n"
             f"App folder: {USER_DIR}\n"
             f"Font: {self.font_family.get()} {int(self.font_size.get())}\n"
@@ -1042,21 +1313,47 @@ class SignalBridgeGui:
         old_rows = list(self.rows[-MAX_ROWS:])
         self.row_count = 0
         for row in old_rows:
-            if self.visible_channel == ALL_CHANNELS_TAB or self.visible_channel is None or row.channel == self.visible_channel:
+            if self.row_visible(row):
                 self._render_row(row)
+
+    def row_visible(self, row: Row) -> bool:
+        if self.visible_channel == ALL_CHANNELS_TAB:
+            return row.channel in self.active_channels and row.channel not in self.hidden_tab_ids
+        return row.channel == self.visible_channel
+
+    def ensure_row_channel_tab(self, channel: str):
+        if not channel:
+            return
+        if channel not in self.active_channels:
+            self.active_channels.add(channel)
+        if channel not in self.tab_order:
+            self.tab_order.append(channel)
+        if channel not in self.hidden_tab_ids:
+            self.update_channel_tabs()
+        if not self.visible_channel and self.visible_tabs():
+            self.visible_channel = self.visible_tabs()[0]
+
+    def mark_unread_for_row(self, row: Row):
+        if row.channel in self.hidden_tab_ids:
+            return
+        if self.visible_channel == row.channel:
+            return
+        if self.visible_channel == ALL_CHANNELS_TAB and ALL_CHANNELS_TAB not in self.hidden_tab_ids:
+            return
+        self.unread_counts[row.channel] = self.unread_counts.get(row.channel, 0) + 1
+        if ALL_CHANNELS_TAB not in self.hidden_tab_ids and self.visible_channel != ALL_CHANNELS_TAB:
+            self.unread_counts[ALL_CHANNELS_TAB] = self.unread_counts.get(ALL_CHANNELS_TAB, 0) + 1
+        self.update_channel_tabs()
 
     def append_row(self, row: Row):
         self.rows.append(row)
-        if row.channel in self.active_channels and row.channel not in self.channel_tab_buttons:
-            self.update_channel_tabs()
-        if self.visible_channel is None and row.channel in self.active_channels:
-            self.visible_channel = row.channel
-            self.title_label.configure(text=f"{APP_NAME} v{APP_VERSION}")
-            self.update_channel_tabs()
+        self.ensure_row_channel_tab(row.channel)
         if len(self.rows) > MAX_ROWS:
             self.rows = self.rows[-MAX_ROWS:]
-        if self.visible_channel == ALL_CHANNELS_TAB or self.visible_channel is None or row.channel == self.visible_channel:
+        if self.row_visible(row):
             self._render_row(row)
+        else:
+            self.mark_unread_for_row(row)
 
     def display_free_translation(self, row: Row, display_text: str) -> str:
         if not bool(self.translate_chinese_text.get()):
@@ -1078,7 +1375,8 @@ class SignalBridgeGui:
         translated_only = bool(self.translated_only.get())
         if bool(self.show_timestamps.get()):
             self.text.insert("end", f"[{ts}] ", "time")
-        if bool(self.show_channel_names.get()) or self.visible_channel == ALL_CHANNELS_TAB:
+        show_channel = bool(self.show_channel_names.get()) or (self.visible_channel == ALL_CHANNELS_TAB and bool(self.show_channel_names_in_all.get()))
+        if show_channel:
             self.text.insert("end", f"[{row.channel}] ", "muted")
         self.text.insert("end", f"{row.sender} > ", "sender")
         if translated_only:

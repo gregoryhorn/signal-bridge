@@ -6,6 +6,16 @@ Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN an
 
 Current version: 0.1
 
+## Current Tab Behavior
+
+- `All` is the default combined chat tab.
+- New chat tabs appear automatically unless manually hidden.
+- New tabs never steal focus.
+- Unread indicators clear when the tab is focused.
+- Hidden tabs can be restored from the Channels menu.
+- Tabs wrap/stack when the window is narrowed and can be drag-reordered.
+- All tab shows combined chat while channel tabs stay focused.
+
 ## Planned Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for planned features, including tab polish, right-click/copy support, automatic translation catalog updates from GitHub, ESI character detection, URL auto-linking, and release/signing improvements.
