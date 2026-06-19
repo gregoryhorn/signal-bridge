@@ -4098,10 +4098,9 @@ class SignalBridgeGui:
             result = result.replace(name, f"{name} {badge}")
         return result
 
-    def quick_set_pilot_flag_for_row(self, row: Row | None, label: str, icon: str = ""):
-        ent = self.first_character_for_row(row)
-        if not ent:
-            self.messagebox.showinfo("Pilot Flags", "No ESI-confirmed pilot was found for this row yet.")
+    def quick_set_pilot_flag(self, ent: dict | None, label: str, icon: str = ""):
+        if not ent or not ent.get("entity_id"):
+            self.messagebox.showinfo("Pilot Flags", "No ESI-confirmed pilot was found at the clicked text.")
             return
         pilot_id = int(ent.get("entity_id"))
         current = self.intel_history_active_flags(pilot_id)
@@ -4121,6 +4120,9 @@ class SignalBridgeGui:
             self.redraw_feed()
         else:
             self.messagebox.showwarning("Pilot Flags", f"Could not save flag: {result}")
+
+    def quick_set_pilot_flag_for_row(self, row: Row | None, label: str, icon: str = ""):
+        self.quick_set_pilot_flag(self.first_character_for_row(row), label, icon)
 
     def open_pilot_info_for_row(self, row: Row | None):
         ent = self.first_character_for_row(row)
@@ -4296,28 +4298,56 @@ class SignalBridgeGui:
         render_summary()
 
     def clicked_context(self, event, row: Row | None) -> dict:
+        """Resolve the exact clicked token/span for the context menu.
+
+        Do not fall back to the sender/first ESI entity unless the clicked text
+        is actually inside that pilot name. This prevents right-clicking systems
+        or ships from opening Pilot Info for the sender.
+        """
         text = ""
+        line_text = ""
+        clicked_col = -1
         try:
             index = self.text.index(f"@{event.x},{event.y}")
             start = self.text.index(f"{index} wordstart")
             end = self.text.index(f"{index} wordend")
             text = self.text.get(start, end).strip(" [](),;:>\n\t")
+            line_start = self.text.index(f"{index} linestart")
+            line_end = self.text.index(f"{index} lineend")
+            line_text = self.text.get(line_start, line_end)
+            count = self.text.count(line_start, index, "chars")
+            clicked_col = int(count[0]) if count else -1
         except Exception:
             text = ""
         if not row:
             return {"kind": "none", "text": text}
-        names = self.character_names_for_row(row)
+
+        def clicked_inside(term: str) -> bool:
+            if clicked_col < 0 or not term or not line_text:
+                return False
+            hay = line_text.casefold()
+            needle = str(term).casefold()
+            pos = hay.find(needle)
+            while pos >= 0:
+                if pos <= clicked_col < pos + len(str(term)):
+                    return True
+                pos = hay.find(needle, pos + 1)
+            return False
+
+        self.hydrate_esi_entities_for_row(row)
         for ent in row.esi_entities:
-            name = str(ent.get("name") or ent.get("query") or "")
-            if name and (text.casefold() in name.casefold() or name.casefold() in str(row.text).casefold()):
-                return {"kind": "pilot", "text": name, "entity": ent}
-        for name in names:
-            if name and (text.casefold() in name.casefold() or name.casefold() in str(row.text).casefold()):
-                return {"kind": "pilot", "text": name}
-        if text and any(text.casefold() == str(sysname).casefold() for sysname in row.systems):
-            return {"kind": "system", "text": text}
-        if text and any(text.casefold() == str(asset).casefold() for asset in row.assets):
-            return {"kind": "asset", "text": text}
+            if ent.get("entity_type") != "character" or not ent.get("entity_id"):
+                continue
+            for candidate in unique([str(ent.get("name") or ""), str(ent.get("query") or "")]):
+                if candidate and clicked_inside(candidate):
+                    return {"kind": "pilot", "text": candidate, "entity": ent}
+
+        for sysname in row.systems:
+            if clicked_inside(str(sysname)):
+                return {"kind": "system", "text": str(sysname)}
+        for asset in row.assets:
+            if clicked_inside(str(asset)):
+                return {"kind": "asset", "text": str(asset)}
         return {"kind": "row", "text": text}
 
     def show_feed_context_menu(self, event):
@@ -4327,24 +4357,24 @@ class SignalBridgeGui:
         row = info["row"] if info else None
         ctx = self.clicked_context(event, row)
         menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
-        added = False
         if url:
             menu.add_command(label="Open URL", command=lambda u=url: self.open_url(u))
             menu.add_command(label="Copy URL", command=lambda u=url: self.copy_to_clipboard(u))
-            menu.add_separator(); added = True
-        if row and ctx.get("kind") == "pilot":
-            menu.add_command(label="Open Pilot Info", command=lambda r=row: self.open_pilot_info_for_row(r))
-            menu.add_command(label="Mark Watchlist", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Watchlist", "★"))
-            menu.add_command(label="Mark High Threat", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "High Threat", "⚠"))
-            menu.add_command(label="Mark Do Not Track", command=lambda r=row: self.quick_set_pilot_flag_for_row(r, "Do Not Track", "DNT"))
-            menu.add_command(label="Copy ESI Details", command=lambda r=row: self.copy_to_clipboard(self.esi_details_for_row(r)))
-            menu.add_separator(); added = True
+            menu.add_separator()
+        if row and ctx.get("kind") == "pilot" and ctx.get("entity"):
+            ent = ctx.get("entity")
+            menu.add_command(label="Open Pilot Info", command=lambda e=ent: self.open_pilot_info(e))
+            menu.add_command(label="Mark Watchlist", command=lambda e=ent: self.quick_set_pilot_flag(e, "Watchlist", "★"))
+            menu.add_command(label="Mark High Threat", command=lambda e=ent: self.quick_set_pilot_flag(e, "High Threat", "⚠"))
+            menu.add_command(label="Mark Do Not Track", command=lambda e=ent: self.quick_set_pilot_flag(e, "Do Not Track", "DNT"))
+            menu.add_command(label="Copy Pilot Name", command=lambda e=ent: self.copy_to_clipboard(str(e.get("name") or e.get("query") or "")))
+            menu.add_separator()
         elif row and ctx.get("kind") == "system" and ctx.get("text"):
             menu.add_command(label="Copy System", command=lambda t=ctx.get("text"): self.copy_to_clipboard(t))
-            menu.add_separator(); added = True
+            menu.add_separator()
         elif row and ctx.get("kind") == "asset" and ctx.get("text"):
             menu.add_command(label="Copy Ship / Item", command=lambda t=ctx.get("text"): self.copy_to_clipboard(t))
-            menu.add_separator(); added = True
+            menu.add_separator()
         if info:
             menu.add_command(label="Copy Visible Line", command=lambda i=info: self.copy_to_clipboard(i["visible_line"]))
             menu.add_command(label="Copy Original Line", command=lambda i=info: self.copy_to_clipboard(i["original_line"]))
@@ -4356,11 +4386,9 @@ class SignalBridgeGui:
             links = self.http_links_for_row(row) if row else []
             if links:
                 menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
-            added = True
         else:
             menu.add_command(label="Copy Selected Text", command=self.copy_selected_text)
             menu.add_command(label="Copy Visible Feed", command=self.copy_visible_feed)
-            added = True
         if selected:
             menu.add_separator()
             menu.add_command(label="Resolve Selected Text with ESI", command=self.resolve_selected_esi_text)
