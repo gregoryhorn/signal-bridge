@@ -85,3 +85,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - System names and EVE catalog entities are excluded before ESI checks to protect API rate limits.
 - Detected character names are preserved during translation and are not translated into Chinese.
 - Ship highlights are orange; message/sender ESI characters are red; non-ship modules/assets remain purple.
+- Fixed ESS highlighting so it no longer tags `ess` inside normal words.

@@ -85,6 +85,4 @@ Initial portable Windows preview release.
 - Default EXE excludes heavy Argos/Torch/spaCy stacks to reduce package size and AV false-positive risk.
 - Built with PyInstaller using --noupx and --windowed.
 - Argos remains optional rather than bundled in the default release.
-
-
-
+- Fixed ESS highlighting so only standalone `ESS` is colored, not the letters inside longer words.

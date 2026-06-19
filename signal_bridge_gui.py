@@ -2441,13 +2441,26 @@ class SignalBridgeGui:
             self.tag_term(term, "system", region_start, region_end)
         for term in sorted(unique(assets), key=len, reverse=True):
             if term.lower() == "ess":
-                self.tag_term(term, "ess", region_start, region_end)
+                self.tag_term_whole_word(term, "ess", region_start, region_end)
             elif CATALOG.is_ship(term):
                 self.tag_term(term, "asset", region_start, region_end)
             else:
                 self.tag_term(term, "module", region_start, region_end)
-        # Defensive: highlight literal ESS even if it was not classified as an asset.
-        self.tag_term("ESS", "ess", region_start, region_end)
+        # Defensive: highlight standalone literal ESS even if it was not classified as an asset.
+        self.tag_term_whole_word("ESS", "ess", region_start, region_end)
+
+    def tag_term_whole_word(self, term: str, tag: str, start: str, end: str):
+        if not term:
+            return
+        pattern = word_boundary(term)
+        pos = start
+        while True:
+            pos = self.text.search(pattern, pos, end, regexp=True, nocase=True)
+            if not pos:
+                break
+            last = f"{pos}+{len(term)}c"
+            self.text.tag_add(tag, pos, last)
+            pos = last
 
     def tag_term(self, term: str, tag: str, start: str, end: str):
         if not term:
