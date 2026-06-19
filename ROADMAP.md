@@ -297,3 +297,4 @@ Before calling the app v1.0, the goal is to have:
 - Live monitor DB-stall hotfix completed: runtime monitor uses compact catalog-only enrichment and avoids large SQLite translation DB lookups.
 - Feed-render stability hotfix completed: ESS highlighting is Tcl-safe and render errors are logged without stopping queue draining.
 - Feed readability hotfix completed: neutral sender names and extra common-word highlight exclusions (`Red`, `enemy`).
+- ESI interaction hotfix completed: selected text can be explicitly added as an ESI character and applied to existing rows.

@@ -96,3 +96,4 @@ Initial portable Windows preview release.
 - Fixed live monitor stalls from large `translations.db` lookups by using compact catalog-only enrichment in the monitor thread.
 - Fixed a Tkinter ESS-highlight regex crash that could stop the GUI feed from rendering new live rows even though the monitor was reading them.
 - Made sender names neutral/uncolored and excluded `Red`/`enemy` from distracting asset/ESI highlighting.
+- Added right-click `Add Selected Text as ESI Character` and made selected/manual ESI resolves cache and redraw matching rows.

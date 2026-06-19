@@ -281,3 +281,5 @@ Live monitoring uses compact catalog-only enrichment and avoids the optional lar
 Feed rendering now guards highlight errors so one malformed/highlighted row cannot stop later live chat rows from appearing.
 
 Sender names render neutrally, and common words such as `Red` and `enemy` are excluded from distracting highlight/ESI tagging.
+
+Right-click selected text now includes `Add Selected Text as ESI Character`; resolving or adding a character caches it and redraws matching rows immediately.
