@@ -283,3 +283,5 @@ Feed rendering now guards highlight errors so one malformed/highlighted row cann
 Sender names render neutrally, and common words such as `Red` and `enemy` are excluded from distracting highlight/ESI tagging.
 
 Right-click selected text now includes `Add Selected Text as ESI Character`; resolving or adding a character caches it and redraws matching rows immediately.
+
+Appearance options include configurable font, colors, bold highlights, optional background rectangles, presets, preview, reset defaults, and window opacity.

@@ -100,3 +100,4 @@ Initial portable Windows preview release.
 - Improved ESI candidate detection for adjacent names and valid uppercase single-name pilots such as `MADRICO`.
 - ESI detection now handles short-prefix character names such as `LT Shax`.
 - Generalized the exclusion list so ignored terms suppress red ESI, orange ship, purple asset/module, ESS, and system highlights.
+- Added Appearance / Display Options with theme presets, font/color/bold/background controls, preview, reset defaults, and window opacity.

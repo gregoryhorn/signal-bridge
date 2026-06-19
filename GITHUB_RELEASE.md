@@ -99,3 +99,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Added explicit right-click `Add Selected Text as ESI Character`; selected/manual ESI checks now cache the character and redraw matching rows immediately.
 - Improved ESI detection for manually resolved names by splitting adjacent candidate chunks and allowing valid uppercase single-token pilots.
 - The exclusion list is now general: ignored terms suppress ESI character, ship, asset/module, ESS, and system highlighting.
+- Added Appearance / Display Options with configurable colors, bold styles, background highlights, presets, live preview, and window opacity.

@@ -2,6 +2,7 @@
 import argparse
 import base64
 import json
+import copy
 import hashlib
 import queue
 import re
@@ -1361,6 +1362,67 @@ TAB_THEME = {
 }
 
 
+DEFAULT_APPEARANCE = {
+    "preset": "Default Dark",
+    "font_family": "Segoe UI",
+    "font_size": 10,
+    "window_opacity": 1.0,
+    "background": "#070b10",
+    "foreground": "#d7dde5",
+    "highlight_backgrounds": False,
+    "time": {"foreground": "#778493", "bold": False, "background": ""},
+    "sender": {"foreground": "#d7dde5", "bold": False, "background": ""},
+    "system": {"foreground": "#ffd54a", "bold": True, "background": "#332900"},
+    "asset": {"foreground": "#ff9d2e", "bold": True, "background": "#332000"},
+    "module": {"foreground": "#b388ff", "bold": True, "background": "#241b35"},
+    "ess": {"foreground": "#5ad7ff", "bold": True, "background": "#0b2a33"},
+    "esi": {"foreground": "#ff5c5c", "bold": True, "background": "#351719"},
+    "translation": {"foreground": "#9be28f", "bold": False, "background": ""},
+    "muted": {"foreground": "#8b98a8", "bold": False, "background": ""},
+    "error": {"foreground": "#ff5a5f", "bold": True, "background": ""},
+    "link": {"foreground": "#5ad7ff", "bold": False, "background": "", "underline": True},
+}
+
+APPEARANCE_PRESETS = {
+    "Default Dark": {},
+    "Soft Dark": {
+        "foreground": "#cfd8e3", "background": "#090d12", "highlight_backgrounds": False,
+        "system": {"foreground": "#d7bd62", "bold": True, "background": "#26210f"},
+        "asset": {"foreground": "#d99a55", "bold": False, "background": "#281f14"},
+        "module": {"foreground": "#aa91d9", "bold": False, "background": "#211b2b"},
+        "esi": {"foreground": "#dc7777", "bold": True, "background": "#2a1717"},
+        "ess": {"foreground": "#74bfd0", "bold": True, "background": "#10252b"},
+    },
+    "Low Color / Minimal": {
+        "highlight_backgrounds": False,
+        "system": {"foreground": "#d7dde5", "bold": True, "background": ""},
+        "asset": {"foreground": "#d7dde5", "bold": False, "background": ""},
+        "module": {"foreground": "#d7dde5", "bold": False, "background": ""},
+        "esi": {"foreground": "#d7dde5", "bold": True, "background": ""},
+        "ess": {"foreground": "#d7dde5", "bold": True, "background": ""},
+    },
+    "High Contrast": {
+        "foreground": "#ffffff", "background": "#000000", "highlight_backgrounds": True,
+        "time": {"foreground": "#b8c7d9", "bold": False, "background": ""},
+        "system": {"foreground": "#fff176", "bold": True, "background": "#3a3200"},
+        "asset": {"foreground": "#ffb74d", "bold": True, "background": "#3a2400"},
+        "module": {"foreground": "#ce93d8", "bold": True, "background": "#311b37"},
+        "esi": {"foreground": "#ff8a80", "bold": True, "background": "#3b1111"},
+        "ess": {"foreground": "#80deea", "bold": True, "background": "#00343b"},
+    },
+    "Overlay Transparent": {
+        "window_opacity": 0.88, "background": "#05080c", "foreground": "#e3e9f1", "highlight_backgrounds": True,
+        "system": {"foreground": "#ffe082", "bold": True, "background": "#2b2509"},
+        "asset": {"foreground": "#ffb05f", "bold": True, "background": "#2b1c0b"},
+        "module": {"foreground": "#bda4ff", "bold": True, "background": "#211a31"},
+        "esi": {"foreground": "#ff7b7b", "bold": True, "background": "#301414"},
+        "ess": {"foreground": "#75ddff", "bold": True, "background": "#0b2a36"},
+    },
+}
+
+STYLE_TAGS = ("time", "sender", "system", "asset", "module", "ess", "esi", "translation", "muted", "error", "link")
+
+
 def tab_id_for_channel(channel: str) -> str:
     return channel
 
@@ -1411,9 +1473,10 @@ class SignalBridgeGui:
         self.translated_only = tk.BooleanVar(value=bool(SETTINGS.get("translated_only", True)))
         self.translate_chinese_text = tk.BooleanVar(value=bool(SETTINGS.get("translate_free_text", True)))
         self.translation_direction = tk.StringVar(value=str(SETTINGS.get("translation_direction", "zh-en")))
-        self.font_family = tk.StringVar(value=str(SETTINGS.get("font_family", "Segoe UI")))
+        self.appearance = self.normalize_appearance(SETTINGS.get("appearance"))
+        self.font_family = tk.StringVar(value=str(self.appearance.get("font_family", SETTINGS.get("font_family", "Segoe UI"))))
         try:
-            initial_font_size = int(SETTINGS.get("font_size", 10))
+            initial_font_size = int(self.appearance.get("font_size", SETTINGS.get("font_size", 10)))
         except Exception:
             initial_font_size = 10
         self.font_size = tk.IntVar(value=max(8, min(28, initial_font_size)))
@@ -1428,6 +1491,7 @@ class SignalBridgeGui:
         self.esi_entities: dict[str, dict] = {}
         self.oauth_listener_active = False
         self.root.attributes("-topmost", bool(self.always_on_top.get()))
+        self.set_window_opacity(float(self.appearance.get("window_opacity", 1.0)), save=False)
         self.active_channels: set[str] = default_channels()
         self.hidden_tab_ids: set[str] = set(str(x) for x in (SETTINGS.get("hidden_tab_ids") or []))
         self.tab_order: list[str] = [str(x) for x in (SETTINGS.get("tab_order") or [ALL_CHANNELS_TAB])]
@@ -1493,6 +1557,7 @@ class SignalBridgeGui:
         view_menu.add_checkbutton(label="Show Channel Names in Feed", variable=self.show_channel_names, command=self.persist_and_redraw)
         view_menu.add_checkbutton(label="Show Channel Names in All", variable=self.show_channel_names_in_all, command=self.persist_and_redraw)
         view_menu.add_separator()
+        view_menu.add_command(label="Appearance / Display Options...", command=self.show_appearance_dialog)
         view_menu.add_command(label="Choose Font...", command=self.choose_font)
         view_menu.add_command(label="Increase Font Size", command=lambda: self.adjust_font_size(1))
         view_menu.add_command(label="Decrease Font Size", command=lambda: self.adjust_font_size(-1))
@@ -1539,23 +1604,12 @@ class SignalBridgeGui:
         self.update_channel_tabs()
         frame = tk.Frame(self.root, bg="#0b0f14")
         frame.pack(fill="both", expand=True)
-        self.text = tk.Text(frame, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat", wrap="word", font=self.feed_font(), padx=8, pady=8, undo=False)
+        self.text = tk.Text(frame, relief="flat", wrap="word", font=self.feed_font(), padx=8, pady=8, undo=False)
         scroll = tk.Scrollbar(frame, orient="vertical", command=self.text.yview)
         self.text.configure(yscrollcommand=scroll.set)
         self.text.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
-        self.text.tag_configure("time", foreground="#778493")
-        self.text.tag_configure("sender", foreground="#d7dde5")
-        self.text.tag_configure("system", foreground="#ffd54a", font=self.feed_font(bold=True))
-        self.text.tag_configure("asset", foreground="#ff9d2e", font=self.feed_font(bold=True))
-        self.text.tag_configure("module", foreground="#b388ff", font=self.feed_font(bold=True))
-        self.text.tag_configure("ess", foreground="#5ad7ff", font=self.feed_font(bold=True))
-        self.text.tag_configure("translation", foreground="#9be28f")
-        self.text.tag_configure("muted", foreground="#8b98a8")
-        self.text.tag_configure("error", foreground="#ff5a5f")
-        self.text.tag_configure("link", foreground="#5ad7ff", underline=True)
-        self.text.tag_configure("esi", foreground="#ff5c5c", font=self.feed_font(bold=True))
-        self.text.tag_raise("esi")
+        self.configure_feed_tags()
         self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
 
@@ -1953,23 +2007,105 @@ class SignalBridgeGui:
     def is_all_channels_view(self) -> bool:
         return self.visible_channel == ALL_CHANNELS_TAB
 
+    def normalize_appearance(self, raw=None):
+        def merge(base, extra):
+            out = copy.deepcopy(base)
+            if isinstance(extra, dict):
+                for k, v in extra.items():
+                    if isinstance(v, dict) and isinstance(out.get(k), dict):
+                        out[k].update(v)
+                    else:
+                        out[k] = v
+            return out
+        appearance = copy.deepcopy(DEFAULT_APPEARANCE)
+        preset = None
+        if isinstance(raw, dict):
+            preset = raw.get("preset")
+            if preset in APPEARANCE_PRESETS:
+                appearance = merge(appearance, APPEARANCE_PRESETS[preset])
+            appearance = merge(appearance, raw)
+        else:
+            appearance["font_family"] = SETTINGS.get("font_family", appearance["font_family"])
+            appearance["font_size"] = SETTINGS.get("font_size", appearance["font_size"])
+        try:
+            appearance["font_size"] = max(8, min(28, int(appearance.get("font_size", 10))))
+        except Exception:
+            appearance["font_size"] = 10
+        try:
+            appearance["window_opacity"] = max(0.55, min(1.0, float(appearance.get("window_opacity", 1.0))))
+        except Exception:
+            appearance["window_opacity"] = 1.0
+        for key in STYLE_TAGS:
+            if not isinstance(appearance.get(key), dict):
+                appearance[key] = copy.deepcopy(DEFAULT_APPEARANCE[key])
+            else:
+                base = copy.deepcopy(DEFAULT_APPEARANCE[key])
+                base.update(appearance[key])
+                appearance[key] = base
+        return appearance
+
     def feed_font(self, bold: bool = False):
         weight = "bold" if bold else "normal"
         return (self.font_family.get() or "Segoe UI", int(self.font_size.get()), weight)
 
+    def tag_font(self, tag: str):
+        style = self.appearance.get(tag, {}) if isinstance(self.appearance, dict) else {}
+        return self.feed_font(bold=bool(style.get("bold", False)))
+
+    def safe_color(self, value: str, fallback: str) -> str:
+        try:
+            self.root.winfo_rgb(str(value))
+            return str(value)
+        except Exception:
+            return fallback
+
+    def tag_options(self, tag: str):
+        style = self.appearance.get(tag, {}) if isinstance(self.appearance, dict) else {}
+        default = DEFAULT_APPEARANCE.get(tag, {})
+        opts = {
+            "foreground": self.safe_color(style.get("foreground", default.get("foreground", "#d7dde5")), default.get("foreground", "#d7dde5")),
+            "font": self.tag_font(tag),
+        }
+        bg = str(style.get("background", "") or "")
+        if bool(self.appearance.get("highlight_backgrounds", False)) and bg:
+            opts["background"] = self.safe_color(bg, "")
+        else:
+            opts["background"] = ""
+        if tag == "link":
+            opts["underline"] = bool(style.get("underline", True))
+        return opts
+
+    def configure_feed_tags(self):
+        bg = self.safe_color(self.appearance.get("background", "#070b10"), "#070b10")
+        fg = self.safe_color(self.appearance.get("foreground", "#d7dde5"), "#d7dde5")
+        self.text.configure(bg=bg, fg=fg, insertbackground=fg, font=self.feed_font())
+        for tag in STYLE_TAGS:
+            self.text.tag_configure(tag, **self.tag_options(tag))
+        for tag in ("time", "sender", "system", "asset", "module", "ess", "link", "esi", "error"):
+            try:
+                self.text.tag_raise(tag)
+            except Exception:
+                pass
+
+    def apply_appearance(self, redraw: bool = False, save: bool = True):
+        self.appearance["font_family"] = self.font_family.get() or "Segoe UI"
+        self.appearance["font_size"] = int(self.font_size.get())
+        self.appearance = self.normalize_appearance(self.appearance)
+        if hasattr(self, "text"):
+            self.configure_feed_tags()
+        self.set_window_opacity(float(self.appearance.get("window_opacity", 1.0)), save=False)
+        if save:
+            self.persist_settings()
+        if redraw and hasattr(self, "text"):
+            self.redraw_feed()
+
     def apply_feed_font(self):
-        self.text.configure(font=self.feed_font())
-        self.text.tag_configure("system", font=self.feed_font(bold=True))
-        self.text.tag_configure("asset", font=self.feed_font(bold=True))
-        self.text.tag_configure("ess", font=self.feed_font(bold=True))
-        self.text.tag_configure("esi", font=self.feed_font(bold=True))
-        self.text.tag_raise("esi")
-        self.persist_settings()
-        self.redraw_feed()
+        self.apply_appearance(redraw=True, save=True)
 
     def adjust_font_size(self, delta: int):
         current = int(self.font_size.get())
         self.font_size.set(max(8, min(28, current + delta)))
+        self.appearance["font_size"] = int(self.font_size.get())
         self.apply_feed_font()
 
     def choose_font(self):
@@ -2023,10 +2159,202 @@ class SignalBridgeGui:
                 self.font_size.set(max(8, min(28, int(size_spin.get()))))
             except Exception:
                 pass
+            self.appearance["font_family"] = self.font_family.get()
+            self.appearance["font_size"] = int(self.font_size.get())
             self.apply_feed_font()
             win.destroy()
         tk.Button(btns, text="Apply", command=apply_selection).pack(side="left")
         tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
+
+    def set_window_opacity(self, value: float, save: bool = True):
+        try:
+            value = max(0.55, min(1.0, float(value)))
+        except Exception:
+            value = 1.0
+        if hasattr(self, "appearance"):
+            self.appearance["window_opacity"] = value
+        try:
+            self.root.attributes("-alpha", value)
+        except Exception:
+            pass
+        if save and hasattr(self, "text"):
+            self.persist_settings()
+
+    def apply_appearance_preset(self, preset_name: str):
+        base = copy.deepcopy(DEFAULT_APPEARANCE)
+        preset = APPEARANCE_PRESETS.get(preset_name, {})
+        def merge(dst, src):
+            for k, v in src.items():
+                if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                    dst[k].update(v)
+                else:
+                    dst[k] = copy.deepcopy(v)
+            return dst
+        self.appearance = merge(base, preset)
+        self.appearance["preset"] = preset_name
+        self.font_family.set(str(self.appearance.get("font_family", "Segoe UI")))
+        self.font_size.set(int(self.appearance.get("font_size", 10)))
+        self.apply_appearance(redraw=False, save=True)
+
+    def show_appearance_dialog(self):
+        tk = self.tk
+        from tkinter import colorchooser
+        original = copy.deepcopy(self.appearance)
+        win = tk.Toplevel(self.root)
+        win.title("Appearance / Display Options")
+        win.geometry("760x620")
+        win.configure(bg="#0b0f14")
+        win.transient(self.root)
+        win.grab_set()
+        vars = {}
+        def make_var(value):
+            v = tk.StringVar(value=str(value))
+            return v
+        fam_var = tk.StringVar(value=self.font_family.get())
+        size_var = tk.IntVar(value=int(self.font_size.get()))
+        opacity_var = tk.DoubleVar(value=float(self.appearance.get("window_opacity", 1.0)) * 100.0)
+        preset_var = tk.StringVar(value=str(self.appearance.get("preset", "Default Dark")))
+        bg_enabled = tk.BooleanVar(value=bool(self.appearance.get("highlight_backgrounds", False)))
+        try:
+            import tkinter.font as tkfont
+            families = sorted(set(tkfont.families(self.root)))
+        except Exception:
+            families = ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Consolas", "Courier New"]
+        top = tk.Frame(win, bg="#0b0f14")
+        top.pack(fill="x", padx=10, pady=8)
+        tk.Label(top, text="Preset", bg="#0b0f14", fg="#d7dde5").grid(row=0, column=0, sticky="w")
+        preset_menu = tk.OptionMenu(top, preset_var, *APPEARANCE_PRESETS.keys())
+        preset_menu.grid(row=0, column=1, sticky="ew", padx=6)
+        tk.Label(top, text="Font", bg="#0b0f14", fg="#d7dde5").grid(row=1, column=0, sticky="w")
+        font_menu = tk.OptionMenu(top, fam_var, *families)
+        font_menu.grid(row=1, column=1, sticky="ew", padx=6)
+        tk.Label(top, text="Size", bg="#0b0f14", fg="#d7dde5").grid(row=1, column=2, sticky="w")
+        tk.Spinbox(top, from_=8, to=28, width=5, textvariable=size_var).grid(row=1, column=3, sticky="w")
+        tk.Label(top, text="Opacity", bg="#0b0f14", fg="#d7dde5").grid(row=2, column=0, sticky="w")
+        tk.Scale(top, from_=55, to=100, orient="horizontal", variable=opacity_var, bg="#0b0f14", fg="#d7dde5", highlightthickness=0, length=220).grid(row=2, column=1, sticky="ew", padx=6)
+        tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").grid(row=2, column=2, columnspan=2, sticky="w")
+        top.columnconfigure(1, weight=1)
+
+        grid = tk.Frame(win, bg="#0b0f14")
+        grid.pack(fill="x", padx=10, pady=4)
+        tk.Label(grid, text="Category", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w")
+        tk.Label(grid, text="Text color", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=1, sticky="w")
+        tk.Label(grid, text="Bold", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=2, sticky="w")
+        tk.Label(grid, text="Background", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=3, sticky="w")
+        rows = [("time","Timestamp"),("sender","Sender"),("system","Systems"),("esi","Characters / ESI"),("asset","Ships"),("module","Modules / Assets"),("ess","ESS"),("translation","Translation"),("link","Links")]
+        def choose_color(var):
+            color = colorchooser.askcolor(color=var.get(), parent=win)[1]
+            if color:
+                var.set(color)
+                update_preview()
+        for r, (key, label) in enumerate(rows, start=1):
+            style = self.appearance.get(key, DEFAULT_APPEARANCE.get(key, {}))
+            fg = tk.StringVar(value=str(style.get("foreground", "#d7dde5")))
+            bold = tk.BooleanVar(value=bool(style.get("bold", False)))
+            bg = tk.StringVar(value=str(style.get("background", "")))
+            vars[key] = {"foreground": fg, "bold": bold, "background": bg}
+            tk.Label(grid, text=label, bg="#0b0f14", fg="#d7dde5").grid(row=r, column=0, sticky="w", pady=2)
+            tk.Entry(grid, textvariable=fg, width=11, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5").grid(row=r, column=1, sticky="w", padx=4)
+            tk.Button(grid, text="...", command=lambda v=fg: choose_color(v)).grid(row=r, column=1, sticky="e", padx=2)
+            tk.Checkbutton(grid, variable=bold, bg="#0b0f14", selectcolor="#111821", command=lambda: update_preview()).grid(row=r, column=2, sticky="w")
+            tk.Entry(grid, textvariable=bg, width=11, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5").grid(row=r, column=3, sticky="w", padx=4)
+            tk.Button(grid, text="...", command=lambda v=bg: choose_color(v)).grid(row=r, column=3, sticky="e", padx=2)
+        grid.columnconfigure(1, minsize=130)
+        grid.columnconfigure(3, minsize=130)
+
+        preview = tk.Text(win, height=5, relief="flat", wrap="word", padx=8, pady=8)
+        preview.pack(fill="both", expand=True, padx=10, pady=8)
+        def collect():
+            app = copy.deepcopy(self.appearance)
+            app["preset"] = preset_var.get()
+            app["font_family"] = fam_var.get() or "Segoe UI"
+            app["font_size"] = max(8, min(28, int(size_var.get())))
+            app["window_opacity"] = max(0.55, min(1.0, float(opacity_var.get()) / 100.0))
+            app["highlight_backgrounds"] = bool(bg_enabled.get())
+            for key, data in vars.items():
+                app.setdefault(key, {})
+                app[key]["foreground"] = data["foreground"].get().strip() or DEFAULT_APPEARANCE[key]["foreground"]
+                app[key]["bold"] = bool(data["bold"].get())
+                app[key]["background"] = data["background"].get().strip()
+            return self.normalize_appearance(app)
+        def apply_to_widget(widget, app):
+            fam = app.get("font_family", "Segoe UI"); size = int(app.get("font_size", 10))
+            widget.configure(bg=app.get("background", "#070b10"), fg=app.get("foreground", "#d7dde5"), font=(fam, size), insertbackground=app.get("foreground", "#d7dde5"))
+            for tag in STYLE_TAGS:
+                st = app.get(tag, DEFAULT_APPEARANCE.get(tag, {}))
+                opts = {"foreground": st.get("foreground", "#d7dde5"), "font": (fam, size, "bold" if st.get("bold") else "normal")}
+                opts["background"] = st.get("background", "") if app.get("highlight_backgrounds") else ""
+                if tag == "link": opts["underline"] = True
+                widget.tag_configure(tag, **opts)
+        def render_preview(app):
+            preview.configure(state="normal")
+            preview.delete("1.0", "end")
+            apply_to_widget(preview, app)
+            preview.insert("end", "[12:42] ", ("time",))
+            preview.insert("end", "Scout > ", ("sender",))
+            preview.insert("end", "Abraxas Shaw", ("esi",))
+            preview.insert("end", " in ")
+            preview.insert("end", "1DQ1-A", ("system",))
+            preview.insert("end", " Loki", ("asset",))
+            preview.insert("end", " Large Armor Repairer", ("module",))
+            preview.insert("end", " ESS", ("ess",))
+            preview.insert("end", " https://example.invalid", ("link",))
+            preview.insert("end", "\nEN: Hostile scout in system", ("translation",))
+            preview.configure(state="disabled")
+        def update_preview(*_):
+            try:
+                app = collect()
+                render_preview(app)
+            except Exception as exc:
+                write_log(f"Appearance preview failed: {exc}")
+        def apply_now(close=False):
+            self.appearance = collect()
+            self.font_family.set(self.appearance["font_family"])
+            self.font_size.set(self.appearance["font_size"])
+            self.apply_appearance(redraw=False, save=True)
+            self.set_status("Appearance updated")
+            if close:
+                win.destroy()
+        def cancel():
+            self.appearance = original
+            self.font_family.set(original.get("font_family", "Segoe UI"))
+            self.font_size.set(int(original.get("font_size", 10)))
+            self.apply_appearance(redraw=False, save=False)
+            win.destroy()
+        def reset_defaults():
+            self.appearance = copy.deepcopy(DEFAULT_APPEARANCE)
+            self.font_family.set(self.appearance["font_family"])
+            self.font_size.set(self.appearance["font_size"])
+            win.destroy()
+            self.show_appearance_dialog()
+        def preset_changed(*_):
+            name = preset_var.get()
+            base = copy.deepcopy(DEFAULT_APPEARANCE)
+            for k, v in APPEARANCE_PRESETS.get(name, {}).items():
+                if isinstance(v, dict) and isinstance(base.get(k), dict): base[k].update(v)
+                else: base[k] = copy.deepcopy(v)
+            base["preset"] = name
+            fam_var.set(base.get("font_family", "Segoe UI")); size_var.set(int(base.get("font_size", 10))); opacity_var.set(float(base.get("window_opacity", 1.0))*100); bg_enabled.set(bool(base.get("highlight_backgrounds", False)))
+            for key, data in vars.items():
+                st = base.get(key, DEFAULT_APPEARANCE[key])
+                data["foreground"].set(st.get("foreground", "#d7dde5")); data["bold"].set(bool(st.get("bold", False))); data["background"].set(st.get("background", ""))
+            update_preview()
+        for v in (fam_var, size_var, opacity_var, bg_enabled):
+            try: v.trace_add("write", lambda *_: update_preview())
+            except Exception: pass
+        for data in vars.values():
+            for v in data.values():
+                try: v.trace_add("write", lambda *_: update_preview())
+                except Exception: pass
+        preset_var.trace_add("write", preset_changed)
+        render_preview(collect())
+        btns = tk.Frame(win, bg="#0b0f14")
+        btns.pack(fill="x", padx=10, pady=8)
+        tk.Button(btns, text="Reset Defaults", command=reset_defaults).pack(side="left")
+        tk.Button(btns, text="Apply", command=lambda: apply_now(False)).pack(side="left", padx=6)
+        tk.Button(btns, text="OK", command=lambda: apply_now(True)).pack(side="right")
+        tk.Button(btns, text="Cancel", command=cancel).pack(side="right", padx=6)
+        win.protocol("WM_DELETE_WINDOW", cancel)
 
     def persist_settings(self):
         SETTINGS.update({
@@ -2040,6 +2368,7 @@ class SignalBridgeGui:
             "compact_mode": bool(self.compact.get()),
             "font_family": self.font_family.get(),
             "font_size": int(self.font_size.get()),
+            "appearance": self.normalize_appearance(getattr(self, "appearance", None)),
             "show_timestamps": bool(self.show_timestamps.get()),
             "show_channel_names": bool(self.show_channel_names.get()),
             "show_channel_names_in_all": bool(self.show_channel_names_in_all.get()),
@@ -3248,5 +3577,6 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 
