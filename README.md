@@ -11,6 +11,7 @@ Current version: 0.1
 - Right-click a feed row for copy actions.
 - HTTP/HTTPS URLs can be clicked or copied from the context menu.
 - Use `Settings > Open Logs Folder` to inspect startup/error logs.
+- Use `Help > Check for Updates` to manually check the latest GitHub release.
 - Monitoring remains live-only by default; old chat history is not backfilled.
 
 ## Current Tab Behavior

@@ -5,6 +5,7 @@ All notable Signal Bridge changes will be documented here.
 ## v0.1 - 2026-06-19
 
 ### Feed interaction and diagnostics
+- Added a simple nonblocking GitHub update check on launch, with Help > Check for Updates and an on-launch toggle.
 - Added right-click feed row menu.
 - Added copy actions for visible line, original line, translated line, sender, systems, ships/assets, and URLs.
 - Added HTTP/HTTPS URL auto-linking with click-to-open and right-click copy/open support.

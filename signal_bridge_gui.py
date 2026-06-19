@@ -17,6 +17,8 @@ from typing import Callable
 
 APP_NAME = "Signal Bridge"
 APP_VERSION = "0.1"
+UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
+UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
 ALL_CHANNELS_TAB = "__ALL_CHANNELS__"
 APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -72,6 +74,7 @@ def load_settings() -> dict:
         "auto_open_new_channels": True,
         "auto_switch_to_new_channel": False,
         "max_tab_rows": 3,
+        "check_updates_on_start": True,
         "replay_on_start": False,
     }
     try:
@@ -574,6 +577,24 @@ def short_tab_label(label: str, max_chars: int = 28) -> str:
     return label if len(label) <= max_chars else label[: max_chars - 1] + "…"
 
 
+
+def parse_version_tuple(value: str) -> tuple[int, ...]:
+    raw = str(value or "").strip().lower().lstrip("v")
+    parts = []
+    for chunk in re.split(r"[^0-9]+", raw):
+        if chunk:
+            parts.append(int(chunk))
+    return tuple(parts or [0])
+
+
+def is_newer_version(remote: str, local: str) -> bool:
+    r = list(parse_version_tuple(remote))
+    l = list(parse_version_tuple(local))
+    n = max(len(r), len(l))
+    r += [0] * (n - len(r))
+    l += [0] * (n - len(l))
+    return tuple(r) > tuple(l)
+
 class SignalBridgeGui:
     def __init__(self):
         import tkinter as tk
@@ -602,6 +623,7 @@ class SignalBridgeGui:
         self.show_timestamps = tk.BooleanVar(value=bool(SETTINGS.get("show_timestamps", True)))
         self.show_channel_names = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names", False)))
         self.show_channel_names_in_all = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names_in_all", True)))
+        self.check_updates_on_start = tk.BooleanVar(value=bool(SETTINGS.get("check_updates_on_start", True)))
         self.root.attributes("-topmost", bool(self.always_on_top.get()))
         self.active_channels: set[str] = default_channels()
         self.hidden_tab_ids: set[str] = set(str(x) for x in (SETTINGS.get("hidden_tab_ids") or []))
@@ -676,6 +698,9 @@ class SignalBridgeGui:
         tools_menu.add_command(label="Open Chatlog Folder", command=self.open_folder)
         menubar.add_cascade(label="Tools", menu=tools_menu)
         help_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        help_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(manual=True))
+        help_menu.add_checkbutton(label="Check for Updates on Launch", variable=self.check_updates_on_start, command=self.persist_settings)
+        help_menu.add_separator()
         help_menu.add_command(label="About Signal Bridge", command=self.show_about)
         help_menu.add_command(label="Support / Donate ISK", command=self.show_support)
         menubar.add_cascade(label="Help", menu=help_menu)
@@ -1315,6 +1340,34 @@ class SignalBridgeGui:
         else:
             self.set_status("Chatlog folder does not exist; use Settings > Choose Chatlog Folder...")
 
+    def check_for_updates(self, manual: bool = False):
+        def worker():
+            try:
+                req = urllib.request.Request(
+                    UPDATE_API_URL,
+                    headers={"User-Agent": f"SignalBridge/{APP_VERSION}", "Accept": "application/vnd.github+json"},
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                tag = str(data.get("tag_name") or "").strip()
+                html_url = str(data.get("html_url") or UPDATE_RELEASE_URL)
+                if tag and is_newer_version(tag, APP_VERSION):
+                    self.queue.put(("update_available", tag, html_url))
+                    write_log(f"Update available: {tag} {html_url}")
+                else:
+                    write_log(f"Update check OK: current={APP_VERSION} latest={tag or 'unknown'}")
+                    if manual:
+                        self.queue.put(("update_current", tag or APP_VERSION))
+            except Exception as exc:
+                write_log("Update check failed", exc)
+                if manual:
+                    self.queue.put(("update_failed", str(exc)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_update_available(self, tag: str, url: str):
+        if self.messagebox.askyesno("Signal Bridge Update Available", f"A newer Signal Bridge release is available: {tag}\n\nOpen the GitHub release page?"):
+            self.open_url(url)
+
     def show_about(self):
         self.messagebox.showinfo(
             "About Signal Bridge",
@@ -1332,7 +1385,8 @@ class SignalBridgeGui:
             "Translation:\n"
             "- EVE DB localization\n"
             "- Google free auto-detect to English\n"
-            "- Argos fallback when available"
+            "- Argos fallback when available\n"
+            "- Simple nonblocking GitHub update check on launch"
         )
 
     def show_support(self):
@@ -1358,7 +1412,8 @@ class SignalBridgeGui:
             f"Font: {self.font_family.get()} {int(self.font_size.get())}\n"
             f"Show timestamps: {bool(self.show_timestamps.get())}\n"
             "Free MT: Google primary, Argos fallback\n"
-            "Directions: Auto -> EN / EN -> CN"
+            "Directions: Auto -> EN / EN -> CN\n"
+            f"Update check on launch: {bool(self.check_updates_on_start.get())}"
         )
 
 
@@ -1637,6 +1692,15 @@ class SignalBridgeGui:
                 item = self.queue.get_nowait()
                 if isinstance(item, tuple) and item[0] == "status":
                     self.status_label.configure(text=item[1][:180])
+                elif isinstance(item, tuple) and item[0] == "update_available":
+                    self.status_label.configure(text=f"Update available: {item[1]}")
+                    self.show_update_available(item[1], item[2])
+                elif isinstance(item, tuple) and item[0] == "update_current":
+                    self.status_label.configure(text=f"Signal Bridge is current ({item[1]})")
+                    self.messagebox.showinfo("Signal Bridge Updates", f"Signal Bridge is up to date.\n\nCurrent version: v{APP_VERSION}\nLatest release: {item[1]}")
+                elif isinstance(item, tuple) and item[0] == "update_failed":
+                    self.status_label.configure(text="Update check failed; see logs")
+                    self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
                 elif isinstance(item, Row):
                     self.append_row(item)
         except queue.Empty:
@@ -1645,6 +1709,8 @@ class SignalBridgeGui:
 
     def run(self):
         self.start_monitor()
+        if bool(self.check_updates_on_start.get()):
+            self.root.after(1500, lambda: self.check_for_updates(manual=False))
         self.root.mainloop()
 
 
