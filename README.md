@@ -1,5 +1,7 @@
 ﻿# Signal Bridge v0.1
 
+Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
+
 ## Version
 
 Current version: 0.1
@@ -193,5 +195,6 @@ Backfill is disabled by default. When a channel tab is opened, Signal Bridge sna
 ## Channel tabs and channel names
 
 Active channels appear as tabs. When more than one channel is open, an **All Channels** tab is available. Normal per-channel tabs hide channel-name prefixes by default because the tab already identifies the channel. Use **View > Show Channel Names in Feed** to show/hide channel prefixes globally.
+
 
 
