@@ -304,3 +304,14 @@ Before calling the app v1.0, the goal is to have:
 - Ongoing alias tuning: added shorthand ship aliases for Stabber and Caracal Navy Issue from real intel usage.
 - Appearance polish completed: color swatches are shown beside editable hex codes.
 - Mobile-style default layout completed: first launch now uses a narrow/tall side-panel window.
+
+### Completed v0.3 display/accessibility polish
+- Default window layout is now narrow/tall for side-panel use.
+- Appearance / Display Options is implemented with presets, font controls, opacity, swatches plus hex codes, per-category colors, bold toggles, optional background rectangles, and live preview.
+- General Exclusion List is implemented and applies globally to recognition/highlight rules.
+
+### Future display ideas
+- Optional import/export theme files.
+- Optional per-channel appearance presets.
+- More colorblind-friendly preset tuning after user feedback.
+- Possible click-through overlay mode later, but not planned until normal transparency/overlay use is stable.

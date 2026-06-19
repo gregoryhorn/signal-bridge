@@ -16,4 +16,10 @@ Build:
 powershell -ExecutionPolicy Bypass -File .\build_portable.ps1
 ```
 
+## First Launch Layout
 
+Signal Bridge opens in a narrow mobile-style side-panel layout by default. Resize it like a normal Windows app if you prefer a wider layout.
+
+## Appearance
+
+Use `View > Appearance / Display Options...` to change fonts, colors, bold styles, opacity, highlight backgrounds, and presets. The dialog shows color swatches next to editable hex codes.

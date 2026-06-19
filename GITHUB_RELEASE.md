@@ -103,3 +103,10 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Added shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
 - Polished Appearance / Display Options with visible color swatches beside hex color codes.
 - Default startup window now opens in a narrow mobile-style layout instead of a wide layout.
+
+### Display and appearance polish
+- Default startup window now opens in a narrow mobile-style side-panel layout (`430x720`, minimum `360x420`).
+- Added `View > Appearance / Display Options...` with presets, font controls, opacity, live preview, per-category colors, bold toggles, and optional background highlight rectangles.
+- Appearance color controls show both visible swatches and editable hex color codes.
+- Sender names are neutral by default to reduce visual noise.
+- The General Exclusion List suppresses all recognition/highlighting for ignored terms, including ESI character, ship, module/asset, system, and ESS highlights.

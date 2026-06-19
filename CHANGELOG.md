@@ -104,3 +104,7 @@ Initial portable Windows preview release.
 - Added Chinese shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`, preventing MT from translating them as common words.
 - Polished the Appearance / Display Options dialog with clearer sections and visible color swatches next to hex color codes.
 - Changed the default startup window to a narrow mobile-style layout instead of a wide desktop layout.
+
+### v0.3 UI/display documentation refresh
+- Documented the mobile-style default window layout, Appearance / Display Options dialog, color swatches, opacity, presets, sender-neutral styling, and General Exclusion List behavior.
+- Bundled docs now describe how display styling interacts with system, ESI character, ship, asset/module, ESS, translation, and link highlights.

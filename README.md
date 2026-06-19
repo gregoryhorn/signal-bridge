@@ -46,6 +46,26 @@ ESI features:
 
 See [ROADMAP.md](ROADMAP.md) for planned features, including tab polish, right-click/copy support, automatic translation catalog updates from GitHub, ESI character detection, URL auto-linking, and release/signing improvements.
 
+
+
+## Display, Layout, and Appearance
+
+Signal Bridge opens by default in a narrow mobile-style side-panel layout (`430x720`) so it can sit beside EVE without consuming a wide monitor area. You can still resize the window normally.
+
+Use `View > Appearance / Display Options...` to tune the feed for your eyes and monitor:
+
+- choose a preset: Default Dark, Soft Dark, Low Color / Minimal, High Contrast, or Overlay Transparent;
+- change font family and font size;
+- adjust whole-window opacity for overlay-style use;
+- enable/disable background highlight rectangles;
+- edit each highlight category with both a visible swatch and editable hex color code;
+- toggle bold per category;
+- preview changes live before applying.
+
+Highlight categories include Timestamp, Sender, Systems, Characters / ESI, Ships, Modules / Assets, ESS, Translation, and Links. Sender names are neutral by default to reduce distraction.
+
+Use `Tools > General Exclusion List...` for words or names that should stay visually neutral. Excluded terms suppress recognition/highlighting globally, including ESI red, ship orange, asset/module purple, system yellow, and ESS blue rules.
+
 ## Download
 
 Get the Windows portable app from the GitHub release:
@@ -288,6 +308,4 @@ Appearance options include configurable font, colors, bold highlights, optional 
 
 Signal Bridge includes curated shorthand ship aliases such as `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
 
-The Appearance dialog shows both color swatches and editable hex color codes for easier theme tuning.
 
-Signal Bridge now opens by default in a narrow mobile-style layout that works well as a side-panel beside EVE.

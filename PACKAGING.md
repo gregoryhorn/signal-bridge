@@ -19,5 +19,8 @@ Important:
 
 If PyInstaller hangs or produces a huge build because of Argos/Torch dependencies, build a first release without bundling Argos and keep Argos as an optional source/dev feature or separate advanced package.
 
+## Bundled user documentation
 
+The portable ZIP should include the current README, distribution notes, changelog, roadmap, packaging notes, release notes, compact EVE catalog, catalog manifest, phrase overrides, and checksum files. Keep these aligned whenever UI/display behavior, release assets, or catalog metadata changes.
 
+The default packaged app opens in a mobile-style side-panel layout and includes Appearance / Display Options documentation in the bundled README files.
