@@ -514,6 +514,35 @@ class EsiCache:
         except Exception as exc:
             write_log("ESI correction save failed", exc); return False
 
+    def list_corrections(self, action: str | None = None) -> list[dict]:
+        try:
+            con = self._connect()
+            if action:
+                rows = con.execute("select text, action, entity_type, entity_id, canonical_name, note, created_at from esi_corrections where action=? order by text", (action,)).fetchall()
+            else:
+                rows = con.execute("select text, action, entity_type, entity_id, canonical_name, note, created_at from esi_corrections order by action, text").fetchall()
+            con.close()
+            return [{"text": r[0], "action": r[1], "entity_type": r[2], "entity_id": r[3], "name": r[4], "note": r[5], "created_at": r[6]} for r in rows]
+        except Exception as exc:
+            write_log("ESI correction list failed", exc)
+            return []
+
+    def remove_correction(self, text: str) -> bool:
+        key = normalize_esi_query(text)
+        if not key:
+            return False
+        try:
+            con = self._connect(); con.execute("delete from esi_corrections where text=?", (key,)); con.commit(); con.close(); return True
+        except Exception as exc:
+            write_log("ESI correction remove failed", exc); return False
+
+    def get_status(self) -> dict:
+        try:
+            con = self._connect(); rows = con.execute("select key, value, updated_at from esi_status").fetchall(); con.close()
+            return {r[0]: {"value": r[1], "updated_at": r[2]} for r in rows}
+        except Exception:
+            return {}
+
     def get_entity(self, query: str, force: bool = False) -> dict | None:
         if force:
             return None
@@ -806,18 +835,29 @@ class EsiResolver(threading.Thread):
         key = normalize_esi_query(query)
         if not key or len(key) < 3 or key in COMMON_ESI_NOISE:
             return
+        corr = ESI_CACHE.get_correction(query)
+        if corr and corr.get("action") == "ignore" and not force:
+            ESI_CACHE.set_status("last_check", f"ignored: {query}")
+            write_log(f"ESI ignored by exclusion list: {query!r}")
+            return
         cached = ESI_CACHE.get_entity(query, force=force)
         if cached:
             if not cached.get("ignored"):
+                ESI_CACHE.set_status("last_check", f"cache hit: {query} -> {cached.get('name') or cached.get('entity_type')}")
+                write_log(f"ESI cache hit for {query!r}: {cached.get('entity_type')} {cached.get('name')}")
                 self.outq.put(("esi_resolved", query, cached))
             return
         if ESI_CACHE.is_negative(query, force=force):
+            ESI_CACHE.set_status("last_check", f"negative cache: {query}")
+            write_log(f"ESI negative cache hit for {query!r}")
             return
         if key in self.pending:
             return
         try:
             self.pending.add(key)
             self.work.put_nowait((query, force))
+            ESI_CACHE.set_status("last_check", f"queued: {query}")
+            write_log(f"ESI queued: {query!r} force={force}")
         except queue.Full:
             self.pending.discard(key)
             ESI_CACHE.set_status("last_status", "queue_full")
@@ -909,12 +949,17 @@ class EsiResolver(threading.Thread):
                 result = self.resolve_public(query)
                 if result:
                     ESI_CACHE.put_entity(query, result)
+                    ESI_CACHE.set_status("last_check", f"positive: {query} -> {result.get('name') or result.get('entity_type')}")
+                    write_log(f"ESI positive answer for {query!r}: {result.get('entity_type')} {result.get('name')} corp={result.get('corporation_name','')} alliance={result.get('alliance_name','')}")
                     self.outq.put(("esi_resolved", query, result))
                 else:
                     ESI_CACHE.put_negative(query, "not_found")
+                    ESI_CACHE.set_status("last_check", f"negative answer: {query}")
+                    write_log(f"ESI negative answer for {query!r}")
             except Exception as exc:
                 ESI_CACHE.set_status("last_error", type(exc).__name__)
-                write_log(f"ESI lookup failed for {query!r}: {type(exc).__name__}")
+                ESI_CACHE.set_status("last_check", f"error: {query}: {type(exc).__name__}")
+                write_log(f"ESI lookup error for {query!r}: {type(exc).__name__}")
             finally:
                 self.pending.discard(key)
 
@@ -1411,6 +1456,8 @@ class SignalBridgeGui:
         tools_menu.add_command(label="Open Phrase Overrides", command=self.open_phrase_overrides)
         tools_menu.add_separator()
         tools_menu.add_command(label="ESI Cache Status", command=self.show_esi_cache_status)
+        tools_menu.add_command(label="ESI Last Check / Diagnostics", command=self.show_esi_diagnostics)
+        tools_menu.add_command(label="ESI Character Exclusion List...", command=self.show_esi_exclusion_list)
         tools_menu.add_command(label="Clear ESI Cache", command=self.clear_esi_cache)
         tools_menu.add_separator()
         tools_menu.add_command(label="Open Chatlog Folder", command=self.open_folder)
@@ -2099,6 +2146,127 @@ class SignalBridgeGui:
             if ESI_CACHE.clear():
                 self.esi_entities.clear(); self.set_status("ESI cache cleared")
 
+    def selected_feed_text(self) -> str:
+        try:
+            return re.sub(r"\s+", " ", self.text.get("sel.first", "sel.last").strip())
+        except Exception:
+            return ""
+
+    def show_esi_diagnostics(self):
+        stats = ESI_CACHE.stats()
+        statuses = ESI_CACHE.get_status()
+        def fmt_status(key: str) -> str:
+            item = statuses.get(key)
+            if not item:
+                return ""
+            ts = item.get("updated_at") or 0
+            try:
+                stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(ts)))
+            except Exception:
+                stamp = ""
+            return f"{item.get('value','')} ({stamp})"
+        resolver_state = "not running"
+        if self.esi_resolver and self.esi_resolver.is_alive():
+            resolver_state = f"running, queue={self.esi_resolver.work.qsize()}, pending={len(self.esi_resolver.pending)}"
+        text = (
+            f"ESI enabled: {self.esi_is_enabled()}\n"
+            f"Resolver: {resolver_state}\n"
+            f"Cache file: {ESI_CACHE_PATH}\n"
+            f"Entities: {stats.get('entities',0)}\n"
+            f"Negative answers: {stats.get('negative',0)}\n"
+            f"Exclusions/corrections: {stats.get('corrections',0)}\n"
+            f"Last check: {fmt_status('last_check')}\n"
+            f"Last status: {fmt_status('last_status')}\n"
+            f"Last error: {fmt_status('last_error')}\n"
+        )
+        self.messagebox.showinfo("ESI Last Check / Diagnostics", text)
+
+    def show_esi_candidates_for_row(self, row: Row | None):
+        if not row:
+            self.messagebox.showinfo("ESI Candidates", "No chat row detected under the cursor. Select text and use Resolve Selected Text with ESI.")
+            return
+        candidates = esi_candidates_for_row(row)
+        if not candidates:
+            self.messagebox.showinfo("ESI Candidates", "No ESI candidates detected for this row.\n\nKnown systems/EVE entities/counts/links are excluded before name detection.")
+            return
+        lines = []
+        for cand in candidates:
+            cached = ESI_CACHE.get_entity(cand)
+            neg = ESI_CACHE.is_negative(cand)
+            corr = ESI_CACHE.get_correction(cand)
+            if corr and corr.get("action") == "ignore":
+                state = "excluded"
+            elif cached:
+                state = f"cached: {cached.get('name')}"
+            elif neg:
+                state = "negative-cache"
+            else:
+                state = "candidate"
+            lines.append(f"{cand} [{state}]")
+        self.messagebox.showinfo("ESI Candidates", "\n".join(lines))
+
+    def resolve_selected_esi_text(self):
+        text = self.selected_feed_text()
+        if not text:
+            self.set_status("No selected text for ESI")
+            return
+        self.refresh_esi_entity(text)
+
+    def ignore_selected_esi_text(self):
+        text = self.selected_feed_text()
+        if not text:
+            self.set_status("No selected text to exclude from ESI")
+            return
+        self.ignore_esi_entity(text)
+
+    def show_esi_exclusion_list(self):
+        win = self.tk.Toplevel(self.root)
+        win.title("ESI Character Exclusion List")
+        win.configure(bg="#0b0f14")
+        win.geometry("520x420")
+        self.tk.Label(win, text="Names excluded from ESI character detection", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
+        frame = self.tk.Frame(win, bg="#0b0f14"); frame.pack(fill="both", expand=True, padx=12, pady=6)
+        lb = self.tk.Listbox(frame, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
+        sb = self.tk.Scrollbar(frame, command=lb.yview); lb.configure(yscrollcommand=sb.set)
+        lb.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
+        entry = self.tk.Entry(win, bg="#111821", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+        entry.pack(fill="x", padx=12, pady=(4, 8))
+        def reload_list():
+            lb.delete(0, "end")
+            for item in ESI_CACHE.list_corrections("ignore"):
+                lb.insert("end", item.get("text") or "")
+        def add_name():
+            raw = entry.get().strip()
+            if not raw:
+                return
+            if ESI_CACHE.set_correction(raw, "ignore", note="user exclusion list"):
+                self.esi_entities.pop(normalize_esi_query(raw), None)
+                entry.delete(0, "end"); reload_list(); self.set_status(f"Excluded from ESI: {raw}")
+        def remove_selected():
+            sel = list(lb.curselection())
+            if not sel:
+                return
+            for idx in reversed(sel):
+                val = lb.get(idx)
+                ESI_CACHE.remove_correction(val)
+            reload_list(); self.set_status("ESI exclusion removed")
+        def import_names():
+            raw = self.simpledialog.askstring("Import ESI exclusions", "Paste one name per line:", parent=win)
+            if not raw:
+                return
+            count = 0
+            for line in raw.splitlines():
+                name = line.strip()
+                if name and ESI_CACHE.set_correction(name, "ignore", note="bulk import"):
+                    count += 1
+            reload_list(); self.set_status(f"Imported {count} ESI exclusions")
+        buttons = self.tk.Frame(win, bg="#0b0f14"); buttons.pack(fill="x", padx=12, pady=(0, 12))
+        self.tk.Button(buttons, text="Add", command=add_name).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Remove Selected", command=remove_selected).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Import...", command=import_names).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Close", command=win.destroy).pack(side="right")
+        reload_list()
+
     def authorize_esi_character(self):
         settings = load_esi_settings()
         if not bool(self.esi_oauth_enabled.get()):
@@ -2440,13 +2608,14 @@ class SignalBridgeGui:
     def show_feed_context_menu(self, event):
         row_tag, info = self.row_at_event(event)
         url = self.link_at_event(event)
+        selected = self.selected_feed_text()
+        row = info["row"] if info else None
         menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
         if url:
             menu.add_command(label="Open URL", command=lambda u=url: self.open_url(u))
             menu.add_command(label="Copy URL", command=lambda u=url: self.copy_to_clipboard(u))
             menu.add_separator()
         if info:
-            row = info["row"]
             menu.add_command(label="Copy Visible Line", command=lambda i=info: self.copy_to_clipboard(i["visible_line"]))
             menu.add_command(label="Copy Original Line", command=lambda i=info: self.copy_to_clipboard(i["original_line"]))
             menu.add_command(label="Copy Translated Line", command=lambda i=info: self.copy_to_clipboard(i["translated_line"]))
@@ -2457,13 +2626,27 @@ class SignalBridgeGui:
             menu.add_command(label="Copy URLs", command=lambda r=row: self.copy_to_clipboard("\n".join(self.http_links_for_row(r))))
             menu.add_command(label="Copy Translation Details", command=lambda i=info: self.copy_to_clipboard(f"source={i.get('source_label','none')}"))
             menu.add_separator()
-            menu.add_command(label="Resolve Sender with ESI", command=lambda r=row: self.refresh_esi_entity(r.sender))
-            menu.add_command(label="Refresh Sender ESI Data", command=lambda r=row: self.refresh_esi_entity(r.sender))
-            menu.add_command(label="Copy ESI Details", command=lambda r=row: self.copy_to_clipboard(self.esi_details_for_row(r)))
-            menu.add_command(label="Ignore Sender for ESI", command=lambda r=row: self.ignore_esi_entity(r.sender))
         else:
             menu.add_command(label="Copy Selected Text", command=self.copy_selected_text)
             menu.add_command(label="Copy Visible Feed", command=self.copy_visible_feed)
+            menu.add_separator()
+        # Keep ESI actions visible even when row detection misses, so users can diagnose and use selected text.
+        if selected:
+            menu.add_command(label="Resolve Selected Text with ESI", command=self.resolve_selected_esi_text)
+            menu.add_command(label="Ignore Selected Text for ESI", command=self.ignore_selected_esi_text)
+        else:
+            menu.add_command(label="Resolve Selected Text with ESI", command=self.resolve_selected_esi_text, state="disabled")
+            menu.add_command(label="Ignore Selected Text for ESI", command=self.ignore_selected_esi_text, state="disabled")
+        if row:
+            menu.add_command(label="Resolve Sender with ESI", command=lambda r=row: self.refresh_esi_entity(r.sender))
+            menu.add_command(label="Refresh Sender ESI Data", command=lambda r=row: self.refresh_esi_entity(r.sender))
+            menu.add_command(label="Show ESI Candidates for Message", command=lambda r=row: self.show_esi_candidates_for_row(r))
+            menu.add_command(label="Copy ESI Details", command=lambda r=row: self.copy_to_clipboard(self.esi_details_for_row(r)))
+            menu.add_command(label="Ignore Sender for ESI", command=lambda r=row: self.ignore_esi_entity(r.sender))
+        else:
+            menu.add_command(label="Show ESI Candidates for Message", command=lambda: self.show_esi_candidates_for_row(None), state="disabled")
+        menu.add_command(label="ESI Last Check / Diagnostics", command=self.show_esi_diagnostics)
+        menu.add_command(label="ESI Character Exclusion List...", command=self.show_esi_exclusion_list)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:

@@ -88,3 +88,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Fixed ESS highlighting so it no longer tags `ess` inside normal words.
 - Updated the chat feed to use a clearer sans-serif default font and fixed ESI message-name detection for lowercase pilot handles while excluding plural ship names.
 - Negative ESI answers now stay in the negative cache for 90 days to prevent repeat lookups from burning ESI rates.
+- Added ESI diagnostics, selected-text ESI resolve/ignore, always-visible ESI context actions, and a character exclusion list for badly named characters.

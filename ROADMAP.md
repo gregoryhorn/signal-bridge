@@ -289,3 +289,4 @@ Before calling the app v1.0, the goal is to have:
 - ESS highlight boundary fix completed: standalone ESS only, no mid-word tagging.
 - Feed readability polish completed: clearer sans-serif chat font and improved lowercase pilot-handle ESI detection with plural ship exclusions.
 - ESI cache policy updated: negative ESI answers use a 90-day TTL.
+- ESI usability refinement completed: visible last-check diagnostics and character exclusion list for false positives/bad names.

@@ -88,3 +88,4 @@ Initial portable Windows preview release.
 - Fixed ESS highlighting so only standalone `ESS` is colored, not the letters inside longer words.
 - Changed the default chat feed font to a clearer sans-serif typeface (`Segoe UI`) and improved ESI message-name detection for lowercase pilot handles after systems while excluding plural ship names.
 - Changed negative ESI answer cache TTL to 90 days to prevent unnecessary rechecks and protect ESI rate limits.
+- Added ESI diagnostics, visible right-click ESI actions, selected-text ESI resolve/ignore, and a character exclusion list for badly named characters.
