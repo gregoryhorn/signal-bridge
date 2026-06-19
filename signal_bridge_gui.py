@@ -2,22 +2,26 @@
 import argparse
 import base64
 import json
+import os
 import copy
 import hashlib
 import queue
 import re
+import shutil
 import secrets
 import sqlite3
 import sys
 import threading
 import time
 import traceback
+import tempfile
 import webbrowser
 import http.server
 import socketserver
 import urllib.parse
 import urllib.request
 import urllib.error
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -37,6 +41,10 @@ LOG_DIR = USER_DIR / "logs"
 LOG_PATH = LOG_DIR / "signal_bridge.log"
 CONFIG_PATH = CONFIG_DIR / "settings.json"
 DATA_DIR = USER_DIR / "data"
+MODULES_DIR = USER_DIR / "modules"
+MODULE_DATA_DIR = USER_DIR / "user_data" / "modules"
+INTEL_HISTORY_ADDON_ID = "intel-history"
+INTEL_HISTORY_ADDON_NAME = "Intel History / Pilot Intelligence"
 DEFAULT_DB_PATH = Path(r"D:\AI\Rift\signal-bridge-v2\signal-bridge-v3\src-tauri\bundle-resources\translations.db")
 POLL_SECONDS = 1.0
 MAX_CHUNK = 1024 * 1024
@@ -104,6 +112,7 @@ def load_settings() -> dict:
         "auto_switch_to_new_channel": False,
         "max_tab_rows": 3,
         "check_updates_on_start": True,
+        "addons": {INTEL_HISTORY_ADDON_ID: {"enabled": False}},
         "esi_entity_recognition": True,
         "esi_oauth_enabled": False,
         "replay_on_start": False,
@@ -129,6 +138,111 @@ def save_settings(settings: dict) -> None:
         pass
 
 
+def addon_code_dir(addon_id: str) -> Path:
+    return MODULES_DIR / addon_id
+
+
+def addon_data_dir(addon_id: str) -> Path:
+    return MODULE_DATA_DIR / addon_id
+
+
+def load_addon_manifest(addon_id: str) -> dict | None:
+    manifest = addon_code_dir(addon_id) / "module.json"
+    if not manifest.exists():
+        return None
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except Exception as exc:
+        write_log(f"Add-on manifest load failed for {addon_id}", exc)
+        return None
+
+
+def installed_addon_status(addon_id: str = INTEL_HISTORY_ADDON_ID) -> dict:
+    manifest = load_addon_manifest(addon_id)
+    addon_settings = (SETTINGS.get("addons") or {}).get(addon_id) or {}
+    data_dir = addon_data_dir(addon_id)
+    return {
+        "id": addon_id,
+        "installed": bool(manifest),
+        "enabled": bool(addon_settings.get("enabled", False)) and bool(manifest),
+        "manifest": manifest or {},
+        "code_dir": str(addon_code_dir(addon_id)),
+        "data_dir": str(data_dir),
+        "data_exists": data_dir.exists(),
+    }
+
+
+def set_addon_enabled(addon_id: str, enabled: bool) -> None:
+    addons = SETTINGS.setdefault("addons", {})
+    current = dict(addons.get(addon_id) or {})
+    current["enabled"] = bool(enabled)
+    current["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    addons[addon_id] = current
+    save_settings(SETTINGS)
+
+
+def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
+    dest_resolved = dest.resolve()
+    for member in zf.infolist():
+        name = member.filename.replace("\\", "/")
+        if not name or name.endswith("/"):
+            continue
+        if name.startswith("/") or ".." in Path(name).parts:
+            raise ValueError(f"Unsafe add-on path: {member.filename}")
+        target = (dest / name).resolve()
+        if dest_resolved not in target.parents and target != dest_resolved:
+            raise ValueError(f"Unsafe add-on target: {member.filename}")
+    zf.extractall(dest)
+
+
+def _find_manifest_root(extracted: Path) -> tuple[Path, dict]:
+    candidates = list(extracted.rglob("module.json"))
+    if not candidates:
+        raise ValueError("Add-on package does not contain module.json")
+    candidates.sort(key=lambda p: (len(p.relative_to(extracted).parts), str(p)))
+    manifest_path = candidates[0]
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("module.json is not a JSON object")
+    return manifest_path.parent, manifest
+
+
+def install_intel_history_addon_zip(zip_path: Path) -> dict:
+    zip_path = Path(zip_path)
+    if not zip_path.exists():
+        raise FileNotFoundError(str(zip_path))
+    MODULES_DIR.mkdir(parents=True, exist_ok=True)
+    MODULE_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="signalbridge-addon-") as tmp:
+        tmpdir = Path(tmp)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            _safe_extract_zip(zf, tmpdir)
+        root, manifest = _find_manifest_root(tmpdir)
+        addon_id = str(manifest.get("id") or "").strip()
+        if addon_id != INTEL_HISTORY_ADDON_ID:
+            raise ValueError(f"Unsupported add-on id: {addon_id or 'missing'}")
+        target = addon_code_dir(addon_id)
+        backup = target.with_suffix(".backup")
+        if backup.exists():
+            shutil.rmtree(backup)
+        if target.exists():
+            target.rename(backup)
+        try:
+            shutil.copytree(root, target)
+            addon_data_dir(addon_id).mkdir(parents=True, exist_ok=True)
+            return manifest
+        except Exception:
+            if target.exists():
+                shutil.rmtree(target, ignore_errors=True)
+            if backup.exists():
+                backup.rename(target)
+            raise
+        finally:
+            if backup.exists():
+                shutil.rmtree(backup, ignore_errors=True)
+
+
 SETTINGS = load_settings()
 if SETTINGS.get("font_family") == "Consolas":
     SETTINGS["font_family"] = "Segoe UI"
@@ -138,7 +252,7 @@ DB_PATH = Path(SETTINGS.get("db_path") or DEFAULT_DB_PATH)
 DEFAULT_CHANNELS: set[str] = set(SETTINGS.get("active_channels") or [])
 
 def ensure_app_dirs() -> None:
-    for path in (CONFIG_DIR, CACHE_DIR, MODEL_DIR, LOG_DIR, DATA_DIR):
+    for path in (CONFIG_DIR, CACHE_DIR, MODEL_DIR, LOG_DIR, DATA_DIR, MODULES_DIR, MODULE_DATA_DIR):
         try:
             path.mkdir(parents=True, exist_ok=True)
         except Exception:
@@ -1698,6 +1812,7 @@ class SignalBridgeGui:
         settings_menu.add_command(label="Appearance...", command=lambda: self.show_settings_center("Appearance"))
         settings_menu.add_command(label="ESI...", command=lambda: self.show_settings_center("ESI"))
         settings_menu.add_command(label="Exclusions...", command=lambda: self.show_settings_center("Exclusions"))
+        settings_menu.add_command(label="Add-ons...", command=lambda: self.show_settings_center("Add-ons"))
         menubar.add_cascade(label="Settings", menu=settings_menu)
 
         view_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
@@ -2353,6 +2468,7 @@ class SignalBridgeGui:
             f"Translation cache: {count} entries, {hits} hits\n"
             f"ESI enabled: {bool(self.esi_enabled.get())} | cache={esi_stats}\n"
             f"Last ESI check: {last_check}\n"
+            f"Intel History add-on: {self.intel_history_status_label()}\n"
             f"Config: {CONFIG_PATH}\n"
             f"Logs: {LOG_PATH}\n"
             f"Live-only/no-backfill: replay_on_start=False"
@@ -2362,9 +2478,92 @@ class SignalBridgeGui:
         self.copy_to_clipboard(self.settings_summary_text())
         self.set_status("Diagnostics copied")
 
+    def intel_history_status(self) -> dict:
+        return installed_addon_status(INTEL_HISTORY_ADDON_ID)
+
+    def intel_history_status_label(self) -> str:
+        status = self.intel_history_status()
+        manifest = status.get("manifest") or {}
+        if not status.get("installed"):
+            return "not installed"
+        version = manifest.get("version") or "unknown"
+        return f"{'enabled' if status.get('enabled') else 'installed, disabled'} v{version}"
+
+    def open_intel_history_data_folder(self):
+        path = addon_data_dir(INTEL_HISTORY_ADDON_ID)
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(str(path))
+        except Exception as exc:
+            write_log("Open Intel History data folder failed", exc)
+            self.messagebox.showwarning("Intel History", f"Could not open folder:\n{path}\n\n{exc}")
+
+    def set_intel_history_enabled(self, enabled: bool):
+        status = self.intel_history_status()
+        if enabled and not status.get("installed"):
+            self.messagebox.showinfo("Intel History", "Intel History is not installed yet. Install the official add-on ZIP first.")
+            set_addon_enabled(INTEL_HISTORY_ADDON_ID, False)
+            self.set_status("Intel History is not installed")
+            return
+        set_addon_enabled(INTEL_HISTORY_ADDON_ID, bool(enabled))
+        self.set_status(f"Intel History {'enabled' if enabled else 'disabled'}")
+
+    def install_intel_history_addon_from_file(self):
+        path = self.filedialog.askopenfilename(title="Install Intel History Add-on", filetypes=[("Signal Bridge add-on ZIP", "*.zip"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            manifest = install_intel_history_addon_zip(Path(path))
+            set_addon_enabled(INTEL_HISTORY_ADDON_ID, False)
+            self.messagebox.showinfo("Intel History Installed", f"Installed {manifest.get('name') or INTEL_HISTORY_ADDON_NAME}\nVersion: {manifest.get('version') or 'unknown'}\n\nEnable it from Settings > Add-ons when ready.")
+            self.set_status("Intel History add-on installed")
+        except Exception as exc:
+            write_log("Intel History add-on install failed", exc)
+            self.messagebox.showwarning("Intel History Install Failed", str(exc)[:1000])
+            self.set_status("Intel History add-on install failed")
+
+    def uninstall_intel_history_addon_code(self):
+        status = self.intel_history_status()
+        if not status.get("installed"):
+            self.messagebox.showinfo("Intel History", "Intel History is not installed.")
+            return
+        ok = self.messagebox.askyesno("Uninstall Intel History", "Remove the Intel History add-on code?\n\nLocal Intel History data will be kept.\n\nContinue?")
+        if not ok:
+            return
+        try:
+            set_addon_enabled(INTEL_HISTORY_ADDON_ID, False)
+            shutil.rmtree(addon_code_dir(INTEL_HISTORY_ADDON_ID), ignore_errors=True)
+            self.set_status("Intel History add-on code removed; data kept")
+            self.messagebox.showinfo("Intel History", "Intel History add-on code was removed. Local data was kept.")
+        except Exception as exc:
+            write_log("Intel History uninstall failed", exc)
+            self.messagebox.showwarning("Intel History", f"Uninstall failed:\n{exc}")
+
+    def show_intel_history_details(self):
+        status = self.intel_history_status()
+        manifest = status.get("manifest") or {}
+        text = (
+            f"{INTEL_HISTORY_ADDON_NAME}\n\n"
+            f"Status: {self.intel_history_status_label()}\n"
+            f"Installed: {status.get('installed')}\n"
+            f"Enabled: {status.get('enabled')}\n"
+            f"Version: {manifest.get('version') or 'n/a'}\n"
+            f"Compatible app: {manifest.get('compatible_app') or 'n/a'}\n\n"
+            f"Code folder:\n{status.get('code_dir')}\n\n"
+            f"Data folder:\n{status.get('data_dir')}\n\n"
+            "Planned capabilities:\n"
+            "- ESI-confirmed pilot sightings\n"
+            "- Pilot Intelligence Cards\n"
+            "- Manual and auto flags\n"
+            "- zKill enrichment\n"
+            "- Intel import/export packs\n"
+            "- Read-only Intel Query Service for future LLM use"
+        )
+        self.messagebox.showinfo("Intel History Add-on", text)
+
     def show_settings_center(self, initial_page: str = "General"):
         tk = self.tk
-        pages = ["General", "Channels", "Appearance", "Translation", "EVE Catalog", "ESI", "Exclusions", "Cache & Data", "Diagnostics", "About / Support"]
+        pages = ["General", "Channels", "Appearance", "Translation", "EVE Catalog", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
         if initial_page not in pages:
             initial_page = "General"
         win = tk.Toplevel(self.root)
@@ -2452,6 +2651,28 @@ class SignalBridgeGui:
             label(c, f"Local exclusions: {len(exclusions)}"); sample = ", ".join((x.get("text") or "") for x in exclusions[:12])
             if sample: label(c, sample + ("..." if len(exclusions) > 12 else ""), "#8b98a8")
             r = row(c); action(r, "Open Exclusion List...", self.show_esi_exclusion_list)
+        def render_addons():
+            c = card(body, "Add-ons", "Optional add-ons keep Signal Bridge lightweight. LAN Viewer and Argos remain native/core features; Intel History is the first planned optional add-on.")
+            label(c, f"Modules folder: {MODULES_DIR}", "#8b98a8")
+            label(c, f"Module data folder: {MODULE_DATA_DIR}", "#8b98a8")
+            ih = self.intel_history_status(); manifest = ih.get("manifest") or {}
+            c2 = card(body, INTEL_HISTORY_ADDON_NAME, "Planned optional module for local pilot memory, Pilot Intelligence Cards, flags, zKill enrichment, import/export packs, and future LLM query support.")
+            label(c2, f"Status: {self.intel_history_status_label()}")
+            if ih.get("installed"):
+                label(c2, f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}", "#8b98a8")
+                label(c2, f"Code: {ih.get('code_dir')}", "#8b98a8")
+                label(c2, f"Data: {ih.get('data_dir')}", "#8b98a8")
+            else:
+                label(c2, "Not installed. Install the official Intel History add-on ZIP when available.", "#8b98a8")
+            enabled_var = tk.BooleanVar(value=bool(ih.get("enabled")))
+            check(c2, "Enable Intel History", enabled_var, lambda v=enabled_var: self.set_intel_history_enabled(bool(v.get())))
+            r = row(c2)
+            action(r, "Install from ZIP...", self.install_intel_history_addon_from_file)
+            action(r, "Details", self.show_intel_history_details)
+            action(r, "Open Data Folder", self.open_intel_history_data_folder)
+            if ih.get("installed"):
+                action(r, "Uninstall Code", self.uninstall_intel_history_addon_code)
+            label(c2, "MVP guardrails: same SignalBridge.exe, local SQLite data, ESI-confirmed pilots by default, no live-feed blocking.", "#8b98a8")
         def render_cache_data():
             c = card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
             count, hits = TRANSLATION_CACHE.stats()
@@ -2465,8 +2686,8 @@ class SignalBridgeGui:
         def render_about():
             c = card(body, "About / Support"); label(c, f"Signal Bridge v{APP_VERSION}"); label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", "#8b98a8"); label(c, DONATION_TEXT)
             r = row(c); action(r, "About", self.show_about); action(r, "Support / Donate ISK", self.show_support); action(r, "Check for Updates", lambda: self.check_for_updates(manual=True))
-        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "ESI": render_esi, "Exclusions": render_exclusions, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
-        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
+        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
+        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
         def render_page(page):
             clear(); title.configure(text=page); subtitle.configure(text=descriptions.get(page, ""))
             for name, btn in nav_buttons.items(): style_button(btn, name == page)

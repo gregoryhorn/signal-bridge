@@ -11,6 +11,13 @@ Spec: [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
 
 1. Verify app runs from source:
 
+## Add-ons foundation
+
+This build includes the first native add-ons foundation under **Settings > Add-ons**. It prepares Signal Bridge for the future optional **Intel History / Pilot Intelligence** module while keeping LAN Viewer and Argos offline translation support as native/core planned features.
+
+The current foundation supports local add-on status, module/data folder separation, official/local ZIP validation, enable/disable state, code-only uninstall behavior, and diagnostics text. The Intel History engine itself remains planned in [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
+
+
    ```powershell
    python -X utf8 -m py_compile .\signal_bridge_gui.py
    python -X utf8 .\signal_bridge_gui.py --self-test --limit 5

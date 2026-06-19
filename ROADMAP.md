@@ -11,6 +11,13 @@ Planned scope includes local SQLite sightings, ESI-confirmed pilot tracking, Pil
 
 This roadmap is planned work, not a guarantee of exact delivery order. The current focus is keeping the app lightweight, portable, low-impact during gameplay, and useful for live chat/intel readability.
 
+## Add-ons foundation implemented
+
+The first add-ons foundation has been added to the app. `Settings > Add-ons` now provides the native UI and local package plumbing for the future optional Intel History / Pilot Intelligence add-on: module folders, user-data folders, manifest inspection, local ZIP install validation, enable/disable state, uninstall-code-only behavior, and diagnostics visibility.
+
+Next work remains the actual Intel History engine: local SQLite sightings, Pilot Intelligence Cards, flags, zKill enrichment, import/export packs, and the Intel Query Service.
+
+
 ## Current v0.2 Baseline
 
 - Portable Windows ZIP release.

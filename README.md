@@ -11,6 +11,13 @@ See [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md) for t
 
 ## Version
 
+## Add-ons foundation
+
+Signal Bridge now includes the first lightweight add-ons foundation in **Settings > Add-ons**. The base app stays lean while preparing for the future optional **Intel History / Pilot Intelligence** add-on. The foundation can inspect Intel History status, keep add-on code under `modules/`, keep user data under `user_data/modules/`, install an official/local add-on ZIP, enable/disable the add-on state, and remove add-on code while keeping local data.
+
+The Intel History analysis engine itself is still planned; see [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
+
+
 Current version: 0.1
 
 

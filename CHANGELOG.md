@@ -10,6 +10,17 @@
 - See `docs/INTEL_HISTORY_ADDON_SPEC.md`.
 
 - Excludes known solar systems, ships, modules, catalog entities, links, counts, and localized EVE aliases before ESI lookup.
+
+## Changed - Add-ons foundation
+
+- Added a native Add-ons page to the Settings Center.
+- Added Intel History / Pilot Intelligence placeholder/status controls.
+- Added local add-on folders: `modules/` for add-on code and `user_data/modules/` for user data.
+- Added local ZIP install validation for the planned official Intel History add-on, including unsafe path rejection and manifest checks.
+- Added enable/disable state, add-on details, data-folder access, and code-only uninstall behavior that preserves user data.
+- Added Intel History add-on status to diagnostics.
+- The actual Intel History storage/analysis engine remains planned in `docs/INTEL_HISTORY_ADDON_SPEC.md`.
+
 - Confirmed ESI character names are protected from machine translation, including EN -> CN mode.
 - Changed ship highlighting to orange and ESI character highlighting to red; non-ship modules/assets remain purple.
 
