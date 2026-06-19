@@ -440,6 +440,18 @@ MOVE = re.compile(r"\b(jump|jumped|jumping|gate|warp|undock|dock|moving|status|l
 HOSTILE = re.compile(r"\b(hostile|neut|neutral|red|tackle|camp|gang|fleet|goons?|bombers?|hound squad|bubble|ess theft|intrusion)\b", re.I)
 
 @dataclass
+class IntelSegment:
+    kind: str
+    text: str
+    systems: list[str] = field(default_factory=list)
+    assets: list[str] = field(default_factory=list)
+    pilots: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    status: list[str] = field(default_factory=list)
+    confidence: str = "medium"
+
+
+@dataclass
 class Row:
     channel: str
     received_at: str
@@ -457,6 +469,7 @@ class Row:
     file: str
     esi_entities: list[dict] = field(default_factory=list)
     esi_candidates: list[str] = field(default_factory=list)
+    segments: list[IntelSegment] = field(default_factory=list)
 
 
 def unique(seq):
@@ -1511,6 +1524,101 @@ def translate_text(text: str, localized: list[dict], intent: str) -> str:
     return out if changed else ""
 
 
+def split_intel_segments(text: str) -> list[tuple[str, str]]:
+    """Split one chat message into structured intel pieces without losing raw text."""
+    raw = str(text or "").strip()
+    if not raw:
+        return []
+    kill_marker = "击杀："
+    pieces: list[tuple[str, str]] = []
+    if kill_marker in raw:
+        for part in raw.split(kill_marker):
+            part = part.strip()
+            if part:
+                pieces.append(("kill", part))
+        if pieces:
+            return pieces
+    # English kill markers, conservative so normal messages are not over-split.
+    m = re.split(r"(?i)\b(?:kill|killed)\s*[:：]\s*", raw)
+    if len(m) > 1:
+        for part in m:
+            part = part.strip()
+            if part:
+                pieces.append(("kill", part))
+        if pieces:
+            return pieces
+    return [("message", raw)]
+
+
+def classify_segment_kind(text: str, default: str = "message") -> str:
+    if default == "kill":
+        return "kill"
+    if re.search(r"(?<!\w)nv(?!\w)|no\s+visual", text, re.I):
+        return "sighting"
+    if CLEAR.search(text):
+        return "clear"
+    if HOSTILE.search(text):
+        return "sighting"
+    return default
+
+
+def infer_segment_pilots(segment_text: str, assets: list[str], systems: list[str]) -> list[str]:
+    """Best-effort display candidates only; ESI remains authoritative elsewhere."""
+    work = segment_text
+    for term in sorted(unique(list(assets) + list(systems)), key=len, reverse=True):
+        if term:
+            work = re.sub(word_boundary(term), " ", work, flags=re.I)
+    work = re.sub(r"https?://\S+|www\.\S+|dscan\.info/\S+", " ", work, flags=re.I)
+    work = re.sub(r"(?<!\w)(?:nv|clear|clr|voice|kill|killed)(?!\w)", " ", work, flags=re.I)
+    # Names in EVE intel are usually 1-3 chunks with letters/digits/hyphen.
+    candidates = []
+    words = re.findall(r"[A-Za-z][A-Za-z0-9'\-]{1,24}", work)
+    stop = {"basilisk", "nighthawk", "jormungandr", "voice", "clear", "intel", "gate", "jump", "fleet"}
+    for n in (3, 2, 1):
+        for i in range(max(0, len(words) - n + 1)):
+            cand = " ".join(words[i:i+n]).strip()
+            if not cand or cand.casefold() in stop:
+                continue
+            if any(cand.casefold() == a.casefold() for a in assets):
+                continue
+            candidates.append(cand)
+        if candidates:
+            break
+    return unique(candidates[:4])
+
+
+def build_intel_segments(text: str, systems: list[str], assets: list[str], localized: list[dict], db: EveDb) -> list[IntelSegment]:
+    segments: list[IntelSegment] = []
+    for base_kind, raw_part in split_intel_segments(text):
+        part = normalize_feed_text(raw_part)
+        if not part:
+            continue
+        seg_systems, seg_assets, seg_localized, _counts, _links, _intent = extract_intel(raw_part, db)
+        # Fall back to row-level entities when the segment parser is conservative.
+        if not seg_systems:
+            seg_systems = [x for x in systems if re.search(word_boundary(x), raw_part, re.I)]
+        if not seg_assets:
+            seg_assets = [x for x in assets if re.search(word_boundary(x), raw_part, re.I)]
+        display = part
+        for ent in sorted(seg_localized or localized, key=lambda e: -len(e.get("original", ""))):
+            original = ent.get("original", "")
+            canonical = ent.get("canonical", "")
+            if original and canonical:
+                display = normalize_feed_text(display.replace(original, canonical))
+        statuses: list[str] = []
+        notes: list[str] = []
+        if re.search(r"(?<!\w)nv(?!\w)|no\s+visual", raw_part, re.I):
+            statuses.append("NV")
+        if re.search(r"(?<!\w)voice(?!\w)", raw_part, re.I):
+            notes.append("VOICE")
+        kind = classify_segment_kind(raw_part, base_kind)
+        pilots = infer_segment_pilots(display, seg_assets or assets, seg_systems or systems)
+        segments.append(IntelSegment(kind=kind, text=display, systems=unique(seg_systems), assets=unique(seg_assets), pilots=pilots, notes=unique(notes), status=unique(statuses), confidence="high" if kind == "kill" else "medium"))
+    if not segments:
+        segments.append(IntelSegment(kind="message", text=normalize_feed_text(text), systems=systems, assets=assets))
+    return segments
+
+
 def has_cjk(text: str) -> bool:
     return any("\u3400" <= ch <= "\u9fff" for ch in text)
 
@@ -1708,10 +1816,11 @@ def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: E
             systems, assets, localized, counts, links, intent = extract_intel(body, db)
             translation = translate_text(body, localized, intent)
             display_body = translation or body
-            tmp_row = Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, "", "none", file_name)
+            segments = build_intel_segments(body, systems, assets, localized, db)
+            tmp_row = Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, "", "none", file_name, [], [], segments)
             msg_candidates = esi_message_candidates_for_row(tmp_row)
             free_translation = translate_free_text(display_body, systems, assets, localized, counts, links, "zh-en", msg_candidates) if allow_free_translation else ""
-            rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, ("catalog/db+google" if free_translation else "catalog/db" if translation or localized else "none"), file_name, [], msg_candidates))
+            rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, ("catalog/db+google" if free_translation else "catalog/db" if translation or localized else "none"), file_name, [], msg_candidates, segments))
     return rows
 
 
@@ -3721,7 +3830,12 @@ class SignalBridgeGui:
                 lines.append(f"- {ent.get('original','')} -> {ent.get('canonical','')} ({ent.get('kind','')})")
         else:
             lines.append("- (none)")
+        seg_lines = []
+        for idx, seg in enumerate(getattr(row, "segments", []) or [], 1):
+            seg_lines.append(f"{idx}. {seg.kind}: {seg.text} | systems={','.join(seg.systems) or '-'} assets={','.join(seg.assets) or '-'} pilots={','.join(seg.pilots) or '-'} notes={','.join(seg.notes + seg.status) or '-'}")
         lines.extend([
+            "Segments:",
+            *(seg_lines or ["- (none)"]),
             f"Candidate terms: {', '.join(candidates[:30]) or '(none)'}",
             f"ESI candidates: {', '.join(esi_candidates[:30]) or '(none)'}",
             f"Unknown non-ASCII terms: {', '.join(unique(unknown_cjk)[:30]) or '(none)'}",
@@ -4196,6 +4310,38 @@ class SignalBridgeGui:
             self.esi_resolver.stop()
         self.stop_monitor()
         self.root.after(100, self.root.destroy)
+
+    def segment_display_lines(self, row: Row, translated_text: str) -> list[str]:
+        segments = getattr(row, "segments", None) or []
+        if not segments:
+            return [translated_text]
+        if len(segments) == 1 and segments[0].kind == "message":
+            return [translated_text]
+        lines: list[str] = []
+        for seg in segments:
+            kind = str(seg.kind or "message").upper()
+            chip = {"KILL": "[KILL]", "SIGHTING": "[SIGHT]", "CLEAR": "[CLEAR]", "MESSAGE": "[INFO]"}.get(kind, f"[{kind}]")
+            bits: list[str] = []
+            if seg.kind == "kill":
+                if seg.pilots:
+                    bits.append(" / ".join(seg.pilots[:2]))
+                if seg.assets:
+                    bits.append(" / ".join(seg.assets[:3]))
+                if not bits:
+                    bits.append(seg.text)
+            else:
+                # Preserve the full segment text for sightings/comments so unknown ships or foreign notes are not lost.
+                bits.append(seg.text)
+            if seg.notes:
+                bits.extend(f"[{n}]" for n in seg.notes if f"[{n}]" not in seg.text)
+            if seg.status:
+                bits.extend(f"[{st}]" for st in seg.status if f"[{st}]" not in seg.text)
+            lines.append(f"  {chip} " + " — ".join([b for b in bits if b]))
+        return lines or [translated_text]
+
+    def row_visible_body_lines(self, row: Row, parts: dict) -> list[str]:
+        text = parts["translated"] if bool(self.translated_only.get()) else parts["original_text"]
+        return self.segment_display_lines(row, text)
 
     def row_display_parts(self, row: Row) -> dict:
         original_text = normalize_feed_text(row.text)
@@ -4919,30 +5065,27 @@ class SignalBridgeGui:
         return ""
 
     def _render_row(self, row: Row):
-        if self.esi_is_enabled():
-            self.hydrate_esi_entities_for_row(row)
+        # Render must stay fast: ESI/cache hydration is done when rows arrive or resolver events update rows.
         self.text.configure(state="normal")
         row_tag = f"row_{self.render_seq}"
         self.render_seq += 1
         row_start = self.text.index("end-1c")
         parts = self.row_display_parts(row)
         ts = row.received_at.split()[-1]
-        translated_only = bool(self.translated_only.get())
         if bool(self.show_timestamps.get()):
             self.text.insert("end", f"[{ts}] ", "time")
         show_channel = bool(self.show_channel_names.get()) or (self.visible_channel == ALL_CHANNELS_TAB and bool(self.show_channel_names_in_all.get()))
         if show_channel:
             self.text.insert("end", f"[{row.channel}] ", "muted")
-        self.text.insert("end", f"{row.sender} > ", "sender")
+        self.text.insert("end", f"{row.sender} >\n", "sender")
         body_start = self.text.index("end-1c")
-        if translated_only:
-            body = self.apply_pilot_flag_badges(row, parts["translated"])
-            self.insert_tagged_text(body + "\n", row.systems, row.assets)
+        display_lines = self.row_visible_body_lines(row, parts)
+        tag_assets = row.assets + [normalize_feed_text(x.get("original", "")) for x in row.localized]
+        for line in display_lines:
+            body = self.apply_pilot_flag_badges(row, line)
+            self.insert_tagged_text(body + "\n", row.systems, tag_assets)
             self.tag_urls(body_start, self.text.index("end-1c"), body)
-        else:
-            body = self.apply_pilot_flag_badges(row, parts["original_text"])
-            self.insert_tagged_text(body + "\n", row.systems, row.assets + [normalize_feed_text(x.get("original", "")) for x in row.localized])
-            self.tag_urls(body_start, self.text.index("end-1c"), body)
+        if not bool(self.translated_only.get()):
             if parts["free_text"] and parts["free_text"] != parts["original_text"]:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")
@@ -4954,7 +5097,6 @@ class SignalBridgeGui:
                 self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets)
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["display_text"])
         row_end = self.text.index("end-1c")
-        # Keep sender names visually neutral; only ESI-highlight names inside the message body/translation.
         for ent in row.esi_entities:
             name = str(ent.get("name") or ent.get("query") or "")
             if name and normalize_esi_query(name) not in COMMON_ESI_NOISE and not is_globally_excluded(name):
@@ -4963,7 +5105,7 @@ class SignalBridgeGui:
             if normalize_esi_query(name) not in COMMON_ESI_NOISE and not is_globally_excluded(name):
                 self.tag_term(name, "esi", body_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
-        self.rendered_row_map[row_tag] = {"row": row, **parts}
+        self.rendered_row_map[row_tag] = {"row": row, **parts, "segments": [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])]}
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
         self.text.see("end")
         self.text.configure(state="disabled")
@@ -5164,7 +5306,9 @@ def self_test(limit: int = 20):
     db.close()
     print(json.dumps({"chatlog_dir_exists": CHATLOG_DIR.exists(), "db_exists": DB_PATH.exists(), "rows_found": len(rows)}, indent=2, ensure_ascii=False))
     for row in rows[-limit:]:
-        print(json.dumps(row.__dict__, ensure_ascii=False, sort_keys=True))
+        data = dict(row.__dict__)
+        data["segments"] = [seg.__dict__ for seg in getattr(row, "segments", [])]
+        print(json.dumps(data, ensure_ascii=False, sort_keys=True))
     return 0 if CHATLOG_DIR.exists() and rows else 1
 
 

@@ -190,4 +190,5 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Added stricter clicked-span detection for multi-word pilot names such as `Bigus Dingus DOI`.
 - Diagnostics polish: added structured event/error/stall logs, last-action tracking, redraw/queue timing, and a UI stall watchdog to help diagnose intermittent hangs.
 - Diagnostics: feed right-click menu now includes translation, entity-recognition, and click-context traces to explain skipped translations and wrong-target menu behavior.
+- General stability/readability refactor: added structured intel segments, separated repeated kill reports, segment diagnostics, and safer render-only feed drawing with ESI hydration moved out of the row render path.
 

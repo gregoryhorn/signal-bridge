@@ -202,4 +202,5 @@ Initial portable Windows preview release.
 - Right-clicking systems, ships/items, or generic row text no longer falls back to Pilot Info for the sender.
 - Added stricter clicked-span detection for multi-word pilot names such as `Bigus Dingus DOI`.
 - Added diagnostic traces for feed rows: translation decisions, entity recognition summaries, and right-click context traces available from the feed context menu.
+- Added a general intel segmentation/render-safety refactor: rows can now carry structured segments, repeated kill reports split into separate feed lines, segment diagnostics are visible, and feed rendering no longer hydrates ESI in the render path.
 
