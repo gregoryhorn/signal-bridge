@@ -302,3 +302,4 @@ Before calling the app v1.0, the goal is to have:
 - Exclusion list generalized: one list now suppresses all recognition/highlight colors, not only ESI characters.
 - Appearance/display options completed: theme presets, font/color/bold/background controls, preview, reset defaults, and opacity slider.
 - Ongoing alias tuning: added shorthand ship aliases for Stabber and Caracal Navy Issue from real intel usage.
+- Appearance polish completed: color swatches are shown beside editable hex codes.

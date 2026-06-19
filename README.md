@@ -287,3 +287,5 @@ Right-click selected text now includes `Add Selected Text as ESI Character`; res
 Appearance options include configurable font, colors, bold highlights, optional background rectangles, presets, preview, reset defaults, and window opacity.
 
 Signal Bridge includes curated shorthand ship aliases such as `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
+
+The Appearance dialog shows both color swatches and editable hex color codes for easier theme tuning.

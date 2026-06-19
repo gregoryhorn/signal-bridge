@@ -2233,47 +2233,81 @@ class SignalBridgeGui:
             families = sorted(set(tkfont.families(self.root)))
         except Exception:
             families = ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Consolas", "Courier New"]
-        top = tk.Frame(win, bg="#0b0f14")
-        top.pack(fill="x", padx=10, pady=8)
-        tk.Label(top, text="Preset", bg="#0b0f14", fg="#d7dde5").grid(row=0, column=0, sticky="w")
+        top = tk.LabelFrame(win, text="General", bg="#0b0f14", fg="#d7dde5", padx=10, pady=8)
+        top.pack(fill="x", padx=12, pady=(10, 8))
+        tk.Label(top, text="Preset", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w", pady=3)
         preset_menu = tk.OptionMenu(top, preset_var, *APPEARANCE_PRESETS.keys())
-        preset_menu.grid(row=0, column=1, sticky="ew", padx=6)
-        tk.Label(top, text="Font", bg="#0b0f14", fg="#d7dde5").grid(row=1, column=0, sticky="w")
+        preset_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", highlightthickness=0)
+        preset_menu.grid(row=0, column=1, sticky="ew", padx=(8, 18), pady=3)
+        tk.Label(top, text="Font", bg="#0b0f14", fg="#8b98a8").grid(row=1, column=0, sticky="w", pady=3)
         font_menu = tk.OptionMenu(top, fam_var, *families)
-        font_menu.grid(row=1, column=1, sticky="ew", padx=6)
-        tk.Label(top, text="Size", bg="#0b0f14", fg="#d7dde5").grid(row=1, column=2, sticky="w")
-        tk.Spinbox(top, from_=8, to=28, width=5, textvariable=size_var).grid(row=1, column=3, sticky="w")
-        tk.Label(top, text="Opacity", bg="#0b0f14", fg="#d7dde5").grid(row=2, column=0, sticky="w")
-        tk.Scale(top, from_=55, to=100, orient="horizontal", variable=opacity_var, bg="#0b0f14", fg="#d7dde5", highlightthickness=0, length=220).grid(row=2, column=1, sticky="ew", padx=6)
-        tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").grid(row=2, column=2, columnspan=2, sticky="w")
+        font_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", highlightthickness=0)
+        font_menu.grid(row=1, column=1, sticky="ew", padx=(8, 18), pady=3)
+        tk.Label(top, text="Size", bg="#0b0f14", fg="#8b98a8").grid(row=1, column=2, sticky="w", pady=3)
+        tk.Spinbox(top, from_=8, to=28, width=6, textvariable=size_var, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", buttonbackground="#111821").grid(row=1, column=3, sticky="w", padx=8, pady=3)
+        tk.Label(top, text="Opacity", bg="#0b0f14", fg="#8b98a8").grid(row=2, column=0, sticky="w", pady=3)
+        tk.Scale(top, from_=55, to=100, orient="horizontal", variable=opacity_var, bg="#0b0f14", fg="#d7dde5", troughcolor="#111821", activebackground="#5ad7ff", highlightthickness=0, length=230).grid(row=2, column=1, sticky="ew", padx=(8, 18), pady=3)
+        tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").grid(row=2, column=2, columnspan=2, sticky="w", pady=3)
         top.columnconfigure(1, weight=1)
 
-        grid = tk.Frame(win, bg="#0b0f14")
-        grid.pack(fill="x", padx=10, pady=4)
-        tk.Label(grid, text="Category", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w")
-        tk.Label(grid, text="Text color", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=1, sticky="w")
-        tk.Label(grid, text="Bold", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=2, sticky="w")
-        tk.Label(grid, text="Background", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=3, sticky="w")
+        grid = tk.LabelFrame(win, text="Highlight Colors", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+        grid.pack(fill="x", padx=12, pady=4)
+        tk.Label(grid, text="Category", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 4))
+        tk.Label(grid, text="Text", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=1, columnspan=3, sticky="w", pady=(0, 4))
+        tk.Label(grid, text="Bold", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=4, sticky="w", pady=(0, 4))
+        tk.Label(grid, text="Background", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=5, columnspan=3, sticky="w", pady=(0, 4))
         rows = [("time","Timestamp"),("sender","Sender"),("system","Systems"),("esi","Characters / ESI"),("asset","Ships"),("module","Modules / Assets"),("ess","ESS"),("translation","Translation"),("link","Links")]
+        swatches: list[tk.Widget] = []
+        def normalized_color(value: str, fallback: str = "#070b10") -> str:
+            value = (value or "").strip()
+            try:
+                win.winfo_rgb(value)
+                return value
+            except Exception:
+                return fallback
+        def swatch_fg(color: str) -> str:
+            try:
+                r, g, b = [x // 256 for x in win.winfo_rgb(color)]
+                return "#000000" if (r * 299 + g * 587 + b * 114) > 150000 else "#ffffff"
+            except Exception:
+                return "#ffffff"
+        def update_swatches():
+            for widget in swatches:
+                var = getattr(widget, "color_var", None)
+                fallback = getattr(widget, "fallback_color", "#070b10")
+                color = normalized_color(var.get() if var else "", fallback)
+                try:
+                    widget.configure(bg=color, activebackground=color, fg=swatch_fg(color), activeforeground=swatch_fg(color), text="   ")
+                except Exception:
+                    pass
         def choose_color(var):
-            color = colorchooser.askcolor(color=var.get(), parent=win)[1]
+            color = colorchooser.askcolor(color=normalized_color(var.get(), "#070b10"), parent=win)[1]
             if color:
-                var.set(color)
+                var.set(color.upper())
+                update_swatches()
                 update_preview()
+        def make_color_control(row: int, col: int, var, fallback: str):
+            swatch = tk.Button(grid, text="   ", width=3, relief="groove", bd=1, command=lambda v=var: choose_color(v))
+            swatch.color_var = var
+            swatch.fallback_color = fallback
+            swatch.grid(row=row, column=col, sticky="w", padx=(0, 4), pady=2)
+            swatches.append(swatch)
+            entry = tk.Entry(grid, textvariable=var, width=11, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+            entry.grid(row=row, column=col + 1, sticky="w", padx=(0, 4), pady=2)
+            tk.Button(grid, text="Pick", command=lambda v=var: choose_color(v), bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat", padx=6).grid(row=row, column=col + 2, sticky="w", pady=2)
         for r, (key, label) in enumerate(rows, start=1):
             style = self.appearance.get(key, DEFAULT_APPEARANCE.get(key, {}))
             fg = tk.StringVar(value=str(style.get("foreground", "#d7dde5")))
             bold = tk.BooleanVar(value=bool(style.get("bold", False)))
             bg = tk.StringVar(value=str(style.get("background", "")))
             vars[key] = {"foreground": fg, "bold": bold, "background": bg}
-            tk.Label(grid, text=label, bg="#0b0f14", fg="#d7dde5").grid(row=r, column=0, sticky="w", pady=2)
-            tk.Entry(grid, textvariable=fg, width=11, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5").grid(row=r, column=1, sticky="w", padx=4)
-            tk.Button(grid, text="...", command=lambda v=fg: choose_color(v)).grid(row=r, column=1, sticky="e", padx=2)
-            tk.Checkbutton(grid, variable=bold, bg="#0b0f14", selectcolor="#111821", command=lambda: update_preview()).grid(row=r, column=2, sticky="w")
-            tk.Entry(grid, textvariable=bg, width=11, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5").grid(row=r, column=3, sticky="w", padx=4)
-            tk.Button(grid, text="...", command=lambda v=bg: choose_color(v)).grid(row=r, column=3, sticky="e", padx=2)
-        grid.columnconfigure(1, minsize=130)
-        grid.columnconfigure(3, minsize=130)
+            tk.Label(grid, text=label, bg="#0b0f14", fg="#d7dde5").grid(row=r, column=0, sticky="w", padx=(0, 10), pady=2)
+            make_color_control(r, 1, fg, "#d7dde5")
+            tk.Checkbutton(grid, variable=bold, bg="#0b0f14", selectcolor="#111821", activebackground="#0b0f14", command=lambda: update_preview()).grid(row=r, column=4, sticky="w", padx=(8, 8), pady=2)
+            make_color_control(r, 5, bg, "#070b10")
+        grid.columnconfigure(0, minsize=135)
+        grid.columnconfigure(2, minsize=92)
+        grid.columnconfigure(6, minsize=92)
 
         preview = tk.Text(win, height=5, relief="flat", wrap="word", padx=8, pady=8)
         preview.pack(fill="both", expand=True, padx=10, pady=8)
@@ -2317,6 +2351,7 @@ class SignalBridgeGui:
         def update_preview(*_):
             try:
                 app = collect()
+                update_swatches()
                 render_preview(app)
             except Exception as exc:
                 write_log(f"Appearance preview failed: {exc}")
@@ -2351,7 +2386,9 @@ class SignalBridgeGui:
             for key, data in vars.items():
                 st = base.get(key, DEFAULT_APPEARANCE[key])
                 data["foreground"].set(st.get("foreground", "#d7dde5")); data["bold"].set(bool(st.get("bold", False))); data["background"].set(st.get("background", ""))
+            update_swatches()
             update_preview()
+        update_swatches()
         for v in (fam_var, size_var, opacity_var, bg_enabled):
             try: v.trace_add("write", lambda *_: update_preview())
             except Exception: pass
