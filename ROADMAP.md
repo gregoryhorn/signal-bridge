@@ -319,3 +319,4 @@ Before calling the app v1.0, the goal is to have:
 - ESI starter-cache bundling completed: verified local character entities are shipped as seeded defaults.
 
 - Completed: bundle starter free-text translation cache for faster first-run/offline reuse of known translations.
+- Completed: initial manual review/curation pass for bundled starter translation cache.

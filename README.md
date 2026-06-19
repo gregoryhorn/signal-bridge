@@ -312,3 +312,4 @@ The portable build includes `data/default_exclusions.json`, which seeds the Gene
 The portable build also includes `data/default_esi_entities.json`, a starter cache of verified ESI characters seeded on first run without overwriting local cache entries.
 
 - Bundled starter translation cache seeds known free-text translations into new installs without overwriting local cache rows.
+- Starter translation-cache entries include curated EVE terminology fixes for common ship/item/intel phrases.

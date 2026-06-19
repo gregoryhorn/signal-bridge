@@ -26,69 +26,75 @@
     },
     {
       "created_at": "2026-06-19T05:09:50Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 2,
       "key": "google|auto|en|姐妹会作战扫描探针*",
       "last_used_at": "2026-06-19T08:56:43Z",
+      "review_note": "EVE item name correction",
       "source_lang": "auto",
       "source_text": "姐妹会作战扫描探针*",
       "target_lang": "en",
-      "translated_text": "Sisterhood Combat Scan Probe*"
+      "translated_text": "Sisters Combat Scanner Probe*"
     },
     {
       "created_at": "2026-06-19T05:09:49Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 2,
       "key": "google|auto|en|收黑豹",
       "last_used_at": "2026-06-19T08:56:41Z",
+      "review_note": "EVE ship shorthand correction",
       "source_lang": "auto",
       "source_text": "收黑豹",
       "target_lang": "en",
-      "translated_text": "Collect the black panther"
+      "translated_text": "Recover Panther"
     },
     {
       "created_at": "2026-06-19T05:09:48Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 2,
       "key": "google|auto|en|垃圾桶仙人来了，各位快收垃圾桶",
       "last_used_at": "2026-06-19T08:56:10Z",
+      "review_note": "EVE intel slang correction",
       "source_lang": "auto",
       "source_text": "垃圾桶仙人来了，各位快收垃圾桶",
       "target_lang": "en",
-      "translated_text": "The Trash Can Fairy is here, please collect your trash cans quickly"
+      "translated_text": "MTU cleaner is here; scoop your MTUs"
     },
     {
       "created_at": "2026-06-19T05:09:48Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 2,
       "key": "google|auto|en|SBX2*  SBX1*  SBX0*  SBX3*  姐妹会作战扫描探针*",
       "last_used_at": "2026-06-19T08:56:09Z",
+      "review_note": "EVE item name correction",
       "source_lang": "auto",
       "source_text": "SBX2*  SBX1*  SBX0*  SBX3*  姐妹会作战扫描探针*",
       "target_lang": "en",
-      "translated_text": "SBX2* SBX1* SBX0* SBX3* Sisterhood Combat Scan Probe*"
+      "translated_text": "SBX2* SBX1* SBX0* SBX3* Sisters Combat Scanner Probe*"
     },
     {
       "created_at": "2026-06-19T09:06:01Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 1,
       "key": "google|auto|en|v SBX0*  huabuyu  SBX1* 一个Stabber一个SBX0",
       "last_used_at": "2026-06-19T09:06:45Z",
+      "review_note": "Known live intel sample: 短剑=Stabber, 海狞獾=Caracal Navy Issue",
       "source_lang": "auto",
       "source_text": "v SBX0*  huabuyu  SBX1* 一个Stabber一个SBX0",
       "target_lang": "en",
-      "translated_text": "v SBX0* huabuyu SBX1* one Stabber and one SBX0"
+      "translated_text": "v SBX0* huabuyu SBX1* one Stabber and one Caracal Navy Issue"
     },
     {
       "created_at": "2026-06-19T06:09:59Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 1,
       "key": "google|auto|en|SBX1*  SBX0  安抚者*",
       "last_used_at": "2026-06-19T08:56:37Z",
+      "review_note": "EVE ship name correction",
       "source_lang": "auto",
       "source_text": "SBX1*  SBX0  安抚者*",
       "target_lang": "en",
-      "translated_text": "SBX1* SBX0 Soother*"
+      "translated_text": "SBX1* SBX0 Pacifier*"
     },
     {
       "created_at": "2026-06-19T06:09:44Z",
@@ -202,14 +208,15 @@
     },
     {
       "created_at": "2026-06-19T05:09:51Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 1,
       "key": "google|auto|en|主赏金池：SBX0 百万 星币",
       "last_used_at": "2026-06-19T06:11:37Z",
+      "review_note": "EVE currency correction",
       "source_lang": "auto",
       "source_text": "主赏金池：SBX0 百万 星币",
       "target_lang": "en",
-      "translated_text": "Main bounty pool: SBX0 million Starcoins"
+      "translated_text": "Main bounty pool: SBX0 million ISK"
     },
     {
       "created_at": "2026-06-19T09:24:42Z",
@@ -422,36 +429,39 @@
     },
     {
       "created_at": "2026-06-19T08:54:12Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX3*  SBX1 4个hostile/red在偷天钩",
       "last_used_at": "2026-06-19T08:54:12Z",
+      "review_note": "EVE structure term",
       "source_lang": "auto",
       "source_text": "SBX3*  SBX1 4个hostile/red在偷天钩",
       "target_lang": "en",
-      "translated_text": "SBX3* SBX1 4 hostile/red are stealing sky hooks"
+      "translated_text": "SBX3* SBX1 4 hostile/red are stealing skyhooks"
     },
     {
       "created_at": "2026-06-19T08:54:07Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|v SBX0*  SBX2  SBX3* 一个短剑一个海狞獾",
       "last_used_at": "2026-06-19T08:54:07Z",
+      "review_note": "Chinese shorthand 短剑 + 海狞獾 correction",
       "source_lang": "auto",
       "source_text": "v SBX0*  SBX2  SBX3* 一个短剑一个海狞獾",
       "target_lang": "en",
-      "translated_text": "v SBX0* SBX2 SBX3* A dagger and a sea caracal"
+      "translated_text": "v SBX0* SBX2 SBX3* one Stabber and one Caracal Navy Issue"
     },
     {
       "created_at": "2026-06-19T08:54:04Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX2*  SBX1 4个hostile/red在偷天钩",
       "last_used_at": "2026-06-19T08:54:04Z",
+      "review_note": "EVE structure term",
       "source_lang": "auto",
       "source_text": "SBX2*  SBX1 4个hostile/red在偷天钩",
       "target_lang": "en",
-      "translated_text": "SBX2* SBX1 4 hostile/red are stealing sky hooks"
+      "translated_text": "SBX2* SBX1 4 hostile/red are stealing skyhooks"
     },
     {
       "created_at": "2026-06-19T08:53:55Z",
@@ -499,14 +509,15 @@
     },
     {
       "created_at": "2026-06-19T07:57:15Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|作战扫描探针 I* even use T1 scanning probe",
       "last_used_at": "2026-06-19T07:57:15Z",
+      "review_note": "EVE item name correction",
       "source_lang": "auto",
       "source_text": "作战扫描探针 I* even use T1 scanning probe",
       "target_lang": "en",
-      "translated_text": "Combat scanning probe I* even use T1 scanning probe"
+      "translated_text": "Combat Scanner Probe I* even use T1 scanning probe"
     },
     {
       "created_at": "2026-06-19T07:53:34Z",
@@ -895,47 +906,51 @@
     },
     {
       "created_at": "2026-06-19T06:47:05Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|安抚者",
       "last_used_at": "2026-06-19T06:47:05Z",
+      "review_note": "EVE ship name correction",
       "source_lang": "auto",
       "source_text": "安抚者",
       "target_lang": "en",
-      "translated_text": "comforter"
+      "translated_text": "Pacifier"
     },
     {
       "created_at": "2026-06-19T06:45:27Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|EpiDimix 4life 这个是安抚 SBX1 这个是掘金",
       "last_used_at": "2026-06-19T06:45:27Z",
+      "review_note": "EVE ship name correction",
       "source_lang": "auto",
       "source_text": "EpiDimix 4life 这个是安抚 SBX1 这个是掘金",
       "target_lang": "en",
-      "translated_text": "EpiDimix 4life, this is comfort, SBX1, this is nuggets"
+      "translated_text": "EpiDimix 4life, this is Pacifier, SBX1, this is nuggets"
     },
     {
       "created_at": "2026-06-19T06:40:17Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|姐妹会作战扫描探针*  SBX2  SBX1*",
       "last_used_at": "2026-06-19T06:40:17Z",
+      "review_note": "EVE item name correction",
       "source_lang": "auto",
       "source_text": "姐妹会作战扫描探针*  SBX2  SBX1*",
       "target_lang": "en",
-      "translated_text": "Sisterhood Combat Scan Probe* SBX2 SBX1*"
+      "translated_text": "Sisters Combat Scanner Probe* SBX2 SBX1*"
     },
     {
       "created_at": "2026-06-19T06:39:47Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|4gvy 门轻拦",
       "last_used_at": "2026-06-19T06:39:47Z",
+      "review_note": "EVE intel phrase correction",
       "source_lang": "auto",
       "source_text": "4gvy 门轻拦",
       "target_lang": "en",
-      "translated_text": "4gvy door light barrier"
+      "translated_text": "4gvy gate camp"
     },
     {
       "created_at": "2026-06-19T06:36:43Z",
@@ -983,14 +998,15 @@
     },
     {
       "created_at": "2026-06-19T06:13:09Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX1*  SBX0 海狞獾 进NJ4X",
       "last_used_at": "2026-06-19T06:13:09Z",
+      "review_note": "Chinese shorthand 海狞獾 correction",
       "source_lang": "auto",
       "source_text": "SBX1*  SBX0 海狞獾 进NJ4X",
       "target_lang": "en",
-      "translated_text": "SBX1* SBX0 sea caracal enters NJ4X"
+      "translated_text": "SBX1* SBX0 Caracal Navy Issue enters NJ4X"
     },
     {
       "created_at": "2026-06-19T06:12:56Z",
@@ -1005,14 +1021,15 @@
     },
     {
       "created_at": "2026-06-19T06:12:09Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|OVO SBX0 in draugur?",
       "last_used_at": "2026-06-19T06:12:09Z",
+      "review_note": "EVE ship name correction",
       "source_lang": "auto",
       "source_text": "OVO SBX0 in draugur?",
       "target_lang": "en",
-      "translated_text": "OVO SBX0 in ghost?"
+      "translated_text": "OVO SBX0 in Draugur?"
     },
     {
       "created_at": "2026-06-19T06:11:46Z",
@@ -1038,14 +1055,15 @@
     },
     {
       "created_at": "2026-06-19T06:06:44Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX0*  SBX1 revelations 车头上线",
       "last_used_at": "2026-06-19T06:06:44Z",
+      "review_note": "EVE ship/context correction",
       "source_lang": "auto",
       "source_text": "SBX0*  SBX1 revelations 车头上线",
       "target_lang": "en",
-      "translated_text": "SBX0* SBX1 revelations Headline online"
+      "translated_text": "SBX0* SBX1 revelations Revelation on grid"
     },
     {
       "created_at": "2026-06-19T06:05:50Z",
@@ -1104,14 +1122,15 @@
     },
     {
       "created_at": "2026-06-19T05:53:10Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX0 猎犬 审判 短剑 剑齿虎",
       "last_used_at": "2026-06-19T05:53:10Z",
+      "review_note": "EVE ship list correction",
       "source_lang": "auto",
       "source_text": "SBX0 猎犬 审判 短剑 剑齿虎",
       "target_lang": "en",
-      "translated_text": "SBX0 hound trial dagger sabertooth tiger"
+      "translated_text": "SBX0 Hound Judgment Stabber Sabre"
     },
     {
       "created_at": "2026-06-19T05:36:03Z",
@@ -1291,14 +1310,15 @@
     },
     {
       "created_at": "2026-06-19T05:10:00Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|主赏金池：SBX2.SBX3 百万 星币  SBX1*  aijianjian wo  SBX0  gal feng",
       "last_used_at": "2026-06-19T05:10:00Z",
+      "review_note": "EVE currency correction",
       "source_lang": "auto",
       "source_text": "主赏金池：SBX2.SBX3 百万 星币  SBX1*  aijianjian wo  SBX0  gal feng",
       "target_lang": "en",
-      "translated_text": "Main bounty pool: SBX2.SBX3 million star coins SBX1* aijianjian wo SBX0 gal feng"
+      "translated_text": "Main bounty pool: SBX2.SBX3 million ISK SBX1* aijianjian wo SBX0 gal feng"
     },
     {
       "created_at": "2026-06-19T05:09:58Z",
@@ -1313,14 +1333,15 @@
     },
     {
       "created_at": "2026-06-19T05:09:57Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX0 again in draugur?",
       "last_used_at": "2026-06-19T05:09:57Z",
+      "review_note": "EVE ship name correction",
       "source_lang": "auto",
       "source_text": "SBX0 again in draugur?",
       "target_lang": "en",
-      "translated_text": "SBX0 again in ghost?"
+      "translated_text": "SBX0 again in Draugur?"
     },
     {
       "created_at": "2026-06-19T05:09:51Z",
@@ -1346,14 +1367,15 @@
     },
     {
       "created_at": "2026-06-19T05:09:49Z",
-      "engine": "google",
+      "engine": "curated-starter-cache",
       "hit_count": 0,
       "key": "google|auto|en|SBX0*  Infinity111  安抚者*",
       "last_used_at": "2026-06-19T05:09:49Z",
+      "review_note": "EVE ship name correction",
       "source_lang": "auto",
       "source_text": "SBX0*  Infinity111  安抚者*",
       "target_lang": "en",
-      "translated_text": "SBX0* Infinity111 The Soother*"
+      "translated_text": "SBX0* Infinity111 Pacifier*"
     },
     {
       "created_at": "2026-06-19T05:09:48Z",
@@ -1400,5 +1422,6 @@
       "translated_text": "SBX0* Miester GoodCat starting 4"
     }
   ],
+  "reviewed": "manual high-confidence EVE terminology cleanup",
   "schema": 1
 }

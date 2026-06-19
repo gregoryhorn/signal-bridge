@@ -114,3 +114,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Bundled a verified ESI character starter cache in `data/default_esi_entities.json` for new installs.
 
 - Added bundled starter translation-cache data so new installs can reuse known free-text translations without waiting for online translation.
+- Curated starter translation-cache entries to correct common EVE terminology before first run.
