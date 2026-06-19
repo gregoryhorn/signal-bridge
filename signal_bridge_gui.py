@@ -102,7 +102,7 @@ def load_settings() -> dict:
         "translate_free_text": True,
         "translation_direction": "zh-en",
         "translation_preferred_engine": "auto",
-        "translation_fallback_mode": "google-argos",
+        "translation_fallback_mode": "online-only",
         "compact_mode": True,
         "font_family": "Segoe UI",
         "font_size": 10,
@@ -1491,30 +1491,22 @@ def has_non_english_signal(text: str) -> bool:
 
 
 def argos_runtime_status() -> dict:
-    status = {"runtime": False, "models": [], "error": ""}
-    try:
-        import argostranslate.translate  # type: ignore
-        status["runtime"] = True
-        try:
-            installed = argostranslate.translate.get_installed_languages()
-            pairs = []
-            for lang in installed:
-                for target in getattr(lang, "translations_from", []) or []:
-                    pairs.append(f"{lang.code}->{target.to_lang.code}")
-            status["models"] = sorted(set(pairs))
-        except Exception as exc:
-            status["error"] = f"model check failed: {type(exc).__name__}"
-    except Exception as exc:
-        status["error"] = f"runtime missing: {type(exc).__name__}"
-    try:
-        ARGOS_STATUS_CACHE["checked"] = True
-        ARGOS_STATUS_CACHE["runtime"] = bool(status.get("runtime"))
-        ARGOS_STATUS_CACHE["models"] = set(status.get("models") or [])
-        ARGOS_STATUS_CACHE["error"] = str(status.get("error") or "")
-    except Exception:
-        pass
-    return status
+    """Return safe Argos status without importing Argos in the GUI process.
 
+    Direct Argos integration is currently disabled because the installed runtime
+    can hang or take several seconds to import/model-scan. A future Argos add-on
+    should do install/probe/translation in a separate managed process.
+    """
+    status = {
+        "runtime": False,
+        "models": [],
+        "error": "Argos direct integration is disabled pending a safe optional add-on/offline package flow",
+    }
+    ARGOS_STATUS_CACHE["checked"] = True
+    ARGOS_STATUS_CACHE["runtime"] = False
+    ARGOS_STATUS_CACHE["models"] = set()
+    ARGOS_STATUS_CACHE["error"] = status["error"]
+    return status
 
 def format_argos_status() -> str:
     st = argos_runtime_status()
@@ -1565,16 +1557,13 @@ def argos_pair_ready(source: str, target: str) -> bool:
 
 
 def argos_translate_fallback(text: str, source: str = "zh", target: str = "en") -> str | None:
-    if not argos_pair_ready(source, target):
-        return None
-    try:
-        import argostranslate.translate  # type: ignore
-        translated = argostranslate.translate.translate(text, source, target).strip()
-        return translated or None
-    except Exception as exc:
-        ARGOS_STATUS_CACHE["error"] = f"translate failed: {type(exc).__name__}"
-        return None
-
+    # Do not import/call Argos in-process. The runtime is currently unsafe in this
+    # environment and can hang the Tk UI. Keep Google/curated translation working.
+    ARGOS_STATUS_CACHE["checked"] = True
+    ARGOS_STATUS_CACHE["runtime"] = False
+    ARGOS_STATUS_CACHE["models"] = set()
+    ARGOS_STATUS_CACHE["error"] = "Argos direct translation disabled pending safe add-on flow"
+    return None
 
 def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
     direction = direction or "zh-en"
@@ -3385,16 +3374,16 @@ class SignalBridgeGui:
         self.persist_settings()
         pref = self.translation_preferred_engine.get()
         fallback = self.translation_fallback_mode.get()
-        if pref == "argos" and not bool(ARGOS_STATUS_CACHE.get("runtime")):
-            self.argos_status_text.set("Argos selected, but runtime/model availability is not confirmed. Use Refresh Argos Status or Install / Repair Argos. The app will not call Argos until it is confirmed ready.")
+        if pref == "argos" or fallback in ("argos-google", "google-argos", "offline-only"):
+            self.argos_status_text.set("Argos is temporarily disabled because the current runtime/probe path can hang the app. Use Google/Auto for now; Argos will return as a safe optional add-on/offline package.")
         self.set_status(f"Translation engine: {pref} / {fallback}")
         self.schedule_redraw()
 
     def test_translation_engine(self):
         sample = chr(0x5929) + chr(0x9e64) + chr(0x7ea7) + " " + chr(0x77ed) + chr(0x5251) + chr(0x7ea7)
         pref = self.translation_preferred_engine.get()
-        if pref == "argos" and not argos_pair_ready("zh" if self.translation_direction.get() == "zh-en" else "en", "en" if self.translation_direction.get() == "zh-en" else "zh"):
-            result = "Argos is selected, but the needed offline model is not confirmed installed. Use Refresh Argos Status or Install / Repair Argos."
+        if pref == "argos" or self.translation_fallback_mode.get() in ("argos-google", "google-argos", "offline-only"):
+            result = "Argos is temporarily disabled because the current runtime/probe path can hang the app. Use Auto/Google for now."
         else:
             result = translate_free_text(sample, [], [], [], [], [], self.translation_direction.get(), [], pref, self.translation_fallback_mode.get())
         if not result:
@@ -3402,40 +3391,17 @@ class SignalBridgeGui:
         self.messagebox.showinfo("Translation Test", f"Preferred engine: {self.translation_preferred_engine.get()}\nFallback: {self.translation_fallback_mode.get()}\n\nInput:\n{sample}\n\nOutput:\n{result}\n\nArgos status is shown on the Translation settings page. Use Refresh Argos Status to check it without blocking the app.")
 
     def install_argos_models(self):
-        if not self.messagebox.askyesno("Install / Repair Argos", "Install or repair Argos offline translation models for this app?\n\nThis may take time and uses internet once. Status will update in the app header and Translation settings."):
-            return
-        self.argos_status_text.set("Argos install: running...")
-        self.set_status("Installing Argos models in background...")
-        threading.Thread(target=self._install_argos_models_worker, daemon=True).start()
+        msg = (
+            "Argos install/repair is temporarily disabled. The current Argos runtime/probe path can hang Signal Bridge. "
+            "Use Auto/Google for now; Argos should be reintroduced as a safe optional add-on/offline package with isolated install and model checks."
+        )
+        self.argos_status_text.set(msg)
+        self.set_status("Argos installer disabled for safety")
+        self.messagebox.showwarning("Argos Temporarily Disabled", msg)
 
     def _install_argos_models_worker(self):
-        try:
-            MODEL_DIR.mkdir(parents=True, exist_ok=True)
-            try:
-                import argostranslate.package  # type: ignore
-            except Exception:
-                msg = "Argos runtime is not installed/bundled. Install the Argos-enabled build or add the optional Argos runtime package."
-                self.argos_status_text.set(msg)
-                self.set_status(msg)
-                return
-            argostranslate.package.update_package_index()
-            packages = argostranslate.package.get_available_packages()
-            wanted = [("zh", "en"), ("en", "zh")]
-            installed = []
-            for src, dst in wanted:
-                pkg = next((p for p in packages if p.from_code == src and p.to_code == dst), None)
-                if not pkg:
-                    continue
-                path = pkg.download()
-                argostranslate.package.install_from_path(path)
-                installed.append(f"{src}->{dst}")
-            msg = "Argos models installed: " + (", ".join(installed) or "none found")
-            self.argos_status_text.set(format_argos_status())
-            self.set_status(msg)
-        except Exception as exc:
-            msg = "Argos install failed: " + str(exc)[:160]
-            self.argos_status_text.set(msg)
-            self.set_status(msg)
+        msg = "Argos installer disabled for safety; no install attempted."
+        self.queue.put(("argos_status", msg))
 
     def esi_is_enabled(self) -> bool:
         return bool(self.esi_enabled.get())

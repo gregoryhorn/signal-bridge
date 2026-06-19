@@ -476,3 +476,8 @@ Suggested implementation:
 - Simplified the ESI settings page by replacing noisy raw cache output with friendly recognition, OAuth, known entity, exclusion, negative-answer, and last-check status rows.
 - Added an About / Support donation section with copy buttons for the in-game ISK recipient and donation message.
 
+
+### Argos safe-mode update
+- Temporarily disabled direct in-process Argos status probing, install/repair, and translation calls after the current Argos runtime path was found to hang/crash the Tk app.
+- Translation defaults now stay on Auto/Google (`online-only`) until Argos is reintroduced through a safe optional add-on/offline package flow with isolated install, model checks, and translation execution.
+- Settings still explains the disabled Argos state instead of silently hanging.
