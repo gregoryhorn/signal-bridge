@@ -92,3 +92,5 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Added built-in and local-DB ESI individual-word exclusions: `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`.
 - Fixed ESI screen rendering: resolved/cached characters now hydrate onto visible rows and highlight red reliably.
 - ESI menu actions now show visible result dialogs and logs for manual, selected-text, sender, and status checks.
+- Fixed live monitoring stalls by preventing online/free-text translation from blocking chat-log parsing; new rows now emit immediately with monitor diagnostics.
+- Fixed live monitor stalls from large optional `translations.db` lookups; live monitoring now uses the compact catalog path so new chat rows are not delayed by DB scans.

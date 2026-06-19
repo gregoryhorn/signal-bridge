@@ -293,3 +293,5 @@ Before calling the app v1.0, the goal is to have:
 - ESI exclusion refinement completed: common individual words such as Link/Jump/Fleet/Gate/ISK/Ship are excluded from character detection and local DB checks.
 - ESI UI rendering fix completed: cached/resolved characters hydrate onto rows so logs and screen stay consistent.
 - ESI action diagnostics improved: menu checks now show dialogs/logs instead of silently queueing work.
+- Live monitor reliability hotfix completed: monitor parsing no longer performs blocking online translation before emitting rows.
+- Live monitor DB-stall hotfix completed: runtime monitor uses compact catalog-only enrichment and avoids large SQLite translation DB lookups.

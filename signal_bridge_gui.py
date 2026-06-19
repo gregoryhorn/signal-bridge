@@ -1000,11 +1000,12 @@ def apply_phrase_overrides(text: str, direction: str) -> tuple[str, bool]:
 
 
 class EveDb:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, use_sqlite: bool = True):
         self.path = path
+        self.use_sqlite = use_sqlite
         self.con: sqlite3.Connection | None = None
         self.cache: dict[str, str | None] = {}
-        if path.exists():
+        if use_sqlite and path.exists():
             self.con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=1, check_same_thread=False)
 
     def close(self):
@@ -1190,7 +1191,7 @@ def translate_free_chinese_text(text: str, systems: list[str], assets: list[str]
     return translate_free_text(text, systems, assets, localized, counts, links, "zh-en")
 
 
-def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: EveDb) -> list[Row]:
+def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: EveDb, allow_free_translation: bool = True) -> list[Row]:
     lines = [x.rstrip("\r") for x in text.splitlines()]
     channel = fallback_channel
     for raw in lines[:24]:
@@ -1211,7 +1212,7 @@ def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: E
             display_body = translation or body
             tmp_row = Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, "", "none", file_name)
             msg_candidates = esi_message_candidates_for_row(tmp_row)
-            free_translation = translate_free_text(display_body, systems, assets, localized, counts, links, "zh-en", msg_candidates)
+            free_translation = translate_free_text(display_body, systems, assets, localized, counts, links, "zh-en", msg_candidates) if allow_free_translation else ""
             rows.append(Row(channel, ts, sender, body, systems, assets, localized, counts, links, intent, translation, free_translation, ("catalog/db+google" if free_translation else "catalog/db" if translation or localized else "none"), file_name, [], msg_candidates))
     return rows
 
@@ -1226,7 +1227,9 @@ class MonitorThread(threading.Thread):
         self.replay_today = replay_today
         self.offsets: dict[str, int] = {}
         self.seen: set[tuple[str, str, str]] = set()
-        self.db = EveDb(DB_PATH)
+        # Live monitoring must never block gameplay/chat display on the large optional translations.db.
+        # Use compact catalog-only lookups here; manual/self-test paths can still open SQLite explicitly.
+        self.db = EveDb(DB_PATH, use_sqlite=False)
 
     def chat_files(self):
         if not self.channels:
@@ -1244,6 +1247,7 @@ class MonitorThread(threading.Thread):
             return
         self.seen.add(key)
         self.outq.put(row)
+        write_log(f"Monitor emitted row channel={row.channel!r} sender={row.sender!r} text={row.text[:120]!r}")
 
     def run(self):
         try:
@@ -1260,7 +1264,7 @@ class MonitorThread(threading.Thread):
                         text = decode_bytes(p.read_bytes())
                     except OSError:
                         continue
-                    replay_rows.extend(parse_rows_from_text(text, channel_from_filename(p), p.name, self.db)[-40:])
+                    replay_rows.extend(parse_rows_from_text(text, channel_from_filename(p), p.name, self.db, allow_free_translation=False)[-40:])
                 for row in replay_rows[-80:]:
                     self.emit_row(row)
             for p in self.chat_files():
@@ -1291,7 +1295,10 @@ class MonitorThread(threading.Thread):
                         self.offsets[sp] = size
                     except OSError:
                         continue
-                    for row in parse_rows_from_text(decode_bytes(data), channel_from_filename(p), p.name, self.db):
+                    rows = parse_rows_from_text(decode_bytes(data), channel_from_filename(p), p.name, self.db, allow_free_translation=False)
+                    if rows:
+                        write_log(f"Monitor read {len(rows)} row(s) from {p.name} bytes={size-old}")
+                    for row in rows:
                         self.emit_row(row)
                 time.sleep(POLL_SECONDS)
         except Exception:

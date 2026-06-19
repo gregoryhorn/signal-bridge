@@ -273,3 +273,7 @@ ESI usability: right-click menu includes selected-text resolve/ignore, last-chec
 Built-in ESI exclusions include common individual words such as `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`; these can also be stored in the local ESI exclusion DB.
 ESI rendering note: resolved/cached character names are hydrated onto visible rows so the feed highlights detected characters in red.
 ESI diagnostics: use Tools > Manual ESI Character Check... or right-click selected text to run a visible ESI check with a result dialog and log entry.
+
+Live monitoring emits new chat rows before any optional online/free-text translation so chat reception is not blocked by translation services.
+
+Live monitoring uses compact catalog-only enrichment and avoids the optional large `translations.db` path so new chat rows are not delayed by DB lookups.

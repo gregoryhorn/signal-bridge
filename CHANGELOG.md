@@ -92,3 +92,5 @@ Initial portable Windows preview release.
 - Added built-in and local-DB ESI individual-word exclusions for `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`.
 - Fixed ESI screen rendering so cached/resolved characters are hydrated onto rows and visibly highlighted red even when the resolver result arrives after render or the candidate text was broad.
 - Made ESI menu actions visibly report results: Check ESI now opens a status dialog, manual/selected/sender checks show result dialogs, and every action writes to the ESI log.
+- Fixed live monitoring stalls by preventing online/free-text translation from blocking the monitor thread; chat rows now emit immediately and monitor activity is logged.
+- Fixed live monitor stalls from large `translations.db` lookups by using compact catalog-only enrichment in the monitor thread.
