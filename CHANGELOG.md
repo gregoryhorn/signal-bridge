@@ -86,3 +86,4 @@ Initial portable Windows preview release.
 - Built with PyInstaller using --noupx and --windowed.
 - Argos remains optional rather than bundled in the default release.
 - Fixed ESS highlighting so only standalone `ESS` is colored, not the letters inside longer words.
+- Changed the default chat feed font to a clearer sans-serif typeface (`Segoe UI`) and improved ESI message-name detection for lowercase pilot handles after systems while excluding plural ship names.

@@ -287,3 +287,4 @@ Before calling the app v1.0, the goal is to have:
 - Translation protection for confirmed character names so player names are not translated in EN -> CN mode.
 - Color split: ships orange, ESI characters red, non-ship catalog assets/modules purple.
 - ESS highlight boundary fix completed: standalone ESS only, no mid-word tagging.
+- Feed readability polish completed: clearer sans-serif chat font and improved lowercase pilot-handle ESI detection with plural ship exclusions.

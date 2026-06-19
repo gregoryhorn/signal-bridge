@@ -264,3 +264,5 @@ Active channels appear as tabs. When more than one channel is open, an **All Cha
 
 
 ESI refinement: when enabled, Signal Bridge can conservatively resolve likely character names inside chat messages while excluding EVE systems, ships, modules, links, and counts first. Confirmed character names are protected from machine translation.
+
+The chat feed now defaults to a clear sans-serif typeface (`Segoe UI`) while still allowing font changes from the View menu.

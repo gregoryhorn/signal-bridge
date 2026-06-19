@@ -89,7 +89,7 @@ def load_settings() -> dict:
         "translate_free_text": True,
         "translation_direction": "zh-en",
         "compact_mode": True,
-        "font_family": "Consolas",
+        "font_family": "Segoe UI",
         "font_size": 10,
         "show_timestamps": True,
         "show_channel_names": False,
@@ -127,6 +127,9 @@ def save_settings(settings: dict) -> None:
 
 
 SETTINGS = load_settings()
+if SETTINGS.get("font_family") == "Consolas":
+    SETTINGS["font_family"] = "Segoe UI"
+    save_settings(SETTINGS)
 CHATLOG_DIR = Path(SETTINGS.get("chatlog_dir") or detect_chatlog_dir())
 DB_PATH = Path(SETTINGS.get("db_path") or DEFAULT_DB_PATH)
 DEFAULT_CHANNELS: set[str] = set(SETTINGS.get("active_channels") or [])
@@ -608,6 +611,7 @@ COMMON_ESI_NOISE = {
     "hostile", "neutral", "neut", "local", "system", "fleet", "corp", "alliance", "ship", "ships",
     "tackle", "camp", "bubble", "warp", "dock", "undock", "status", "reported", "scout", "pilot",
     "on", "in", "at", "to", "from", "by", "with", "and", "or", "the", "a", "an", "is", "are", "was",
+    "message", "messages", "assess", "assessment", "essence",
 }
 NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
@@ -643,7 +647,7 @@ def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[
     key = cand.casefold()
     if len(cand) < 3 or key in COMMON_ESI_NOISE:
         return False
-    if CATALOG.lookup_system(cand) or CATALOG.lookup_type(cand) or CATALOG.is_ship(cand):
+    if _catalog_or_plural_catalog_term(cand):
         return False
     if SYSTEM_RE.fullmatch(cand) or LINK_RE.search(cand) or COUNT_RE.fullmatch(cand):
         return False
@@ -654,17 +658,62 @@ def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[
         token = parts[0]
         if len(token) < 5 or token.isupper() or token.lower() in COMMON_ESI_NOISE:
             return False
-        if not re.search(r"[A-Z]", token):
-            return False
+        # Single-token EVE character names can be lowercase handles, so do not require title case.
         if text and span:
             before = text[max(0, span[0]-18):span[0]].lower().split()[-3:]
             after = text[span[1]:span[1]+18].lower().split()[:3]
             if not any(w in before or w in after for w in NAME_CONTEXT_WORDS):
                 return False
     for part in parts:
-        if part.casefold() in COMMON_ESI_NOISE or CATALOG.lookup_type(part) or CATALOG.lookup_system(part):
+        if part.casefold() in COMMON_ESI_NOISE or _catalog_or_plural_catalog_term(part):
             return False
     return True
+
+
+def _catalog_or_plural_catalog_term(term: str) -> bool:
+    raw = term.strip(" ,.;:()[]{}\"'`")
+    if not raw:
+        return False
+    variants = [raw]
+    if raw.lower().endswith("s") and len(raw) > 4:
+        variants.append(raw[:-1])
+    if raw.lower().endswith("ies") and len(raw) > 5:
+        variants.append(raw[:-3] + "y")
+    for value in variants:
+        if CATALOG.lookup_system(value) or CATALOG.lookup_type(value) or CATALOG.is_ship(value):
+            return True
+    return False
+
+
+def _plausible_name_token(token: str) -> bool:
+    token = token.strip(" ,.;:()[]{}\"'`")
+    if len(token) < 3 or not re.search(r"[A-Za-z]", token):
+        return False
+    key = token.casefold()
+    if key in COMMON_ESI_NOISE:
+        return False
+    if SYSTEM_RE.fullmatch(token) or COUNT_RE.fullmatch(token) or LINK_RE.search(token):
+        return False
+    if _catalog_or_plural_catalog_term(token):
+        return False
+    # Short all-caps fragments are usually tickers/codes, not enough for an exact ESI name by themselves.
+    if token.isupper() and len(token) <= 4:
+        return False
+    return True
+
+
+def _candidate_from_tokens(tokens: list[str], text: str = "") -> str | None:
+    parts = [t.strip(" ,.;:()[]{}\"'`") for t in tokens if t.strip(" ,.;:()[]{}\"'`")]
+    while parts and parts[0].casefold() in COMMON_ESI_NOISE:
+        parts.pop(0)
+    while parts and parts[-1].casefold() in COMMON_ESI_NOISE:
+        parts.pop()
+    if not parts or len(parts) > 4:
+        return None
+    cand = " ".join(parts)
+    if not is_probable_character_candidate(cand, text):
+        return None
+    return cand
 
 
 def esi_message_candidates_for_row(row: Row) -> list[str]:
@@ -678,17 +727,53 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
     for ent in row.localized:
         terms.append(str(ent.get("original", ""))); terms.append(str(ent.get("canonical", "")))
     blocked.extend(_mark_term_spans(text, terms))
+
+    # Work on text with known EVE/system/link/count spans blanked out. This lets
+    # "WH-JCA Sennessa Xerogi" still produce "Sennessa Xerogi" instead of dropping
+    # the whole chunk because the system overlapped it.
+    chars = list(text)
+    for a, b in blocked:
+        for i in range(max(0, a), min(len(chars), b)):
+            chars[i] = " "
+    work = "".join(chars)
+
     out: list[str] = []
-    for m in NAME_CHUNK_RE.finditer(text):
-        span = (m.start(1), m.end(1))
-        if _span_overlaps(span, blocked):
-            continue
+    token_matches = list(re.finditer(r"[A-Za-z][A-Za-z0-9'`-]{2,}", work))
+    tokens = [(m.group(0), m.start(), m.end()) for m in token_matches if _plausible_name_token(m.group(0))]
+
+    # Group contiguous plausible tokens separated only by whitespace. Emit the longest
+    # conservative chunk first, but also allow a single lowercase/mixed token because
+    # EVE pilot names often are lowercase handles.
+    group: list[str] = []
+    last_end: int | None = None
+    def flush_group():
+        nonlocal group
+        if not group:
+            return
+        for size in range(min(4, len(group)), 0, -1):
+            cand = _candidate_from_tokens(group[:size], text)
+            if cand:
+                out.append(cand)
+                break
+        group = []
+
+    for token, a, b in tokens:
+        if last_end is not None and work[last_end:a].strip():
+            flush_group()
+        group.append(token)
+        last_end = b
+        if len(group) >= 4:
+            flush_group()
+    flush_group()
+
+    # Proper-case chunks can include spaces/punctuation that token grouping misses.
+    for m in NAME_CHUNK_RE.finditer(work):
         cand = re.sub(r"\s+", " ", m.group(1).strip())
         parts = cand.split()
         while len(parts) > 1 and parts[-1].casefold() in COMMON_ESI_NOISE:
             parts.pop()
         cand = " ".join(parts)
-        if is_probable_character_candidate(cand, text, span):
+        if is_probable_character_candidate(cand, text, (m.start(1), m.end(1))):
             out.append(cand)
     return unique(out)[:4]
 
@@ -1230,7 +1315,7 @@ class SignalBridgeGui:
         self.translated_only = tk.BooleanVar(value=bool(SETTINGS.get("translated_only", True)))
         self.translate_chinese_text = tk.BooleanVar(value=bool(SETTINGS.get("translate_free_text", True)))
         self.translation_direction = tk.StringVar(value=str(SETTINGS.get("translation_direction", "zh-en")))
-        self.font_family = tk.StringVar(value=str(SETTINGS.get("font_family", "Consolas")))
+        self.font_family = tk.StringVar(value=str(SETTINGS.get("font_family", "Segoe UI")))
         try:
             initial_font_size = int(SETTINGS.get("font_size", 10))
         except Exception:
@@ -1770,7 +1855,7 @@ class SignalBridgeGui:
 
     def feed_font(self, bold: bool = False):
         weight = "bold" if bold else "normal"
-        return (self.font_family.get() or "Consolas", int(self.font_size.get()), weight)
+        return (self.font_family.get() or "Segoe UI", int(self.font_size.get()), weight)
 
     def apply_feed_font(self):
         self.text.configure(font=self.feed_font())
@@ -1792,8 +1877,8 @@ class SignalBridgeGui:
             import tkinter.font as tkfont
             families = sorted(set(tkfont.families(self.root)))
         except Exception:
-            families = ["Consolas", "Courier New", "Segoe UI", "Arial", "Tahoma"]
-        common = [f for f in ["Consolas", "Cascadia Mono", "Courier New", "Segoe UI", "Arial", "Tahoma", "Verdana"] if f in families]
+            families = ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Consolas", "Courier New"]
+        common = [f for f in ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Segoe UI Variable", "Consolas", "Cascadia Mono", "Courier New"] if f in families]
         ordered = common + [f for f in families if f not in common]
         win = tk.Toplevel(self.root)
         win.title("Choose Feed Font")
