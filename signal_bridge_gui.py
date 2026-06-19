@@ -659,7 +659,7 @@ NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
     "local", "jumped", "jump", "gate", "camp", "hostile", "neut", "neutral", "red", "pilot", "scout",
 }
-NAME_CHUNK_RE = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9'`-]{2,}(?:\s+[A-Z][A-Za-z0-9'`-]{1,}){0,3})(?![A-Za-z0-9])")
+NAME_CHUNK_RE = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9'`-]{1,}(?:\s+[A-Z][A-Za-z0-9'`-]{1,}){0,3})(?![A-Za-z0-9])")
 
 
 def _span_overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
@@ -698,9 +698,13 @@ def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[
         return False
     if len(parts) == 1:
         token = parts[0]
-        if len(token) < 5 or token.isupper() or token.lower() in COMMON_ESI_NOISE:
+        if len(token) < 5 or token.lower() in COMMON_ESI_NOISE:
             return False
-        # Single-token EVE character names can be lowercase handles, so do not require title case.
+        # Single-token EVE character names can be lowercase handles or even all-uppercase
+        # exact names (for example MADRICO).  System/code/catalog checks above catch the
+        # common non-name cases; the ESI negative cache absorbs remaining false positives.
+        if token.isupper() and len(token) < 6:
+            return False
         if text and span:
             before = text[max(0, span[0]-18):span[0]].lower().split()[-3:]
             after = text[span[1]:span[1]+18].lower().split()[:3]
@@ -792,11 +796,18 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
         nonlocal group
         if not group:
             return
-        for size in range(min(4, len(group)), 0, -1):
-            cand = _candidate_from_tokens(group[:size], text)
-            if cand:
-                out.append(cand)
-                break
+        # Do not only emit the longest chunk. Intel often writes multiple adjacent
+        # character names, or a name followed by a shorthand/ship/free word, e.g.
+        # "Potderillettes MADRICO", "Prometeus22 CASPULE", "Shax HerooooMvP".
+        # Submit bounded sub-windows so exact ESI names can resolve independently.
+        max_size = min(4, len(group))
+        for start in range(len(group)):
+            for size in range(max_size, 0, -1):
+                if start + size > len(group):
+                    continue
+                cand = _candidate_from_tokens(group[start:start+size], text)
+                if cand:
+                    out.append(cand)
         group = []
 
     for token, a, b in tokens:
@@ -817,7 +828,8 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
         cand = " ".join(parts)
         if is_probable_character_candidate(cand, text, (m.start(1), m.end(1))):
             out.append(cand)
-    return unique(out)[:4]
+    # Keep the queue bounded, but allow enough candidates for split adjacent names.
+    return unique(out)[:8]
 
 
 def esi_candidates_for_row(row: Row) -> list[str]:

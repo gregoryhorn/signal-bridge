@@ -97,3 +97,5 @@ Initial portable Windows preview release.
 - Fixed a Tkinter ESS-highlight regex crash that could stop the GUI feed from rendering new live rows even though the monitor was reading them.
 - Made sender names neutral/uncolored and excluded `Red`/`enemy` from distracting asset/ESI highlighting.
 - Added right-click `Add Selected Text as ESI Character` and made selected/manual ESI resolves cache and redraw matching rows.
+- Improved ESI candidate detection for adjacent names and valid uppercase single-name pilots such as `MADRICO`.
+- ESI detection now handles short-prefix character names such as `LT Shax`.

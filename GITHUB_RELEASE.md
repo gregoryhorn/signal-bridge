@@ -97,3 +97,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Fixed a GUI render crash in ESS highlighting that could make live chat appear stuck after the first row while the monitor kept reading logs.
 - Sender names are now neutral/uncolored; common words like `Red` and `enemy` are excluded from distracting highlights.
 - Added explicit right-click `Add Selected Text as ESI Character`; selected/manual ESI checks now cache the character and redraw matching rows immediately.
+- Improved ESI detection for manually resolved names by splitting adjacent candidate chunks and allowing valid uppercase single-token pilots.
