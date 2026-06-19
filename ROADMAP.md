@@ -292,3 +292,4 @@ Before calling the app v1.0, the goal is to have:
 - ESI usability refinement completed: visible last-check diagnostics and character exclusion list for false positives/bad names.
 - ESI exclusion refinement completed: common individual words such as Link/Jump/Fleet/Gate/ISK/Ship are excluded from character detection and local DB checks.
 - ESI UI rendering fix completed: cached/resolved characters hydrate onto rows so logs and screen stay consistent.
+- ESI action diagnostics improved: menu checks now show dialogs/logs instead of silently queueing work.

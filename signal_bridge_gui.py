@@ -1470,6 +1470,7 @@ class SignalBridgeGui:
         tools_menu.add_separator()
         tools_menu.add_command(label="ESI Cache Status", command=self.show_esi_cache_status)
         tools_menu.add_command(label="ESI Last Check / Diagnostics", command=self.show_esi_diagnostics)
+        tools_menu.add_command(label="Manual ESI Character Check...", command=self.manual_esi_check_dialog)
         tools_menu.add_command(label="ESI Character Exclusion List...", command=self.show_esi_exclusion_list)
         tools_menu.add_command(label="Clear ESI Cache", command=self.clear_esi_cache)
         tools_menu.add_separator()
@@ -2139,17 +2140,24 @@ class SignalBridgeGui:
         tk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
     def check_esi_status(self):
+        write_log("ESI status check requested from UI")
+        self.status_label.configure(text="Checking ESI status...")
         def worker():
             try:
                 req = urllib.request.Request("https://esi.evetech.net/latest/status/", headers={"User-Agent": ESI_USER_AGENT, "Accept": "application/json"})
                 with urllib.request.urlopen(req, timeout=8) as resp:
                     data = json.loads(resp.read().decode("utf-8", "replace"))
                 ESI_CACHE.set_status("last_status", "ok")
+                ESI_CACHE.set_status("last_check", f"status ok: {data.get('players','?')} players online")
                 self.queue.put(("status", f"ESI OK: {data.get('players','?')} players online"))
+                self.queue.put(("esi_status_result", True, data))
+                write_log(f"ESI status check OK: {data.get('players','?')} players online")
             except Exception as exc:
                 ESI_CACHE.set_status("last_status", "offline")
+                ESI_CACHE.set_status("last_check", "status check failed")
                 write_log("ESI status check failed", exc)
                 self.queue.put(("status", "ESI status check failed; see logs"))
+                self.queue.put(("esi_status_result", False, str(exc)))
         threading.Thread(target=worker, daemon=True).start()
 
     def show_esi_cache_status(self):
@@ -2222,10 +2230,55 @@ class SignalBridgeGui:
 
     def resolve_selected_esi_text(self):
         text = self.selected_feed_text()
+        write_log(f"ESI resolve selected invoked: {text!r}")
         if not text:
+            self.messagebox.showinfo("ESI", "No selected text. Highlight a character name first, or use Tools > Manual ESI Character Check...")
             self.set_status("No selected text for ESI")
             return
-        self.refresh_esi_entity(text)
+        self.direct_esi_check(text, force=True, show_dialog=True)
+
+    def manual_esi_check_dialog(self):
+        name = self.simpledialog.askstring("Manual ESI Character Check", "Character name to check with ESI:", parent=self.root)
+        if not name:
+            return
+        self.direct_esi_check(name.strip(), force=True, show_dialog=True)
+
+    def direct_esi_check(self, query: str, force: bool = False, show_dialog: bool = False):
+        query = re.sub(r"\s+", " ", str(query or "").strip())
+        if not query:
+            self.set_status("No ESI query")
+            return
+        if not self.esi_is_enabled():
+            self.esi_enabled.set(True); self.save_esi_ui_settings()
+        self.ensure_esi_resolver()
+        write_log(f"ESI direct check requested: {query!r} force={force}")
+        self.status_label.configure(text=f"Checking ESI: {query}")
+        def worker():
+            try:
+                corr = ESI_CACHE.get_correction(query)
+                if corr and corr.get("action") == "ignore" and not force:
+                    ESI_CACHE.set_status("last_check", f"ignored: {query}")
+                    self.queue.put(("esi_direct_result", query, {"ignored": True, "query": query, "source": "manual-ignore"}, None, show_dialog))
+                    return
+                cached = ESI_CACHE.get_entity(query, force=force)
+                if cached and not cached.get("ignored"):
+                    ESI_CACHE.set_status("last_check", f"cache hit: {query} -> {cached.get('name')}")
+                    write_log(f"ESI direct cache hit: {query!r} -> {cached.get('name')}")
+                    self.queue.put(("esi_direct_result", query, cached, None, show_dialog))
+                    return
+                resolver = self.esi_resolver or EsiResolver(self.queue, self.esi_is_enabled)
+                data = resolver.resolve_public(query)
+                ESI_CACHE.put_entity(query, data)
+                ESI_CACHE.set_status("last_check", f"positive: {query} -> {data.get('name')}")
+                write_log(f"ESI direct positive: {query!r} -> {data.get('name')}")
+                self.queue.put(("esi_direct_result", query, data, None, show_dialog))
+            except Exception as exc:
+                ESI_CACHE.put_negative(query, reason="direct_negative_or_error")
+                ESI_CACHE.set_status("last_check", f"negative: {query}")
+                ESI_CACHE.set_status("last_error", type(exc).__name__)
+                write_log(f"ESI direct negative/error for {query!r}: {type(exc).__name__}", exc)
+                self.queue.put(("esi_direct_result", query, None, exc, show_dialog))
+        threading.Thread(target=worker, daemon=True).start()
 
     def ignore_selected_esi_text(self):
         text = self.selected_feed_text()
@@ -2366,13 +2419,10 @@ class SignalBridgeGui:
 
     def refresh_esi_entity(self, query: str):
         if not query:
+            self.messagebox.showinfo("ESI", "No ESI name was available for this action.")
             return
-        if not self.esi_is_enabled():
-            self.esi_enabled.set(True); self.save_esi_ui_settings()
-        self.ensure_esi_resolver()
-        if self.esi_resolver:
-            self.esi_resolver.submit(query, force=True)
-            self.set_status(f"Queued ESI refresh: {query}")
+        write_log(f"ESI refresh invoked: {query!r}")
+        self.direct_esi_check(query, force=True, show_dialog=True)
 
     def ignore_esi_entity(self, query: str):
         if query and ESI_CACHE.set_correction(query, "ignore", note="user ignored"):
@@ -2661,6 +2711,7 @@ class SignalBridgeGui:
         else:
             menu.add_command(label="Show ESI Candidates for Message", command=lambda: self.show_esi_candidates_for_row(None), state="disabled")
         menu.add_command(label="ESI Last Check / Diagnostics", command=self.show_esi_diagnostics)
+        menu.add_command(label="Manual ESI Character Check...", command=self.manual_esi_check_dialog)
         menu.add_command(label="ESI Character Exclusion List...", command=self.show_esi_exclusion_list)
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -2966,6 +3017,16 @@ class SignalBridgeGui:
                     self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
                 elif isinstance(item, tuple) and item[0] == "esi_resolved":
                     self.handle_esi_resolved(item[1], item[2])
+                elif isinstance(item, tuple) and item[0] == "esi_direct_result":
+                    self.handle_esi_direct_result(item[1], item[2], item[3], item[4])
+                elif isinstance(item, tuple) and item[0] == "esi_status_result":
+                    ok, data = item[1], item[2]
+                    if ok:
+                        msg = "ESI is reachable.\n\nPlayers online: {}\nServer version: {}".format(data.get('players','?'), data.get('server_version','?'))
+                        self.messagebox.showinfo("ESI Status", msg)
+                    else:
+                        msg = "ESI status check failed.\n\n{}\n\nSee logs for details.".format(data)
+                        self.messagebox.showwarning("ESI Status", msg)
                 elif isinstance(item, tuple) and item[0] == "esi_oauth_failed":
                     self.status_label.configure(text="ESI OAuth failed")
                     self.messagebox.showwarning("ESI OAuth", str(item[1])[:500])
@@ -2990,6 +3051,41 @@ class SignalBridgeGui:
         self.status_label.configure(text=f"ESI resolved: {data.get('name') or query}")
         if changed:
             self.redraw_feed()
+
+    def handle_esi_direct_result(self, query: str, data: dict | None, error: BaseException | None, show_dialog: bool):
+        if data and not data.get("ignored"):
+            self.handle_esi_resolved(query, data)
+            text = (
+                "ESI character found:\n\n"
+                "Query: {}\n"
+                "Name: {}\n"
+                "Character ID: {}\n"
+                "Corp: {}\n"
+                "Alliance: {}\n"
+                "Source: {}"
+            ).format(
+                query,
+                data.get('name') or '',
+                data.get('entity_id') or '',
+                data.get('corporation_name') or '',
+                data.get('alliance_name') or '',
+                data.get('source', 'esi'),
+            )
+            self.status_label.configure(text=f"ESI found: {data.get('name') or query}")
+            if show_dialog:
+                self.messagebox.showinfo("ESI Result", text)
+            return
+        if data and data.get("ignored"):
+            self.status_label.configure(text=f"ESI ignored: {query}")
+            if show_dialog:
+                self.messagebox.showinfo("ESI Result", f"{query} is excluded from ESI checks.")
+            return
+        msg = f"ESI did not find a character for: {query}"
+        if error:
+            msg += f"\n\nResult: {type(error).__name__}"
+        self.status_label.configure(text=msg[:180])
+        if show_dialog:
+            self.messagebox.showwarning("ESI Result", msg)
 
     def esi_details_for_row(self, row: Row) -> str:
         entities = list(row.esi_entities)

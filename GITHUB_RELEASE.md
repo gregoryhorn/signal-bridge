@@ -91,3 +91,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Added ESI diagnostics, selected-text ESI resolve/ignore, always-visible ESI context actions, and a character exclusion list for badly named characters.
 - Added built-in and local-DB ESI individual-word exclusions: `Link`, `Jump`, `Fleet`, `and`, `the`, `Gate`, `Star`, `ISK`, and `Ship`.
 - Fixed ESI screen rendering: resolved/cached characters now hydrate onto visible rows and highlight red reliably.
+- ESI menu actions now show visible result dialogs and logs for manual, selected-text, sender, and status checks.
