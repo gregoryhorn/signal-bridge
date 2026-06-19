@@ -3346,10 +3346,19 @@ class SignalBridgeGui:
         os.startfile(str(LOG_DIR))
 
     def refresh_argos_status(self):
-        status = format_argos_status()
-        self.argos_status_text.set(status)
-        self.set_status("Argos status refreshed")
-        return status
+        """Check Argos runtime/model status without blocking the Tk UI thread."""
+        self.argos_status_text.set("Argos status: checking...")
+        self.set_status("Checking Argos status...")
+        threading.Thread(target=self._refresh_argos_status_worker, daemon=True).start()
+        return "checking"
+
+    def _refresh_argos_status_worker(self):
+        try:
+            status = format_argos_status()
+        except Exception as exc:
+            write_log("Argos status check failed", exc)
+            status = "Argos status check failed: " + str(exc)[:160]
+        self.queue.put(("argos_status", status))
 
     def save_translation_engine_settings(self):
         self.persist_settings()
@@ -3361,7 +3370,7 @@ class SignalBridgeGui:
         result = translate_free_text(sample, [], [], [], [], [], self.translation_direction.get(), [], self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
         if not result:
             result = "No machine/free-text translation returned. Curated EVE cache still handles known ship aliases in live rows."
-        self.messagebox.showinfo("Translation Test", f"Preferred engine: {self.translation_preferred_engine.get()}\nFallback: {self.translation_fallback_mode.get()}\n\nInput:\n{sample}\n\nOutput:\n{result}\n\n{format_argos_status()}")
+        self.messagebox.showinfo("Translation Test", f"Preferred engine: {self.translation_preferred_engine.get()}\nFallback: {self.translation_fallback_mode.get()}\n\nInput:\n{sample}\n\nOutput:\n{result}\n\nArgos status is shown on the Translation settings page. Use Refresh Argos Status to check it without blocking the app.")
 
     def install_argos_models(self):
         if not self.messagebox.askyesno("Install / Repair Argos", "Install or repair Argos offline translation models for this app?\n\nThis may take time and uses internet once. Status will update in the app header and Translation settings."):
@@ -4694,6 +4703,10 @@ class SignalBridgeGui:
                 elif isinstance(item, tuple) and item[0] == "update_failed":
                     self.status_label.configure(text="Update check failed; see logs")
                     self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
+                elif isinstance(item, tuple) and item[0] == "argos_status":
+                    status = str(item[1])
+                    self.argos_status_text.set(status)
+                    self.status_label.configure(text="Argos status refreshed")
                 elif isinstance(item, tuple) and item[0] == "esi_resolved":
                     self.handle_esi_resolved(item[1], item[2])
                 elif isinstance(item, tuple) and item[0] == "esi_direct_result":
