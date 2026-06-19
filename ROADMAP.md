@@ -457,3 +457,8 @@ Suggested implementation:
 - Send feed rows with semantic spans instead of only plain text so the browser can apply the same colors/backgrounds.
 - Use CSS variables generated from the app theme, such as `--feed-bg`, `--text-fg`, `--system-fg`, and `--ship-bg`.
 - Keep the first version read-only; theme sync should not allow remote settings edits.
+
+### Intel History add-on MVP foundation — started
+- Initial add-on package skeleton exists under `addons/intel-history`.
+- Same-EXE guarded loader, event bridge, SQLite sighting storage, dedupe, and health/status display are implemented.
+- Next milestones: Pilot Intelligence Card v0.1, manual flags, Hot Drop Risk auto flag, zKill enrichment, import/export packs, and Intel Query Service / LLM entry point.

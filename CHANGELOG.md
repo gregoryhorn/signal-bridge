@@ -1,4 +1,12 @@
 
+
+### Intel History add-on MVP foundation
+- Added the first installable `Intel History / Pilot Intelligence` add-on skeleton under `addons/intel-history`.
+- Added guarded same-EXE module loading for the official Intel History add-on.
+- Added live row event emission to the add-on without blocking feed rendering.
+- Added local SQLite MVP storage for ESI-confirmed pilot sightings with 3-minute dedupe buckets.
+- Added Settings > Add-ons health/status counters for pilots, sightings, queue size, last sighting, and errors.
+
 ### v0.3 - message character detection refinement
 - Added conservative ESI character-name candidate detection inside chat message text, not only sender names.
 

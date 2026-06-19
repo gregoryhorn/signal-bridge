@@ -774,3 +774,24 @@ The add-on should be considered ready only when:
 - Export/import can round-trip a small test pack.
 - IntelQueryService returns structured summaries without arbitrary SQL.
 - Diagnostics show DB size, counts, queues, and last errors.
+
+## Implementation Status
+
+Current MVP foundation implemented:
+
+- installable source package under `addons/intel-history`,
+- guarded same-EXE add-on runtime loader,
+- normalized live-row event bridge,
+- local SQLite database creation,
+- ESI-confirmed pilot sighting capture,
+- 3-minute dedupe buckets,
+- basic Settings > Add-ons health/status counters.
+
+Not yet implemented:
+
+- Pilot Intelligence Cards,
+- manual flags,
+- auto Hot Drop Risk flags,
+- zKill enrichment,
+- import/export packs,
+- Intel Query Service / LLM entry point.

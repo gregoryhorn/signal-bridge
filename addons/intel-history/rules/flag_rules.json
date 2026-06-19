@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "hot_drop_risk": {
+    "enabled": true,
+    "duration_minutes": 120,
+    "ships": ["Redeemer", "Widow", "Sin", "Panther", "Arazu", "Rapier", "Falcon", "Pilgrim"],
+    "flag": "Hot Drop Risk"
+  }
+}

@@ -143,3 +143,8 @@ A future release should add an optional LAN web viewer that streams Signal Bridg
 ### Planned LAN Viewer Theme Matching
 
 The planned LAN Web Viewer should mirror the desktop app's appearance settings where practical, including feed colors, fonts, bold/background highlight styles, sender-neutral styling, and exclusion behavior, while remaining mobile-friendly on phones.
+
+### Intel History add-on MVP foundation
+- Added the first optional Intel History add-on skeleton and runtime loader foundation.
+- The MVP add-on records ESI-confirmed pilot sightings into a local SQLite database, dedupes repeated reports, and exposes health/status counters in Settings > Add-ons.
+- This is an early foundation only; Pilot Intelligence Cards, flags, zKill enrichment, import/export, and LLM query support remain planned next steps.

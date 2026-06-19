@@ -1,0 +1,12 @@
+{
+  "id": "intel-history",
+  "name": "Intel History / Pilot Intelligence",
+  "version": "0.1.0-mvp",
+  "compatible_app": ">=0.3,<0.4",
+  "description": "Local ESI-confirmed pilot sighting history, health status, and future Pilot Intelligence Cards.",
+  "entry": "intel_history.py",
+  "permissions": [
+    "read_live_intel_events",
+    "local_sqlite_storage"
+  ]
+}

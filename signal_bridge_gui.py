@@ -5,6 +5,7 @@ import json
 import os
 import copy
 import hashlib
+import importlib.util
 import queue
 import re
 import shutil
@@ -250,6 +251,96 @@ if SETTINGS.get("font_family") == "Consolas":
 CHATLOG_DIR = Path(SETTINGS.get("chatlog_dir") or detect_chatlog_dir())
 DB_PATH = Path(SETTINGS.get("db_path") or DEFAULT_DB_PATH)
 DEFAULT_CHANNELS: set[str] = set(SETTINGS.get("active_channels") or [])
+
+class AddonRuntime:
+    """Guarded runtime wrapper for the official Intel History add-on."""
+    def __init__(self, addon_id: str, manifest: dict, code_dir: Path, data_dir: Path):
+        self.addon_id = addon_id
+        self.manifest = manifest
+        self.code_dir = code_dir
+        self.data_dir = data_dir
+        self.instance = None
+        self.enabled = False
+        self.last_error = ""
+
+    def start(self):
+        entry = str(self.manifest.get("entry") or "intel_history.py").strip()
+        entry_path = (self.code_dir / entry).resolve()
+        root = self.code_dir.resolve()
+        if root not in entry_path.parents and entry_path != root:
+            raise ValueError(f"Unsafe add-on entry path: {entry}")
+        if not entry_path.exists():
+            raise FileNotFoundError(str(entry_path))
+        module_name = f"signalbridge_addon_{self.addon_id.replace('-', '_')}"
+        spec = importlib.util.spec_from_file_location(module_name, entry_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Could not load add-on entry: {entry_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        context = {"addon_id": self.addon_id, "manifest": self.manifest, "module_dir": str(self.code_dir), "data_dir": str(self.data_dir), "app_version": APP_VERSION}
+        init = getattr(module, "init", None)
+        self.instance = init(context) if callable(init) else module
+        self.enabled = True
+
+    def safe_call(self, method: str, *args, **kwargs):
+        if not self.enabled or self.instance is None:
+            return None
+        func = getattr(self.instance, method, None)
+        if not callable(func):
+            return None
+        try:
+            return func(*args, **kwargs)
+        except Exception as exc:
+            self.last_error = f"{method}: {type(exc).__name__}: {exc}"
+            write_log(f"Add-on {self.addon_id} hook failed: {method}", exc)
+            return None
+
+    def shutdown(self):
+        try:
+            self.safe_call("shutdown")
+        finally:
+            self.enabled = False
+            self.instance = None
+
+    def health(self) -> dict:
+        data = self.safe_call("get_health_status") or {}
+        if not isinstance(data, dict):
+            data = {}
+        if self.last_error and data.get("last_error") in (None, "", "none"):
+            data["last_error"] = self.last_error
+        return data
+
+
+def make_intel_history_event(row) -> dict:
+    chars = []
+    for ent in getattr(row, "esi_entities", []) or []:
+        if ent.get("entity_type") != "character" or not ent.get("entity_id"):
+            continue
+        chars.append({
+            "entity_type": "character",
+            "entity_id": ent.get("entity_id"),
+            "name": ent.get("name") or ent.get("query") or "",
+            "query": ent.get("query") or ent.get("name") or "",
+            "corporation_id": ent.get("corporation_id"),
+            "corporation_name": ent.get("corporation_name") or "",
+            "alliance_id": ent.get("alliance_id"),
+            "alliance_name": ent.get("alliance_name") or "",
+            "confidence": ent.get("confidence") or "high",
+        })
+    return {
+        "type": "intel_row",
+        "timestamp": getattr(row, "received_at", "") or getattr(row, "time", "") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "channel": getattr(row, "channel", "") or "",
+        "sender": getattr(row, "sender", "") or "",
+        "text": getattr(row, "text", "") or "",
+        "systems": list(getattr(row, "systems", []) or []),
+        "ships": list(getattr(row, "ships", []) or getattr(row, "assets", []) or []),
+        "assets": list(getattr(row, "assets", []) or []),
+        "links": list(getattr(row, "links", []) or []),
+        "characters": chars,
+        "raw_text_available": False,
+    }
+
 
 def ensure_app_dirs() -> None:
     for path in (CONFIG_DIR, CACHE_DIR, MODEL_DIR, LOG_DIR, DATA_DIR, MODULES_DIR, MODULE_DATA_DIR):
@@ -1780,9 +1871,12 @@ class SignalBridgeGui:
         self.rendered_row_map: dict[str, dict] = {}
         self.link_map: dict[str, str] = {}
         self.render_seq = 0
+        self.intel_history_runtime: AddonRuntime | None = None
+        self.intel_history_last_health: dict = {}
         write_log(f"Starting {APP_NAME} v{APP_VERSION}")
         self._build_menu()
         self._build_widgets()
+        self.load_enabled_addons()
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
         self.root.after(150, self.drain_queue)
 
@@ -2478,6 +2572,53 @@ class SignalBridgeGui:
         self.copy_to_clipboard(self.settings_summary_text())
         self.set_status("Diagnostics copied")
 
+    def load_enabled_addons(self):
+        status = installed_addon_status(INTEL_HISTORY_ADDON_ID)
+        if not status.get("enabled"):
+            return
+        try:
+            runtime = AddonRuntime(INTEL_HISTORY_ADDON_ID, status.get("manifest") or {}, addon_code_dir(INTEL_HISTORY_ADDON_ID), addon_data_dir(INTEL_HISTORY_ADDON_ID))
+            runtime.start()
+            self.intel_history_runtime = runtime
+            self.intel_history_last_health = runtime.health()
+            write_log(f"Loaded add-on {INTEL_HISTORY_ADDON_ID} {runtime.manifest.get('version','unknown')}")
+        except Exception as exc:
+            write_log("Intel History add-on load failed", exc)
+            self.intel_history_runtime = None
+            self.intel_history_last_health = {"last_error": f"load {type(exc).__name__}: {exc}"}
+            try:
+                self.status_label.configure(text="Intel History add-on failed to load; see logs")
+            except Exception:
+                pass
+
+    def unload_intel_history_addon(self):
+        if self.intel_history_runtime:
+            self.intel_history_runtime.shutdown()
+            self.intel_history_runtime = None
+
+    def reload_intel_history_addon(self):
+        self.unload_intel_history_addon()
+        self.load_enabled_addons()
+
+    def emit_intel_history_row(self, row: Row):
+        runtime = self.intel_history_runtime
+        if not runtime or not runtime.enabled:
+            return
+        try:
+            event = make_intel_history_event(row)
+            if event.get("characters"):
+                runtime.safe_call("on_intel_row", event)
+        except Exception as exc:
+            write_log("Intel History event emit failed", exc)
+
+    def current_intel_history_health(self) -> dict:
+        runtime = self.intel_history_runtime
+        if runtime and runtime.enabled:
+            health = runtime.health()
+            if isinstance(health, dict):
+                self.intel_history_last_health = health
+        return dict(self.intel_history_last_health or {})
+
     def intel_history_status(self) -> dict:
         return installed_addon_status(INTEL_HISTORY_ADDON_ID)
 
@@ -2487,7 +2628,12 @@ class SignalBridgeGui:
         if not status.get("installed"):
             return "not installed"
         version = manifest.get("version") or "unknown"
-        return f"{'enabled' if status.get('enabled') else 'installed, disabled'} v{version}"
+        runtime = self.intel_history_runtime
+        if status.get("enabled") and runtime and runtime.enabled:
+            return f"enabled/running v{version}"
+        if status.get("enabled"):
+            return f"enabled, not running v{version}"
+        return f"installed, disabled v{version}"
 
     def open_intel_history_data_folder(self):
         path = addon_data_dir(INTEL_HISTORY_ADDON_ID)
@@ -2506,6 +2652,10 @@ class SignalBridgeGui:
             self.set_status("Intel History is not installed")
             return
         set_addon_enabled(INTEL_HISTORY_ADDON_ID, bool(enabled))
+        if enabled:
+            self.reload_intel_history_addon()
+        else:
+            self.unload_intel_history_addon()
         self.set_status(f"Intel History {'enabled' if enabled else 'disabled'}")
 
     def install_intel_history_addon_from_file(self):
@@ -2531,6 +2681,7 @@ class SignalBridgeGui:
         if not ok:
             return
         try:
+            self.unload_intel_history_addon()
             set_addon_enabled(INTEL_HISTORY_ADDON_ID, False)
             shutil.rmtree(addon_code_dir(INTEL_HISTORY_ADDON_ID), ignore_errors=True)
             self.set_status("Intel History add-on code removed; data kept")
@@ -2542,6 +2693,7 @@ class SignalBridgeGui:
     def show_intel_history_details(self):
         status = self.intel_history_status()
         manifest = status.get("manifest") or {}
+        health = self.current_intel_history_health()
         text = (
             f"{INTEL_HISTORY_ADDON_NAME}\n\n"
             f"Status: {self.intel_history_status_label()}\n"
@@ -2551,8 +2703,13 @@ class SignalBridgeGui:
             f"Compatible app: {manifest.get('compatible_app') or 'n/a'}\n\n"
             f"Code folder:\n{status.get('code_dir')}\n\n"
             f"Data folder:\n{status.get('data_dir')}\n\n"
-            "Planned capabilities:\n"
-            "- ESI-confirmed pilot sightings\n"
+            f"Health:\n{json.dumps(health, indent=2, ensure_ascii=False)}\n\n"
+            "MVP capabilities:\n"
+            "- ESI-confirmed pilot sighting capture\n"
+            "- SQLite storage under user_data/modules/intel-history\n"
+            "- 3-minute dedupe buckets\n"
+            "- Basic health/status counters\n\n"
+            "Planned next capabilities:\n"
             "- Pilot Intelligence Cards\n"
             "- Manual and auto flags\n"
             "- zKill enrichment\n"
@@ -2660,6 +2817,12 @@ class SignalBridgeGui:
             label(c2, f"Status: {self.intel_history_status_label()}")
             if ih.get("installed"):
                 label(c2, f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}", "#8b98a8")
+                health = self.current_intel_history_health()
+                if health:
+                    label(c2, f"Health: pilots {health.get('pilots', 0)} | sightings {health.get('sightings', 0)} | queue {health.get('queue_size', 0)}", "#8b98a8")
+                    label(c2, f"Last sighting: {health.get('last_sighting', 'none')}", "#8b98a8")
+                    if health.get("last_error") and health.get("last_error") != "none":
+                        label(c2, f"Last error: {str(health.get('last_error'))[:160]}", "#ff8f8f")
                 label(c2, f"Code: {ih.get('code_dir')}", "#8b98a8")
                 label(c2, f"Data: {ih.get('data_dir')}", "#8b98a8")
             else:
@@ -2676,7 +2839,7 @@ class SignalBridgeGui:
         def render_cache_data():
             c = card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
             count, hits = TRANSLATION_CACHE.stats()
-            label(c, f"Starter exclusions: {DEFAULT_EXCLUSIONS_PATH.exists()} | {DEFAULT_EXCLUSIONS_PATH.name}"); label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}"); label(c, f"Starter translation cache: {(DATA_DIR / "default_translation_cache.json").exists()} | {(DATA_DIR / "default_translation_cache.json").name}")
+            label(c, f"Starter exclusions: {DEFAULT_EXCLUSIONS_PATH.exists()} | {DEFAULT_EXCLUSIONS_PATH.name}"); label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}"); default_translation_cache_path = DATA_DIR / "default_translation_cache.json"; label(c, f"Starter translation cache: {default_translation_cache_path.exists()} | {default_translation_cache_path.name}")
             label(c, f"Local translation cache: {count} entries, {hits} hits", "#8b98a8"); label(c, f"Local ESI cache: {ESI_CACHE.stats()}", "#8b98a8")
             r = row(c); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Clear Translation Cache", self.clear_translation_cache); action(r, "Clear ESI Cache", self.clear_esi_cache)
         def render_diagnostics():
@@ -3839,6 +4002,7 @@ class SignalBridgeGui:
             if self.esi_resolver:
                 for candidate in esi_candidates_for_row(row):
                     self.esi_resolver.submit(candidate)
+        self.emit_intel_history_row(row)
         self.ensure_row_channel_tab(row.channel)
         if len(self.rows) > MAX_ROWS:
             self.rows = self.rows[-MAX_ROWS:]
