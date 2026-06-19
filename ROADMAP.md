@@ -323,3 +323,14 @@ Before calling the app v1.0, the goal is to have:
 - Completed: Appearance dialog fixed footer for mobile-style layouts.
 - Completed: non-destructive channel add workflow and automatic newly active channel tabs.
 - Completed: compact one-line mobile channel bar replacing stacked tab rows.
+### Completed: Settings Center
+
+- Centralized most app configuration into a dedicated Settings Center with sidebar navigation.
+- Added pages for General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support.
+- Reduced menu clutter by keeping menus focused on runtime actions and shortcuts into Settings.
+
+Future settings polish:
+
+- Inline editing for channel lists and exclusions directly inside the Settings Center.
+- Import/export profile bundles for appearance, exclusions, and starter data.
+- More detailed live monitor diagnostics inside the Diagnostics page.

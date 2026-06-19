@@ -118,3 +118,8 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Fixed the Appearance / Display Options footer so action buttons stay visible without resizing the window.
 - Improved channel workflow: Add Selected no longer replaces current channels, Replace All is explicit, and newly active chat channels can auto-open as tabs.
 - Reworked channel tabs into a compact one-line mobile channel bar so many channels no longer stack over the feed.
+### Settings Center and Menu Cleanup
+
+- Added a dedicated **Settings > Settings...** window with sidebar pages for General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support.
+- Cleaned up the menu bar so advanced configuration no longer pollutes every menu.
+- Added a copyable diagnostics summary for easier bug reports.

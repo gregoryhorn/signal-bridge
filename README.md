@@ -316,3 +316,21 @@ The portable build also includes `data/default_esi_entities.json`, a starter cac
 - Appearance / Display Options keeps Apply/OK/Cancel in a fixed footer with a scrollable settings body for small windows.
 - Channels can be added non-destructively with Add Selected; Replace All is explicit, and newly active EVE chat channels auto-open as tabs while keeping focus where it is.
 - The channel area uses a compact mobile-style bar: All button, current-channel dropdown, close-current button, and hidden restore count.
+### Settings Center
+
+Signal Bridge now keeps most configuration in a dedicated **Settings...** window instead of spreading every option across the menus. Open it from **Settings > Settings...**.
+
+The Settings Center uses a sidebar with pages for:
+
+- General app behavior and folders
+- Channels and hidden tabs
+- Appearance, fonts, colors, highlight backgrounds, and opacity
+- Translation mode, phrase overrides, Argos fallback, and translation cache
+- EVE catalog status and update actions
+- ESI recognition, OAuth, diagnostics, and cache actions
+- General Exclusion List management
+- Cache & Data starter bundles
+- Diagnostics with a copyable health summary
+- About / Support
+
+Menus are now cleaner and mostly act as shortcuts into the Settings Center or common runtime actions.

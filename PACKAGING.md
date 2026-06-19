@@ -29,3 +29,6 @@ Include `data/default_exclusions.json` in every portable build so default Genera
 Include `data/default_esi_entities.json` and its checksum in portable builds so new installs start with verified ESI character cache entries.
 
 - Include `data/default_translation_cache.json` and `.sha256` with catalog, default exclusions, and starter ESI entities.
+## Settings Center Packaging Check
+
+Release builds should include the dedicated Settings Center and keep bundled starter data files in `data/` so the Cache & Data page can report them correctly.

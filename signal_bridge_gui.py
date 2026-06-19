@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import argparse
 import base64
 import json
@@ -285,13 +285,13 @@ def candidate_terms(text: str) -> list[str]:
     for m in PAREN_RE.finditer(text):
         terms.append(m.group(1))
     # Handles true Chinese and the live log's localization text representation.
-    for m in re.finditer(r"[^\s,;:()\[\]{}]+(?:级|型|çº§|åž‹)\*?", text):
+    for m in re.finditer(r"[^\s,;:()\[\]{}]+(?:çº§|åž‹|Ã§ÂºÂ§|Ã¥Å¾â€¹)\*?", text):
         terms.append(m.group(0))
     words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'\-]*", text)
     for n in (4, 3, 2, 1):
         for i in range(0, max(0, len(words) - n + 1)):
             terms.append(" ".join(words[i:i+n]))
-    return unique([t.strip().strip("* ,.;:()[]{}\"'`“”‘’") for t in terms])
+    return unique([t.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™") for t in terms])
 
 
 class EveCatalog:
@@ -332,7 +332,7 @@ class EveCatalog:
         return {"systems": len(self.systems), "types": len(self.types), "aliases": len(self.aliases), "market_groups": len(self.market_groups), "ship_names": len(self.ship_names)}
 
     def lookup_type(self, term: str) -> str | None:
-        key = term.strip().strip("* ,.;:()[]{}\"'`“”‘’").casefold()
+        key = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™").casefold()
         if not key or len(key) < 2:
             return None
         return self.types.get(key) or self.aliases.get(key) or self.market_groups.get(key)
@@ -341,7 +341,7 @@ class EveCatalog:
         return self.systems.get(term.strip().casefold())
 
     def is_ship(self, term: str) -> bool:
-        key = term.strip().strip("* ,.;:()[]{}\"'`“”‘’").casefold()
+        key = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™").casefold()
         canonical = self.lookup_type(term) or term
         return key in self.ship_names or canonical.casefold() in self.ship_names or self.alias_kinds.get(key) == "ship"
 
@@ -351,8 +351,8 @@ CATALOG = EveCatalog()
 # User/community shorthand aliases that should override ambiguous machine translation.
 # Keep this small and explicit; the compact catalog still provides normal SDE names.
 MANUAL_TYPE_ALIASES = {
-    "短剑": "Stabber",
-    "海狞獾": "Caracal Navy Issue",
+    "çŸ­å‰‘": "Stabber",
+    "æµ·ç‹žç¾": "Caracal Navy Issue",
 }
 for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
     CATALOG.aliases.setdefault(_alias.casefold(), _canonical)
@@ -1193,7 +1193,7 @@ class EveDb:
             self.con = None
 
     def lookup_type(self, term: str) -> str | None:
-        term = term.strip().strip("* ,.;:()[]{}\"'`“”‘’")
+        term = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™")
         if not term or len(term) < 2:
             return None
         key = term.lower()
@@ -1587,7 +1587,7 @@ def tab_label(tab_id: str) -> str:
 
 def short_tab_label(label: str, max_chars: int = 28) -> str:
     label = str(label)
-    return label if len(label) <= max_chars else label[: max_chars - 1] + "…"
+    return label if len(label) <= max_chars else label[: max_chars - 1] + "â€¦"
 
 
 
@@ -1683,64 +1683,41 @@ class SignalBridgeGui:
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.on_exit)
         menubar.add_cascade(label="File", menu=file_menu)
+
         channels_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
-        channels_menu.add_command(label="Choose / Open Channels...", command=self.choose_channels)
+        channels_menu.add_command(label="Channel Settings...", command=lambda: self.show_settings_center("Channels"))
+        channels_menu.add_command(label="Add / Open Channels...", command=self.choose_channels)
         channels_menu.add_command(label="Restore Hidden Tabs...", command=self.restore_hidden_tabs_dialog)
-        channels_menu.add_command(label="Restore Last Hidden Tab", command=self.restore_last_hidden_tab)
         channels_menu.add_separator()
         channels_menu.add_command(label="Close All Active Channels", command=self.close_selected_channels)
-        channels_menu.add_command(label="Refresh Channel List", command=self.refresh_channel_status)
         menubar.add_cascade(label="Channels", menu=channels_menu)
+
         settings_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
-        settings_menu.add_command(label="Choose Chatlog Folder...", command=self.choose_chatlog_folder)
+        settings_menu.add_command(label="Settings...", command=self.show_settings_center)
         settings_menu.add_separator()
-        settings_menu.add_command(label="Install Argos Offline Fallback", command=self.install_argos_models)
-        settings_menu.add_command(label="Open App Folder", command=self.open_app_folder)
-        settings_menu.add_command(label="Open Logs Folder", command=self.open_logs_folder)
-        settings_menu.add_separator()
-        settings_menu.add_command(label="ESI / OAuth...", command=self.show_esi_settings)
+        settings_menu.add_command(label="Appearance...", command=lambda: self.show_settings_center("Appearance"))
+        settings_menu.add_command(label="ESI...", command=lambda: self.show_settings_center("ESI"))
+        settings_menu.add_command(label="Exclusions...", command=lambda: self.show_settings_center("Exclusions"))
         menubar.add_cascade(label="Settings", menu=settings_menu)
+
         view_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
         view_menu.add_checkbutton(label="Always on Top", variable=self.always_on_top, command=self.apply_topmost)
-        view_menu.add_checkbutton(label="Translated Only", variable=self.translated_only, command=self.persist_and_redraw)
-        view_menu.add_checkbutton(label="Translate Free Text", variable=self.translate_chinese_text, command=self.persist_and_redraw)
-        view_menu.add_separator()
-        view_menu.add_radiobutton(label="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_redraw)
-        view_menu.add_radiobutton(label="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_redraw)
-        view_menu.add_separator()
-        view_menu.add_checkbutton(label="Compact Mode", variable=self.compact, command=self.persist_settings)
         view_menu.add_checkbutton(label="Show Timestamps", variable=self.show_timestamps, command=self.persist_and_redraw)
-        view_menu.add_checkbutton(label="Show Channel Names in Feed", variable=self.show_channel_names, command=self.persist_and_redraw)
-        view_menu.add_checkbutton(label="Show Channel Names in All", variable=self.show_channel_names_in_all, command=self.persist_and_redraw)
+        view_menu.add_checkbutton(label="Show Channel Names", variable=self.show_channel_names, command=self.persist_and_redraw)
         view_menu.add_separator()
-        view_menu.add_command(label="Appearance / Display Options...", command=self.show_appearance_dialog)
-        view_menu.add_command(label="Choose Font...", command=self.choose_font)
-        view_menu.add_command(label="Increase Font Size", command=lambda: self.adjust_font_size(1))
-        view_menu.add_command(label="Decrease Font Size", command=lambda: self.adjust_font_size(-1))
+        view_menu.add_command(label="Appearance Settings...", command=lambda: self.show_settings_center("Appearance"))
         menubar.add_cascade(label="View", menu=view_menu)
+
         tools_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
-        tools_menu.add_command(label="Health / Catalog Status", command=self.show_health)
-        tools_menu.add_command(label="Check Catalog Updates", command=self.check_catalog_updates)
-        tools_menu.add_command(label="Restore Previous Catalog", command=self.restore_previous_catalog)
-        tools_menu.add_separator()
-        tools_menu.add_command(label="Translation Cache Status", command=self.show_translation_cache)
-        tools_menu.add_command(label="Clear Translation Cache", command=self.clear_translation_cache)
-        tools_menu.add_command(label="Open Phrase Overrides", command=self.open_phrase_overrides)
-        tools_menu.add_separator()
-        tools_menu.add_command(label="ESI Cache Status", command=self.show_esi_cache_status)
-        tools_menu.add_command(label="ESI Last Check / Diagnostics", command=self.show_esi_diagnostics)
         tools_menu.add_command(label="Manual ESI Character Check...", command=self.manual_esi_check_dialog)
-        tools_menu.add_command(label="General Exclusion List...", command=self.show_esi_exclusion_list)
-        tools_menu.add_command(label="Clear ESI Cache", command=self.clear_esi_cache)
-        tools_menu.add_separator()
+        tools_menu.add_command(label="Copy Diagnostics", command=self.copy_diagnostics)
+        tools_menu.add_command(label="Open Logs Folder", command=self.open_logs_folder)
         tools_menu.add_command(label="Open Chatlog Folder", command=self.open_folder)
         menubar.add_cascade(label="Tools", menu=tools_menu)
+
         help_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
         help_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(manual=True))
-        help_menu.add_checkbutton(label="Check for Updates on Launch", variable=self.check_updates_on_start, command=self.persist_settings)
-        help_menu.add_separator()
-        help_menu.add_command(label="About Signal Bridge", command=self.show_about)
-        help_menu.add_command(label="Support / Donate ISK", command=self.show_support)
+        help_menu.add_command(label="About / Support...", command=lambda: self.show_settings_center("About / Support"))
         menubar.add_cascade(label="Help", menu=help_menu)
         self.root.config(menu=menubar)
 
@@ -2109,7 +2086,7 @@ class SignalBridgeGui:
         lb = tk.Listbox(win, selectmode="extended", bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
         lb.pack(fill="both", expand=True, padx=10, pady=6)
         for idx, channel in enumerate(channels):
-            marker = "✓ " if channel in self.active_channels else "  "
+            marker = "âœ“ " if channel in self.active_channels else "  "
             lb.insert("end", marker + channel)
             if channel in self.active_channels:
                 lb.selection_set(idx)
@@ -2361,6 +2338,140 @@ class SignalBridgeGui:
         self.font_family.set(str(self.appearance.get("font_family", "Segoe UI")))
         self.font_size.set(int(self.appearance.get("font_size", 10)))
         self.apply_appearance(redraw=False, save=True)
+
+    def settings_summary_text(self) -> str:
+        count, hits = TRANSLATION_CACHE.stats()
+        esi_stats = ESI_CACHE.stats()
+        last_check = ESI_CACHE.get_status().get("last_check") or "none"
+        return (
+            f"Signal Bridge v{APP_VERSION}\n"
+            f"Chatlogs: {CHATLOG_DIR}\n"
+            f"Chatlogs exists: {CHATLOG_DIR.exists()}\n"
+            f"Active channels: {len(self.active_channels)} | Hidden: {len(self.hidden_tab_ids)} | Visible: {self.visible_channel}\n"
+            f"Discovered channels: {len(discover_channels())}\n"
+            f"Catalog: {CATALOG.version} | loaded={CATALOG.loaded} | counts={CATALOG.counts()}\n"
+            f"Translation cache: {count} entries, {hits} hits\n"
+            f"ESI enabled: {bool(self.esi_enabled.get())} | cache={esi_stats}\n"
+            f"Last ESI check: {last_check}\n"
+            f"Config: {CONFIG_PATH}\n"
+            f"Logs: {LOG_PATH}\n"
+            f"Live-only/no-backfill: replay_on_start=False"
+        )
+
+    def copy_diagnostics(self):
+        self.copy_to_clipboard(self.settings_summary_text())
+        self.set_status("Diagnostics copied")
+
+    def show_settings_center(self, initial_page: str = "General"):
+        tk = self.tk
+        pages = ["General", "Channels", "Appearance", "Translation", "EVE Catalog", "ESI", "Exclusions", "Cache & Data", "Diagnostics", "About / Support"]
+        if initial_page not in pages:
+            initial_page = "General"
+        win = tk.Toplevel(self.root)
+        win.title("Signal Bridge Settings")
+        win.geometry("860x620")
+        win.minsize(560, 430)
+        win.configure(bg="#0b0f14")
+        win.transient(self.root)
+        nav = tk.Frame(win, bg="#0f1722", width=190); nav.pack(side="left", fill="y")
+        main = tk.Frame(win, bg="#0b0f14"); main.pack(side="left", fill="both", expand=True)
+        title = tk.Label(main, text="", bg="#0b0f14", fg="#ffffff", font=("Segoe UI", 14, "bold")); title.pack(anchor="w", padx=18, pady=(16, 2))
+        subtitle = tk.Label(main, text="", bg="#0b0f14", fg="#8b98a8", wraplength=610, justify="left"); subtitle.pack(anchor="w", padx=18, pady=(0, 10))
+        outer = tk.Frame(main, bg="#0b0f14"); outer.pack(fill="both", expand=True, padx=12)
+        canvas = tk.Canvas(outer, bg="#0b0f14", highlightthickness=0, bd=0)
+        scroll = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        body = tk.Frame(canvas, bg="#0b0f14")
+        body_window = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="both", expand=True); scroll.pack(side="right", fill="y")
+        footer = tk.Frame(main, bg="#111821", highlightthickness=1, highlightbackground="#1f2f42"); footer.pack(fill="x", side="bottom")
+        tk.Button(footer, text="Close", command=win.destroy, bg="#1f6feb", fg="#ffffff", activebackground="#23405c", activeforeground="#ffffff", relief="flat", padx=16).pack(side="right", padx=12, pady=10)
+        tk.Button(footer, text="Apply", command=lambda: (self.persist_settings(), self.set_status("Settings saved")), bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat", padx=14).pack(side="right", padx=6, pady=10)
+        def body_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            try: canvas.itemconfigure(body_window, width=canvas.winfo_width())
+            except Exception: pass
+        body.bind("<Configure>", body_configure); canvas.bind("<Configure>", body_configure)
+        def wheel(event):
+            try: canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except Exception: pass
+        canvas.bind("<MouseWheel>", wheel); body.bind("<MouseWheel>", wheel)
+        nav_buttons = {}
+        def style_button(btn, selected=False):
+            btn.configure(bg="#1f6feb" if selected else "#0f1722", fg="#ffffff" if selected else "#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat", anchor="w", padx=12, pady=8)
+        tk.Label(nav, text="Settings", bg="#0f1722", fg="#ffffff", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(14, 8))
+        for page in pages:
+            btn = tk.Button(nav, text=page, command=lambda p=page: render_page(p)); btn.pack(fill="x", padx=8, pady=1); nav_buttons[page] = btn; style_button(btn, False)
+        def clear():
+            for child in body.winfo_children(): child.destroy()
+        def card(parent, heading, note=None):
+            frame = tk.LabelFrame(parent, text=heading, bg="#0b0f14", fg="#d7dde5", padx=10, pady=8); frame.pack(fill="x", padx=6, pady=8)
+            if note: tk.Label(frame, text=note, bg="#0b0f14", fg="#8b98a8", wraplength=590, justify="left").pack(anchor="w", pady=(0, 6))
+            return frame
+        def action(parent, text, command):
+            tk.Button(parent, text=text, command=command, bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat", padx=10).pack(side="left", padx=(0, 8), pady=4)
+        def check(parent, text, var, command=None):
+            tk.Checkbutton(parent, text=text, variable=var, command=command or self.persist_settings, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(anchor="w", pady=2)
+        def label(parent, text, color="#d7dde5"):
+            tk.Label(parent, text=text, bg="#0b0f14", fg=color, justify="left", anchor="w", wraplength=600).pack(anchor="w", fill="x", pady=2)
+        def row(parent):
+            r = tk.Frame(parent, bg="#0b0f14"); r.pack(fill="x", pady=4); return r
+        def render_general():
+            c = card(body, "App Behavior", "Common runtime options and folders.")
+            check(c, "Always on top", self.always_on_top, self.apply_topmost); check(c, "Compact mode", self.compact, self.persist_settings); check(c, "Check for updates on launch", self.check_updates_on_start, self.persist_settings)
+            check(c, "Show timestamps", self.show_timestamps, self.persist_and_redraw); check(c, "Show channel names in feed", self.show_channel_names, self.persist_and_redraw); check(c, "Show channel names in All", self.show_channel_names_in_all, self.persist_and_redraw)
+            c2 = card(body, "Folders"); r = row(c2); action(r, "Choose Chatlog Folder...", self.choose_chatlog_folder); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); label(c2, f"Current chatlogs: {CHATLOG_DIR}", "#8b98a8")
+        def render_channels():
+            c = card(body, "Channels", "Add channels without replacing existing ones. Hidden channels stay hidden until restored.")
+            label(c, f"Active: {len(self.active_channels)} | Hidden: {len(self.hidden_tab_ids)} | Discovered: {len(discover_channels())}"); label(c, f"Visible: {self.visible_channel}", "#8b98a8")
+            r = row(c); action(r, "Add / Open Channels...", self.choose_channels); action(r, "Restore Hidden Tabs...", self.restore_hidden_tabs_dialog); action(r, "Refresh Status", self.refresh_channel_status); action(r, "Close All Active", self.close_selected_channels)
+            label(c, "New active chats auto-open as dropdown entries without stealing focus. Live-only/no-backfill remains enabled.", "#8b98a8")
+        def render_appearance():
+            c = card(body, "Appearance", "Customize fonts, colors, bold styling, highlight backgrounds, opacity, and presets.")
+            label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}"); label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", "#8b98a8")
+            r = row(c); action(r, "Open Appearance Editor...", self.show_appearance_dialog); action(r, "Increase Font", lambda: self.adjust_font_size(1)); action(r, "Decrease Font", lambda: self.adjust_font_size(-1))
+        def render_translation():
+            c = card(body, "Translation", "Free-text translation is optional and live rows are never blocked by translation work.")
+            check(c, "Translated only", self.translated_only, self.persist_and_redraw); check(c, "Translate free text", self.translate_chinese_text, self.persist_and_redraw)
+            rr = row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left")
+            count, hits = TRANSLATION_CACHE.stats(); label(c, f"Translation cache: {count} entries, {hits} hits", "#8b98a8")
+            r = row(c); action(r, "Cache Status", self.show_translation_cache); action(r, "Clear Cache", self.clear_translation_cache); action(r, "Open Phrase Overrides", self.open_phrase_overrides); action(r, "Install Argos Fallback", self.install_argos_models)
+        def render_catalog():
+            c = card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
+            label(c, f"Catalog loaded: {CATALOG.loaded}"); label(c, f"Version: {CATALOG.version}"); label(c, f"Counts: {CATALOG.counts()}", "#8b98a8"); label(c, f"Path: {CATALOG_PATH}", "#8b98a8")
+            r = row(c); action(r, "Check Catalog Updates", self.check_catalog_updates); action(r, "Restore Previous Catalog", self.restore_previous_catalog); action(r, "Health Status", self.show_health)
+        def render_esi():
+            c = card(body, "ESI", "Optional cache-first background ESI recognition. Live monitoring works even when ESI is disabled.")
+            check(c, "Enable public ESI entity recognition", self.esi_enabled, self.save_esi_ui_settings); check(c, "Enable OAuth features", self.esi_oauth_enabled, self.save_esi_ui_settings)
+            label(c, f"Cache: {ESI_CACHE.stats()}", "#8b98a8"); label(c, f"Last check: {ESI_CACHE.get_status().get('last_check') or 'none'}", "#8b98a8")
+            r = row(c); action(r, "ESI / OAuth Settings...", self.show_esi_settings); action(r, "Manual Character Check...", self.manual_esi_check_dialog); action(r, "Diagnostics", self.show_esi_diagnostics); action(r, "Clear ESI Cache", self.clear_esi_cache)
+        def render_exclusions():
+            c = card(body, "General Exclusion List", "Excluded terms are ignored by ESI, system, ship, module, ESS, and highlight rules.")
+            try: exclusions = ESI_CACHE.list_corrections("ignore")
+            except Exception: exclusions = []
+            label(c, f"Local exclusions: {len(exclusions)}"); sample = ", ".join((x.get("text") or "") for x in exclusions[:12])
+            if sample: label(c, sample + ("..." if len(exclusions) > 12 else ""), "#8b98a8")
+            r = row(c); action(r, "Open Exclusion List...", self.show_esi_exclusion_list)
+        def render_cache_data():
+            c = card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
+            count, hits = TRANSLATION_CACHE.stats()
+            label(c, f"Starter exclusions: {DEFAULT_EXCLUSIONS_PATH.exists()} | {DEFAULT_EXCLUSIONS_PATH.name}"); label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}"); label(c, f"Starter translation cache: {(DATA_DIR / "default_translation_cache.json").exists()} | {(DATA_DIR / "default_translation_cache.json").name}")
+            label(c, f"Local translation cache: {count} entries, {hits} hits", "#8b98a8"); label(c, f"Local ESI cache: {ESI_CACHE.stats()}", "#8b98a8")
+            r = row(c); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Clear Translation Cache", self.clear_translation_cache); action(r, "Clear ESI Cache", self.clear_esi_cache)
+        def render_diagnostics():
+            c = card(body, "Diagnostics", "Copy this information when reporting bugs.")
+            txt = tk.Text(c, height=13, wrap="word", bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); txt.pack(fill="both", expand=True, pady=4); txt.insert("1.0", self.settings_summary_text()); txt.configure(state="disabled")
+            r = row(c); action(r, "Copy Diagnostics", self.copy_diagnostics); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Health Dialog", self.show_health)
+        def render_about():
+            c = card(body, "About / Support"); label(c, f"Signal Bridge v{APP_VERSION}"); label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", "#8b98a8"); label(c, DONATION_TEXT)
+            r = row(c); action(r, "About", self.show_about); action(r, "Support / Donate ISK", self.show_support); action(r, "Check for Updates", lambda: self.check_for_updates(manual=True))
+        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "ESI": render_esi, "Exclusions": render_exclusions, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
+        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
+        def render_page(page):
+            clear(); title.configure(text=page); subtitle.configure(text=descriptions.get(page, ""))
+            for name, btn in nav_buttons.items(): style_button(btn, name == page)
+            renderers[page](); body_configure()
+        render_page(initial_page)
 
     def show_appearance_dialog(self):
         tk = self.tk
@@ -3826,6 +3937,9 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
 
 
 

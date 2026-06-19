@@ -28,3 +28,6 @@ Bundled default exclusions are included in `data/default_exclusions.json` and ar
 Bundled starter ESI characters are included in `data/default_esi_entities.json` and imported into the local ESI cache on first run.
 
 - The portable package includes starter exclusions, verified ESI characters, and starter translation-cache data. These are seeded locally on first run without overwriting user changes.
+## Settings Center
+
+Use **Settings > Settings...** for the main configuration UI. The Settings Center groups channels, appearance, translation, EVE catalog, ESI, exclusions, cache/data, diagnostics, and support into one window with a sidebar and fixed bottom action bar.

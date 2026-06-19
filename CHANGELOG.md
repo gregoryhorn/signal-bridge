@@ -116,3 +116,8 @@ Initial portable Windows preview release.
 - Fixed Appearance / Display Options so Apply/OK/Cancel remain visible on smaller mobile-style windows.
 - Improved channel UX: Choose / Open Channels now adds selected channels by default, keeps Replace All explicit, and live monitoring auto-opens newly active chat channels without stealing focus.
 - Reworked the channel area into a compact mobile-style one-line bar with All, current-channel dropdown, close-current, and hidden restore controls instead of stacked wrapped tabs.
+### UI Polish
+
+- Added a dedicated **Settings Center** with sidebar pages for General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support.
+- Cleaned up top-level menus so configuration is centralized instead of scattered across View/Tools/Settings.
+- Added a copyable diagnostics summary from the Settings Center and Tools menu.
