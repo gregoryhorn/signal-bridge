@@ -288,3 +288,4 @@ Before calling the app v1.0, the goal is to have:
 - Color split: ships orange, ESI characters red, non-ship catalog assets/modules purple.
 - ESS highlight boundary fix completed: standalone ESS only, no mid-word tagging.
 - Feed readability polish completed: clearer sans-serif chat font and improved lowercase pilot-handle ESI detection with plural ship exclusions.
+- ESI cache policy updated: failed/not-found checks use a 90-day negative TTL.
