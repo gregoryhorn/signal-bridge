@@ -170,3 +170,11 @@ Initial portable Windows preview release.
 ### Planning
 
 - Added LAN Web Viewer appearance requirements: the future phone/browser stream should mirror the desktop app theme, colors, fonts, bold/background highlight styles, and General Exclusion List behavior where practical.
+
+
+### Settings flow polish
+- Added Translation settings controls for preferred engine and fallback mode: Auto, Argos Offline, Google Online, Google then Argos, Argos then Google, Offline only, and Online only.
+- Added visible Argos runtime/model status, Install / Repair Argos, Refresh Argos Status, and Test Translation controls.
+- Simplified the ESI settings page by replacing noisy raw cache output with friendly recognition, OAuth, known entity, exclusion, negative-answer, and last-check status rows.
+- Added an About / Support donation section with copy buttons for the in-game ISK recipient and donation message.
+

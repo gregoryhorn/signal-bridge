@@ -468,3 +468,11 @@ Suggested implementation:
 - Completed Intel History Auto Hot Drop Risk v0.1: high-confidence cyno ship classes create temporary explainable flags.
 - Future tuning: expose Hot Drop Risk ship classes/duration in settings, add optional watch-only classes such as HICs/Covert Ops, and add dismiss/convert controls for auto flags.
 - Completed first UI polish pass covering window chrome/icons, dialog placement, Pilot Info header/date cleanup, context-aware right-click menus, and translation-toggle redraw responsiveness. Remaining polish includes deeper contrast audit, Argos preferred-engine/status flow, more iconography, and optional zKill card integration.
+
+
+### Settings flow polish
+- Added Translation settings controls for preferred engine and fallback mode: Auto, Argos Offline, Google Online, Google then Argos, Argos then Google, Offline only, and Online only.
+- Added visible Argos runtime/model status, Install / Repair Argos, Refresh Argos Status, and Test Translation controls.
+- Simplified the ESI settings page by replacing noisy raw cache output with friendly recognition, OAuth, known entity, exclusion, negative-answer, and last-check status rows.
+- Added an About / Support donation section with copy buttons for the in-game ISK recipient and donation message.
+

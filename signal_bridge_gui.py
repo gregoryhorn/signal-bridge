@@ -100,6 +100,8 @@ def load_settings() -> dict:
         "translated_only": True,
         "translate_free_text": True,
         "translation_direction": "zh-en",
+        "translation_preferred_engine": "auto",
+        "translation_fallback_mode": "google-argos",
         "compact_mode": True,
         "font_family": "Segoe UI",
         "font_size": 10,
@@ -1487,6 +1489,35 @@ def has_non_english_signal(text: str) -> bool:
     return any(hint in lowered for hint in latin_hints)
 
 
+def argos_runtime_status() -> dict:
+    status = {"runtime": False, "models": [], "error": ""}
+    try:
+        import argostranslate.translate  # type: ignore
+        status["runtime"] = True
+        try:
+            installed = argostranslate.translate.get_installed_languages()
+            pairs = []
+            for lang in installed:
+                for target in getattr(lang, "translations_from", []) or []:
+                    pairs.append(f"{lang.code}->{target.to_lang.code}")
+            status["models"] = sorted(set(pairs))
+        except Exception as exc:
+            status["error"] = f"model check failed: {type(exc).__name__}"
+    except Exception as exc:
+        status["error"] = f"runtime missing: {type(exc).__name__}"
+    return status
+
+
+def format_argos_status() -> str:
+    st = argos_runtime_status()
+    runtime = "Installed" if st.get("runtime") else "Missing"
+    models = set(st.get("models") or [])
+    cn_en = "Installed" if "zh->en" in models else "Missing"
+    en_cn = "Installed" if "en->zh" in models else "Missing"
+    extra = f" | {st.get('error')}" if st.get("error") else ""
+    return f"Argos runtime: {runtime}\nCN -> EN model: {cn_en}\nEN -> CN model: {en_cn}{extra}"
+
+
 def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") -> str | None:
     text = text.strip()
     if not text:
@@ -1524,7 +1555,7 @@ def argos_translate_fallback(text: str, source: str = "zh", target: str = "en") 
         return None
 
 
-def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None) -> str:
+def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
     direction = direction or "zh-en"
     if direction == "off":
         return ""
@@ -1565,7 +1596,29 @@ def translate_free_text(text: str, systems: list[str], assets: list[str], locali
         token = f"SBX{idx}"
         work = work.replace(term, token)
         protected.append((token, term))
-    translated = google_translate_free(work, source=source, target=target) or argos_translate_fallback(work, source=argos_source, target=argos_target)
+    def via_google():
+        return google_translate_free(work, source=source, target=target)
+    def via_argos():
+        return argos_translate_fallback(work, source=argos_source, target=argos_target)
+    preferred_engine = str(preferred_engine or "auto").lower()
+    fallback_mode = str(fallback_mode or "google-argos").lower()
+    if preferred_engine == "argos":
+        engines = [via_argos] if fallback_mode == "offline-only" else [via_argos, via_google]
+    elif preferred_engine == "google":
+        engines = [via_google] if fallback_mode == "online-only" else [via_google, via_argos]
+    elif fallback_mode == "argos-google":
+        engines = [via_argos, via_google]
+    elif fallback_mode == "offline-only":
+        engines = [via_argos]
+    elif fallback_mode == "online-only":
+        engines = [via_google]
+    else:
+        engines = [via_google, via_argos]
+    translated = None
+    for engine in engines:
+        translated = engine()
+        if translated:
+            break
     if not translated:
         return ""
     out = translated
@@ -1843,6 +1896,9 @@ class SignalBridgeGui:
         self.translated_only = tk.BooleanVar(value=bool(SETTINGS.get("translated_only", True)))
         self.translate_chinese_text = tk.BooleanVar(value=bool(SETTINGS.get("translate_free_text", True)))
         self.translation_direction = tk.StringVar(value=str(SETTINGS.get("translation_direction", "zh-en")))
+        self.translation_preferred_engine = tk.StringVar(value=str(SETTINGS.get("translation_preferred_engine", "auto")))
+        self.translation_fallback_mode = tk.StringVar(value=str(SETTINGS.get("translation_fallback_mode", "google-argos")))
+        self.argos_status_text = tk.StringVar(value="Argos status: not checked")
         self.appearance = self.normalize_appearance(SETTINGS.get("appearance"))
         self.font_family = tk.StringVar(value=str(self.appearance.get("font_family", SETTINGS.get("font_family", "Segoe UI"))))
         try:
@@ -2914,11 +2970,18 @@ class SignalBridgeGui:
             label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}"); label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", "#8b98a8")
             r = row(c); action(r, "Open Appearance Editor...", self.show_appearance_dialog); action(r, "Increase Font", lambda: self.adjust_font_size(1)); action(r, "Decrease Font", lambda: self.adjust_font_size(-1))
         def render_translation():
-            c = card(body, "Translation", "Free-text translation is optional and live rows are never blocked by translation work.")
+            c = card(body, "Translation", "Choose online/offline translation behavior and see clear Argos status.")
             check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw); check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
             rr = row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_schedule_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_schedule_redraw, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left")
-            count, hits = TRANSLATION_CACHE.stats(); label(c, f"Translation cache: {count} entries, {hits} hits", "#8b98a8")
-            r = row(c); action(r, "Cache Status", self.show_translation_cache); action(r, "Clear Cache", self.clear_translation_cache); action(r, "Open Phrase Overrides", self.open_phrase_overrides); action(r, "Install Argos Fallback", self.install_argos_models)
+            c_engine = card(body, "Translation Engine", "Argos is offline/local when installed; Google is online and remains lightweight by default.")
+            label(c_engine, "Preferred engine")
+            opt1 = tk.OptionMenu(c_engine, self.translation_preferred_engine, "auto", "argos", "google", command=lambda _=None: self.save_translation_engine_settings()); opt1.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat"); opt1.pack(anchor="w", pady=(0, 4))
+            label(c_engine, "Fallback mode")
+            opt2 = tk.OptionMenu(c_engine, self.translation_fallback_mode, "google-argos", "argos-google", "offline-only", "online-only", command=lambda _=None: self.save_translation_engine_settings()); opt2.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat"); opt2.pack(anchor="w", pady=(0, 4))
+            tk.Label(c_engine, textvariable=self.argos_status_text, bg="#0b0f14", fg="#8b98a8", wraplength=640, justify="left").pack(anchor="w", fill="x", pady=2)
+            count, hits = TRANSLATION_CACHE.stats(); label(c_engine, f"Translation cache: {count} entries, {hits} hits", "#8b98a8")
+            r = row(c_engine); action(r, "Refresh Argos Status", self.refresh_argos_status); action(r, "Install / Repair Argos", self.install_argos_models); action(r, "Test Translation", self.test_translation_engine)
+            r2 = row(c_engine); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
         def render_catalog():
             c = card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
             label(c, f"Catalog loaded: {CATALOG.loaded}"); label(c, f"Version: {CATALOG.version}"); label(c, f"Counts: {CATALOG.counts()}", "#8b98a8"); label(c, f"Path: {CATALOG_PATH}", "#8b98a8")
@@ -2926,7 +2989,13 @@ class SignalBridgeGui:
         def render_esi():
             c = card(body, "ESI", "Optional cache-first background ESI recognition. Live monitoring works even when ESI is disabled.")
             check(c, "Enable public ESI entity recognition", self.esi_enabled, self.save_esi_ui_settings); check(c, "Enable OAuth features", self.esi_oauth_enabled, self.save_esi_ui_settings)
-            label(c, f"Cache: {ESI_CACHE.stats()}", "#8b98a8"); label(c, f"Last check: {ESI_CACHE.get_status().get('last_check') or 'none'}", "#8b98a8")
+            stats = ESI_CACHE.stats(); status = ESI_CACHE.get_status()
+            label(c, f"Recognition: {'Enabled' if self.esi_enabled.get() else 'Disabled'}")
+            label(c, f"OAuth: {'Enabled' if self.esi_oauth_enabled.get() else 'Disabled'}")
+            label(c, f"Known characters/entities: {stats.get('entities', 0)}", "#8b98a8")
+            label(c, f"Ignored/excluded terms: {stats.get('corrections', 0)}", "#8b98a8")
+            label(c, f"Recent negative answers: {stats.get('negative', 0)}", "#8b98a8")
+            label(c, f"Last ESI check: {status.get('last_check') or 'none'}", "#8b98a8")
             r = row(c); action(r, "ESI / OAuth Settings...", self.show_esi_settings); action(r, "Manual Character Check...", self.manual_esi_check_dialog); action(r, "Diagnostics", self.show_esi_diagnostics); action(r, "Clear ESI Cache", self.clear_esi_cache)
         def render_exclusions():
             c = card(body, "General Exclusion List", "Excluded terms are ignored by ESI, system, ship, module, ESS, and highlight rules.")
@@ -2974,8 +3043,12 @@ class SignalBridgeGui:
             txt = tk.Text(c, height=13, wrap="word", bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); txt.pack(fill="both", expand=True, pady=4); txt.insert("1.0", self.settings_summary_text()); txt.configure(state="disabled")
             r = row(c); action(r, "Copy Diagnostics", self.copy_diagnostics); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Health Dialog", self.show_health)
         def render_about():
-            c = card(body, "About / Support"); label(c, f"Signal Bridge v{APP_VERSION}"); label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", "#8b98a8"); label(c, DONATION_TEXT)
-            r = row(c); action(r, "About", self.show_about); action(r, "Support / Donate ISK", self.show_support); action(r, "Check for Updates", lambda: self.check_for_updates(manual=True))
+            c = card(body, "About / Support"); label(c, f"Signal Bridge v{APP_VERSION}"); label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", "#8b98a8")
+            c2 = card(body, "Support Development", "If you like this app and want further development, you can donate some ISK in game.")
+            label(c2, "Donate ISK to: Mizz Betty", "#f0c36a")
+            label(c2, DONATION_TEXT, "#8b98a8")
+            r = row(c2); action(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty")); action(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
+            r2 = row(c); action(r2, "About", self.show_about); action(r2, "Support / Donate ISK", self.show_support); action(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
         renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
         descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
         def render_page(page):
@@ -3215,6 +3288,8 @@ class SignalBridgeGui:
             "translated_only": bool(self.translated_only.get()),
             "translate_free_text": bool(self.translate_chinese_text.get()),
             "translation_direction": self.translation_direction.get(),
+            "translation_preferred_engine": self.translation_preferred_engine.get(),
+            "translation_fallback_mode": self.translation_fallback_mode.get(),
             "compact_mode": bool(self.compact.get()),
             "font_family": self.font_family.get(),
             "font_size": int(self.font_size.get()),
@@ -3270,9 +3345,28 @@ class SignalBridgeGui:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         os.startfile(str(LOG_DIR))
 
+    def refresh_argos_status(self):
+        status = format_argos_status()
+        self.argos_status_text.set(status)
+        self.set_status("Argos status refreshed")
+        return status
+
+    def save_translation_engine_settings(self):
+        self.persist_settings()
+        self.set_status(f"Translation engine: {self.translation_preferred_engine.get()} / {self.translation_fallback_mode.get()}")
+        self.schedule_redraw()
+
+    def test_translation_engine(self):
+        sample = chr(0x5929) + chr(0x9e64) + chr(0x7ea7) + " " + chr(0x77ed) + chr(0x5251) + chr(0x7ea7)
+        result = translate_free_text(sample, [], [], [], [], [], self.translation_direction.get(), [], self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
+        if not result:
+            result = "No machine/free-text translation returned. Curated EVE cache still handles known ship aliases in live rows."
+        self.messagebox.showinfo("Translation Test", f"Preferred engine: {self.translation_preferred_engine.get()}\nFallback: {self.translation_fallback_mode.get()}\n\nInput:\n{sample}\n\nOutput:\n{result}\n\n{format_argos_status()}")
+
     def install_argos_models(self):
-        if not self.messagebox.askyesno("Install Argos Offline Fallback", "Download and install Argos offline translation models into this portable app folder?\n\nThis may take time and uses internet once."):
+        if not self.messagebox.askyesno("Install / Repair Argos", "Install or repair Argos offline translation models for this app?\n\nThis may take time and uses internet once. Status will update in the app header and Translation settings."):
             return
+        self.argos_status_text.set("Argos install: running...")
         self.set_status("Installing Argos models in background...")
         threading.Thread(target=self._install_argos_models_worker, daemon=True).start()
 
@@ -3282,7 +3376,9 @@ class SignalBridgeGui:
             try:
                 import argostranslate.package  # type: ignore
             except Exception:
-                self.set_status("Argos package is not bundled/installed. Release build should include argostranslate.")
+                msg = "Argos runtime is not installed/bundled. Install the Argos-enabled build or add the optional Argos runtime package."
+                self.argos_status_text.set(msg)
+                self.set_status(msg)
                 return
             argostranslate.package.update_package_index()
             packages = argostranslate.package.get_available_packages()
@@ -3295,9 +3391,13 @@ class SignalBridgeGui:
                 path = pkg.download()
                 argostranslate.package.install_from_path(path)
                 installed.append(f"{src}->{dst}")
-            self.set_status("Argos models installed: " + (", ".join(installed) or "none found"))
+            msg = "Argos models installed: " + (", ".join(installed) or "none found")
+            self.argos_status_text.set(format_argos_status())
+            self.set_status(msg)
         except Exception as exc:
-            self.set_status("Argos install failed: " + str(exc)[:160])
+            msg = "Argos install failed: " + str(exc)[:160]
+            self.argos_status_text.set(msg)
+            self.set_status(msg)
 
     def esi_is_enabled(self) -> bool:
         return bool(self.esi_enabled.get())
@@ -4504,9 +4604,9 @@ class SignalBridgeGui:
         if direction == "zh-en":
             if row.free_translation:
                 return row.free_translation
-            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "zh-en", self.character_names_for_row(row))
+            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "zh-en", self.character_names_for_row(row), self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
         if direction == "en-zh":
-            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "en-zh", self.character_names_for_row(row))
+            return translate_free_text(display_text, row.systems, row.assets, row.localized, row.counts, row.links, "en-zh", self.character_names_for_row(row), self.translation_preferred_engine.get(), self.translation_fallback_mode.get())
         return ""
 
     def _render_row(self, row: Row):
@@ -4756,6 +4856,7 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 
 
