@@ -95,3 +95,4 @@ Initial portable Windows preview release.
 - Fixed live monitoring stalls by preventing online/free-text translation from blocking the monitor thread; chat rows now emit immediately and monitor activity is logged.
 - Fixed live monitor stalls from large `translations.db` lookups by using compact catalog-only enrichment in the monitor thread.
 - Fixed a Tkinter ESS-highlight regex crash that could stop the GUI feed from rendering new live rows even though the monitor was reading them.
+- Made sender names neutral/uncolored and excluded `Red`/`enemy` from distracting asset/ESI highlighting.

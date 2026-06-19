@@ -652,7 +652,7 @@ ESI_CACHE = EsiCache()
 
 COMMON_ESI_NOISE = {
     "and", "the", "link", "jump", "jumped", "fleet", "gate", "star", "isk", "ship",
-    "clear", "eyes", "no visual", "nv", "ess", "red", "hostile", "neutral", "neut",
+    "clear", "eyes", "no visual", "nv", "ess", "red", "enemy", "hostile", "neutral", "neut",
     "local", "system", "corp", "alliance",
 }
 NAME_CONTEXT_WORDS = {
@@ -1514,7 +1514,7 @@ class SignalBridgeGui:
         self.text.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
         self.text.tag_configure("time", foreground="#778493")
-        self.text.tag_configure("sender", foreground="#c9d2dc")
+        self.text.tag_configure("sender", foreground="#d7dde5")
         self.text.tag_configure("system", foreground="#ffd54a", font=self.feed_font(bold=True))
         self.text.tag_configure("asset", foreground="#ff9d2e", font=self.feed_font(bold=True))
         self.text.tag_configure("module", foreground="#b388ff", font=self.feed_font(bold=True))
@@ -2781,6 +2781,9 @@ class SignalBridgeGui:
         for term in sorted(unique(systems), key=len, reverse=True):
             self.tag_term(term, "system", region_start, region_end)
         for term in sorted(unique(assets), key=len, reverse=True):
+            term_key = normalize_esi_query(term)
+            if term_key in COMMON_ESI_NOISE:
+                continue
             if term.lower() == "ess":
                 self.tag_term_whole_word(term, "ess", region_start, region_end)
             elif CATALOG.is_ship(term):
@@ -2986,12 +2989,14 @@ class SignalBridgeGui:
                 self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets)
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["display_text"])
         row_end = self.text.index("end-1c")
+        # Keep sender names visually neutral; only ESI-highlight names inside the message body/translation.
         for ent in row.esi_entities:
             name = str(ent.get("name") or ent.get("query") or "")
-            if name:
-                self.tag_term(name, "esi", row_start, row_end)
+            if name and normalize_esi_query(name) not in COMMON_ESI_NOISE:
+                self.tag_term(name, "esi", body_start, row_end)
         for name in self.character_names_for_row(row):
-            self.tag_term(name, "esi", row_start, row_end)
+            if normalize_esi_query(name) not in COMMON_ESI_NOISE:
+                self.tag_term(name, "esi", body_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
         self.rendered_row_map[row_tag] = {"row": row, **parts}
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
@@ -3177,4 +3182,5 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
