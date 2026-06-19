@@ -2352,10 +2352,38 @@ class SignalBridgeGui:
         win = tk.Toplevel(self.root)
         win.title("Appearance / Display Options")
         win.geometry("760x620")
+        win.minsize(520, 420)
         win.configure(bg="#0b0f14")
         win.transient(self.root)
         win.grab_set()
         vars = {}
+
+        # Keep action buttons visible on narrow/mobile-style layouts by making
+        # only the settings body scroll while the footer stays fixed.
+        outer = tk.Frame(win, bg="#0b0f14")
+        outer.pack(fill="both", expand=True)
+        canvas = tk.Canvas(outer, bg="#0b0f14", highlightthickness=0, bd=0)
+        body_scroll = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        body = tk.Frame(canvas, bg="#0b0f14")
+        body_window = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=body_scroll.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        body_scroll.pack(side="right", fill="y")
+        def _appearance_body_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            try:
+                canvas.itemconfigure(body_window, width=canvas.winfo_width())
+            except Exception:
+                pass
+        body.bind("<Configure>", _appearance_body_configure)
+        canvas.bind("<Configure>", _appearance_body_configure)
+        def _appearance_wheel(event):
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except Exception:
+                pass
+        canvas.bind("<MouseWheel>", _appearance_wheel)
+        body.bind("<MouseWheel>", _appearance_wheel)
         def make_var(value):
             v = tk.StringVar(value=str(value))
             return v
@@ -2369,7 +2397,7 @@ class SignalBridgeGui:
             families = sorted(set(tkfont.families(self.root)))
         except Exception:
             families = ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Consolas", "Courier New"]
-        top = tk.LabelFrame(win, text="General", bg="#0b0f14", fg="#d7dde5", padx=10, pady=8)
+        top = tk.LabelFrame(body, text="General", bg="#0b0f14", fg="#d7dde5", padx=10, pady=8)
         top.pack(fill="x", padx=12, pady=(10, 8))
         tk.Label(top, text="Preset", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w", pady=3)
         preset_menu = tk.OptionMenu(top, preset_var, *APPEARANCE_PRESETS.keys())
@@ -2386,7 +2414,7 @@ class SignalBridgeGui:
         tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").grid(row=2, column=2, columnspan=2, sticky="w", pady=3)
         top.columnconfigure(1, weight=1)
 
-        grid = tk.LabelFrame(win, text="Highlight Colors", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+        grid = tk.LabelFrame(body, text="Highlight Colors", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
         grid.pack(fill="x", padx=12, pady=4)
         tk.Label(grid, text="Category", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 4))
         tk.Label(grid, text="Text", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=1, columnspan=3, sticky="w", pady=(0, 4))
@@ -2445,8 +2473,10 @@ class SignalBridgeGui:
         grid.columnconfigure(2, minsize=92)
         grid.columnconfigure(6, minsize=92)
 
-        preview = tk.Text(win, height=5, relief="flat", wrap="word", padx=8, pady=8)
-        preview.pack(fill="both", expand=True, padx=10, pady=8)
+        preview_box = tk.LabelFrame(body, text="Preview", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+        preview_box.pack(fill="x", padx=12, pady=8)
+        preview = tk.Text(preview_box, height=4, relief="flat", wrap="word", padx=8, pady=8)
+        preview.pack(fill="x", expand=False)
         def collect():
             app = copy.deepcopy(self.appearance)
             app["preset"] = preset_var.get()
@@ -2534,12 +2564,12 @@ class SignalBridgeGui:
                 except Exception: pass
         preset_var.trace_add("write", preset_changed)
         render_preview(collect())
-        btns = tk.Frame(win, bg="#0b0f14")
-        btns.pack(fill="x", padx=10, pady=8)
-        tk.Button(btns, text="Reset Defaults", command=reset_defaults).pack(side="left")
-        tk.Button(btns, text="Apply", command=lambda: apply_now(False)).pack(side="left", padx=6)
-        tk.Button(btns, text="OK", command=lambda: apply_now(True)).pack(side="right")
-        tk.Button(btns, text="Cancel", command=cancel).pack(side="right", padx=6)
+        btns = tk.Frame(win, bg="#111821", highlightthickness=1, highlightbackground="#1f2f42")
+        btns.pack(fill="x", side="bottom")
+        tk.Button(btns, text="Reset Defaults", command=reset_defaults).pack(side="left", padx=(12, 6), pady=10)
+        tk.Button(btns, text="Apply", command=lambda: apply_now(False)).pack(side="left", padx=6, pady=10)
+        tk.Button(btns, text="OK", command=lambda: apply_now(True)).pack(side="right", padx=(6, 12), pady=10)
+        tk.Button(btns, text="Cancel", command=cancel).pack(side="right", padx=6, pady=10)
         win.protocol("WM_DELETE_WINDOW", cancel)
 
     def persist_settings(self):

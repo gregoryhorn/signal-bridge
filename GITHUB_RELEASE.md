@@ -115,3 +115,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 
 - Added bundled starter translation-cache data so new installs can reuse known free-text translations without waiting for online translation.
 - Curated starter translation-cache entries to correct common EVE terminology before first run.
+- Fixed the Appearance / Display Options footer so action buttons stay visible without resizing the window.
