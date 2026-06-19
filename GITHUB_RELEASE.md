@@ -100,3 +100,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Improved ESI detection for manually resolved names by splitting adjacent candidate chunks and allowing valid uppercase single-token pilots.
 - The exclusion list is now general: ignored terms suppress ESI character, ship, asset/module, ESS, and system highlighting.
 - Added Appearance / Display Options with configurable colors, bold styles, background highlights, presets, live preview, and window opacity.
+- Added shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.

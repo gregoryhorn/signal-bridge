@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import argparse
 import base64
 import json
@@ -346,6 +346,19 @@ class EveCatalog:
 
 CATALOG = EveCatalog()
 
+# User/community shorthand aliases that should override ambiguous machine translation.
+# Keep this small and explicit; the compact catalog still provides normal SDE names.
+MANUAL_TYPE_ALIASES = {
+    "短剑": "Stabber",
+    "海狞獾": "Caracal Navy Issue",
+}
+for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
+    CATALOG.aliases.setdefault(_alias.casefold(), _canonical)
+    CATALOG.alias_kinds.setdefault(_alias.casefold(), "ship")
+    if isinstance(CATALOG.ship_names, dict):
+        CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
+    elif hasattr(CATALOG.ship_names, "add"):
+        CATALOG.ship_names.add(_canonical.casefold())
 
 class TranslationCache:
     def __init__(self, path: Path = TRANSLATION_CACHE_PATH):
@@ -3577,6 +3590,8 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
 
 
 

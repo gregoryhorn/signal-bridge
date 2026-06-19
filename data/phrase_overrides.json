@@ -18,6 +18,20 @@
       "target": "entered gate",
       "direction": "zh-en",
       "enabled": true
+    },
+    {
+      "source": "短剑",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User shorthand alias; override MT dagger/Stiletto ambiguity"
+    },
+    {
+      "source": "海狞獾",
+      "target": "Caracal Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User shorthand alias for Caracal Navy Issue"
     }
   ]
 }

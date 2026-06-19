@@ -101,3 +101,4 @@ Initial portable Windows preview release.
 - ESI detection now handles short-prefix character names such as `LT Shax`.
 - Generalized the exclusion list so ignored terms suppress red ESI, orange ship, purple asset/module, ESS, and system highlights.
 - Added Appearance / Display Options with theme presets, font/color/bold/background controls, preview, reset defaults, and window opacity.
+- Added Chinese shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`, preventing MT from translating them as common words.

@@ -285,3 +285,5 @@ Sender names render neutrally, and common words such as `Red` and `enemy` are ex
 Right-click selected text now includes `Add Selected Text as ESI Character`; resolving or adding a character caches it and redraws matching rows immediately.
 
 Appearance options include configurable font, colors, bold highlights, optional background rectangles, presets, preview, reset defaults, and window opacity.
+
+Signal Bridge includes curated shorthand ship aliases such as `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.

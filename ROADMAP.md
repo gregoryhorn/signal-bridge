@@ -301,3 +301,4 @@ Before calling the app v1.0, the goal is to have:
 - ESI detection refinement: adjacent chat-name chunks are now split into exact candidates, including uppercase pilot names.
 - Exclusion list generalized: one list now suppresses all recognition/highlight colors, not only ESI characters.
 - Appearance/display options completed: theme presets, font/color/bold/background controls, preview, reset defaults, and opacity slider.
+- Ongoing alias tuning: added shorthand ship aliases for Stabber and Caracal Navy Issue from real intel usage.
