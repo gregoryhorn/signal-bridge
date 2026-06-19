@@ -403,6 +403,46 @@ class TranslationCache:
         except Exception as exc:
             write_log("Translation cache put failed", exc)
 
+    def seed_entries(self, entries: list[dict]) -> int:
+        """Seed bundled starter translations without overwriting local cache rows."""
+        if not entries:
+            return 0
+        inserted = 0
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            con = sqlite3.connect(self.path)
+            with con:
+                for item in entries:
+                    key = str(item.get("key") or "").strip()
+                    source_text = str(item.get("source_text") or "")
+                    translated_text = str(item.get("translated_text") or "")
+                    target_lang = str(item.get("target_lang") or "en") or "en"
+                    if not key or not source_text or not translated_text:
+                        continue
+                    exists = con.execute("select 1 from translation_cache where key=?", (key,)).fetchone()
+                    if exists:
+                        continue
+                    con.execute("""insert into translation_cache
+                        (key, source_text, source_lang, target_lang, translated_text, engine, created_at, last_used_at, hit_count)
+                        values (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            key,
+                            source_text,
+                            str(item.get("source_lang") or ""),
+                            target_lang,
+                            translated_text,
+                            str(item.get("engine") or "bundled-translation-starter"),
+                            str(item.get("created_at") or now),
+                            str(item.get("last_used_at") or now),
+                            int(item.get("hit_count") or 0),
+                        ),
+                    )
+                    inserted += 1
+            con.close()
+        except Exception as exc:
+            write_log("Translation starter seed failed", exc)
+        return inserted
+
     def stats(self):
         try:
             con = sqlite3.connect(self.path)
@@ -420,6 +460,27 @@ class TranslationCache:
 
 TRANSLATION_CACHE = TranslationCache()
 
+
+def seed_default_translation_cache() -> int:
+    """Seed bundled starter machine translations without overwriting user cache."""
+    path = DATA_DIR / "default_translation_cache.json"
+    if not path.exists():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        items = data.get("entries") if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            return 0
+        seeded = TRANSLATION_CACHE.seed_entries([x for x in items if isinstance(x, dict)])
+        if seeded:
+            write_log(f"Seeded {seeded} bundled translation cache entries")
+        return seeded
+    except Exception as exc:
+        write_log("Default translation cache seed failed", exc)
+        return 0
+
+
+seed_default_translation_cache()
 
 
 def redact_secret(value: str) -> str:

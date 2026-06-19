@@ -26,3 +26,5 @@ Use `View > Appearance / Display Options...` to change fonts, colors, bold style
 Bundled default exclusions are included in `data/default_exclusions.json` and are imported into the local General Exclusion List on first run.
 
 Bundled starter ESI characters are included in `data/default_esi_entities.json` and imported into the local ESI cache on first run.
+
+- The portable package includes starter exclusions, verified ESI characters, and starter translation-cache data. These are seeded locally on first run without overwriting user changes.

@@ -317,3 +317,5 @@ Before calling the app v1.0, the goal is to have:
 - Possible click-through overlay mode later, but not planned until normal transparency/overlay use is stable.
 - Default exclusion bundling completed: current General Exclusion List entries are shipped as seeded defaults.
 - ESI starter-cache bundling completed: verified local character entities are shipped as seeded defaults.
+
+- Completed: bundle starter free-text translation cache for faster first-run/offline reuse of known translations.

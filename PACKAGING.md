@@ -27,3 +27,5 @@ The default packaged app opens in a mobile-style side-panel layout and includes 
 Include `data/default_exclusions.json` in every portable build so default General Exclusion List entries are seeded for new installs.
 
 Include `data/default_esi_entities.json` and its checksum in portable builds so new installs start with verified ESI character cache entries.
+
+- Include `data/default_translation_cache.json` and `.sha256` with catalog, default exclusions, and starter ESI entities.

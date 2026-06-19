@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = '0.1'
+$Version = '0.3'
 Set-Location $Root
 
 # Lean portable build:
@@ -10,7 +10,9 @@ Set-Location $Root
 python -m pip install --upgrade pyinstaller
 if (Test-Path .\build) { Remove-Item .\build -Recurse -Force }
 if (Test-Path .\dist) { Remove-Item .\dist -Recurse -Force }
-if (Test-Path .\SignalBridge-v$Version-win64-portable.zip) { Remove-Item .\SignalBridge-v$Version-win64-portable.zip -Force }
+
+$Zip = Join-Path $Root "SignalBridge-v$Version-win64-portable.zip"
+Remove-Item $Zip,"$Zip.sha256",.\SignalBridge.exe.sha256 -Force -ErrorAction SilentlyContinue
 
 $excludes = @(
   '--exclude-module', 'argostranslate',
@@ -34,14 +36,12 @@ New-Item -ItemType Directory -Force -Path .\dist\SignalBridge\config, .\dist\Sig
 Copy-Item .\README.md .\dist\SignalBridge\README.md -Force
 Copy-Item .\README_DISTRIBUTION.md .\dist\SignalBridge\README_DISTRIBUTION.md -Force
 Copy-Item .\GITHUB_RELEASE.md .\dist\SignalBridge\GITHUB_RELEASE.md -Force
-Copy-Item .\\PACKAGING.md .\\dist\\SignalBridge\\PACKAGING.md -Force
-Copy-Item .\\CHANGELOG.md .\\dist\\SignalBridge\\CHANGELOG.md -Force
+Copy-Item .\PACKAGING.md .\dist\SignalBridge\PACKAGING.md -Force
+Copy-Item .\CHANGELOG.md .\dist\SignalBridge\CHANGELOG.md -Force
+Copy-Item .\ROADMAP.md .\dist\SignalBridge\ROADMAP.md -Force
+Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\default_exclusions.json,.\data\default_exclusions.json.sha256,.\data\default_esi_entities.json,.\data\default_esi_entities.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
 
-$Zip = Join-Path $Root 'SignalBridge-v$Version-win64-portable.zip'
-Compress-Archive -Path .\dist\SignalBridge\* -DestinationPath $Zip
-Get-FileHash $Zip -Algorithm SHA256 | Tee-Object -FilePath .\SignalBridge-v$Version-win64-portable.zip.sha256
+Compress-Archive -Path .\dist\SignalBridge\* -DestinationPath $Zip -Force
+Get-FileHash $Zip -Algorithm SHA256 | Tee-Object -FilePath "$Zip.sha256"
 Get-FileHash .\dist\SignalBridge\SignalBridge.exe -Algorithm SHA256 | Tee-Object -FilePath .\SignalBridge.exe.sha256
 Write-Host "Portable ZIP created: $Zip"
-
-
-
