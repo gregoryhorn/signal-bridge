@@ -47,6 +47,7 @@ CATALOG_PATH = DATA_DIR / "eve_catalog.json"
 CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
 CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
 PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
+DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
 TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
 ESI_CONFIG_PATH = CONFIG_DIR / "esi_settings.json"
 ESI_TOKENS_PATH = CONFIG_DIR / "esi_tokens.json"
@@ -662,6 +663,40 @@ class EsiCache:
 
 
 ESI_CACHE = EsiCache()
+
+
+def seed_default_exclusions(path: Path = DEFAULT_EXCLUSIONS_PATH) -> int:
+    """Seed bundled general exclusions into the local cache without overwriting user edits."""
+    try:
+        if not path.exists():
+            return 0
+        data = json.loads(path.read_text(encoding="utf-8"))
+        items = data.get("exclusions") if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            return 0
+        added = 0
+        for item in items:
+            if isinstance(item, str):
+                text, note = item, "bundled default exclusion"
+            elif isinstance(item, dict):
+                text = str(item.get("text") or "").strip()
+                note = str(item.get("note") or "bundled default exclusion")
+            else:
+                continue
+            if not text or ESI_CACHE.get_correction(text):
+                continue
+            if ESI_CACHE.set_correction(text, "ignore", note=note):
+                added += 1
+        if added:
+            write_log(f"Seeded {added} bundled default exclusion(s)")
+        return added
+    except Exception as exc:
+        write_log("Default exclusion seed failed", exc)
+        return 0
+
+
+seed_default_exclusions()
+
 
 
 def is_globally_excluded(term: str) -> bool:

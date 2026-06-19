@@ -315,3 +315,4 @@ Before calling the app v1.0, the goal is to have:
 - Optional per-channel appearance presets.
 - More colorblind-friendly preset tuning after user feedback.
 - Possible click-through overlay mode later, but not planned until normal transparency/overlay use is stable.
+- Default exclusion bundling completed: current General Exclusion List entries are shipped as seeded defaults.

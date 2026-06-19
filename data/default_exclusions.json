@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "description": "Bundled default general exclusions exported from maintainer/test user list. Seeded into local cache on first run without overwriting user edits.",
+  "exclusions": [
+    {
+      "text": "and",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "armor",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "combat scanning probe",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "dscan",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "fleet",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "gate",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "ignore me",
+      "action": "ignore",
+      "note": "bundled default exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "isk",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "jump",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "link",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "moon",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "scanning probe",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "ship",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "shuttle",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "star",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "the",
+      "action": "ignore",
+      "note": "user requested individual word exclusion",
+      "source": "user-export-2026-06-19"
+    },
+    {
+      "text": "trying",
+      "action": "ignore",
+      "note": "user exclusion list",
+      "source": "user-export-2026-06-19"
+    }
+  ]
+}

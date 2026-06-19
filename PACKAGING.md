@@ -24,3 +24,4 @@ If PyInstaller hangs or produces a huge build because of Argos/Torch dependencie
 The portable ZIP should include the current README, distribution notes, changelog, roadmap, packaging notes, release notes, compact EVE catalog, catalog manifest, phrase overrides, and checksum files. Keep these aligned whenever UI/display behavior, release assets, or catalog metadata changes.
 
 The default packaged app opens in a mobile-style side-panel layout and includes Appearance / Display Options documentation in the bundled README files.
+Include `data/default_exclusions.json` in every portable build so default General Exclusion List entries are seeded for new installs.
