@@ -1820,12 +1820,12 @@ class SignalBridgeGui:
             "border": TAB_THEME["tab_active_border"] if active else TAB_THEME["tab_border"],
         }
 
-    def tab_display_text(self, tab_id: str) -> str:
-        label = short_tab_label(tab_label(tab_id))
+    def tab_display_text(self, tab_id: str, max_chars: int = 28) -> str:
+        label = short_tab_label(tab_label(tab_id), max_chars=max_chars)
         unread = self.unread_counts.get(tab_id, 0)
         if unread:
             suffix = str(unread) if unread < 100 else "99+"
-            return f"{label}  •{suffix}"
+            return f"{label} *{suffix}"
         return label
 
     def update_channel_tabs(self):
@@ -1835,58 +1835,71 @@ class SignalBridgeGui:
         self.tab_widgets = {}
         self.normalize_tab_state(prefer_all=True)
         tabs = self.visible_tabs()
+        hidden_count = len([t for t in self.tab_order if t in self.hidden_tab_ids and (t == ALL_CHANNELS_TAB or t in self.active_channels)])
         if not tabs:
             container = tk.Frame(self.tab_bar, bg=TAB_THEME["bar_bg"])
-            label = tk.Label(container, text="No visible tabs - restore hidden tabs or choose channels", bg=TAB_THEME["bar_bg"], fg=TAB_THEME["empty_fg"], font=("Segoe UI", 9))
+            container.pack(fill="x")
+            label = tk.Label(container, text="No visible channels", bg=TAB_THEME["bar_bg"], fg=TAB_THEME["empty_fg"], font=("Segoe UI", 9))
             label.pack(side="left", padx=4)
             btn = tk.Button(container, text="Restore...", command=self.restore_hidden_tabs_dialog, bg=TAB_THEME["tab_bg"], fg=TAB_THEME["tab_fg"], relief="flat", padx=6, pady=1)
             btn.pack(side="left", padx=6)
             self.tab_widgets["__empty__"] = container
-            self.layout_tab_widgets()
             return
-        for tab_id in tabs:
-            active = tab_id == self.visible_channel
-            unread = self.unread_counts.get(tab_id, 0) > 0
-            style = self.tab_style(active, unread)
-            border = TAB_THEME["alert_bg"] if tab_id == self._tab_drop_target else style["border"]
-            frame = tk.Frame(self.tab_bar, bg=style["bg"], bd=0, relief="flat", highlightthickness=1, highlightbackground=border, highlightcolor=border)
-            frame._tab_id = tab_id  # type: ignore[attr-defined]
-            btn = tk.Button(
-                frame,
-                text=self.tab_display_text(tab_id),
-                command=lambda t=tab_id: self.select_tab(t),
-                bg=style["bg"], fg=style["fg"],
-                activebackground=style["activebackground"], activeforeground=style["activeforeground"],
-                relief="flat", borderwidth=0, padx=10, pady=3,
-                font=("Segoe UI", 9, "bold" if active or unread else "normal")
+
+        # Mobile-style compact channel bar: one line instead of stacked tab rows.
+        bar = tk.Frame(self.tab_bar, bg=TAB_THEME["bar_bg"])
+        bar.pack(fill="x")
+        self.tab_widgets["__bar__"] = bar
+
+        if ALL_CHANNELS_TAB in tabs:
+            all_unread = self.unread_counts.get(ALL_CHANNELS_TAB, 0) > 0
+            all_style = self.tab_style(self.visible_channel == ALL_CHANNELS_TAB, all_unread)
+            all_btn = tk.Button(
+                bar, text=self.tab_display_text(ALL_CHANNELS_TAB, max_chars=10), command=lambda: self.select_tab(ALL_CHANNELS_TAB),
+                bg=all_style["bg"], fg=all_style["fg"], activebackground=all_style["activebackground"], activeforeground=all_style["activeforeground"],
+                relief="flat", borderwidth=0, padx=9, pady=3, font=("Segoe UI", 9, "bold" if self.visible_channel == ALL_CHANNELS_TAB or all_unread else "normal")
             )
-            btn.pack(side="left")
-            close = tk.Button(
-                frame, text="x", command=lambda t=tab_id: self.hide_tab(t),
-                bg=style["bg"], fg=TAB_THEME["close_fg"], activebackground=TAB_THEME["close_hover_bg"], activeforeground="#ffffff",
-                relief="flat", borderwidth=0, padx=6, pady=3, font=("Segoe UI", 9, "bold")
+            all_btn.pack(side="left", padx=(0, 5))
+            all_btn.bind("<Button-3>", lambda e: self.show_tab_context_menu(e, ALL_CHANNELS_TAB), add="+")
+            self.tab_widgets[ALL_CHANNELS_TAB] = all_btn
+
+        channel_tabs = [t for t in tabs if t != ALL_CHANNELS_TAB]
+        current = self.visible_channel if self.visible_channel in channel_tabs else (channel_tabs[0] if channel_tabs else "")
+        self.channel_selector_var = tk.StringVar(value=current)
+        if channel_tabs:
+            selector = tk.OptionMenu(bar, self.channel_selector_var, *channel_tabs, command=lambda value: self.select_tab(str(value)))
+            selector.configure(
+                bg=TAB_THEME["tab_active_bg"], fg=TAB_THEME["tab_active_fg"], activebackground=TAB_THEME["tab_hover_bg"], activeforeground="#ffffff",
+                relief="flat", borderwidth=0, highlightthickness=1, highlightbackground=TAB_THEME["tab_active_border"],
+                font=("Segoe UI", 9, "bold"), padx=4, pady=2
             )
-            close.pack(side="left")
-            for widget in (frame, btn):
-                widget.bind("<Enter>", lambda e, t=tab_id: self.set_tab_hover(t, True), add="+")
-                widget.bind("<Leave>", lambda e, t=tab_id: self.set_tab_hover(t, False), add="+")
-                widget.bind("<ButtonPress-1>", lambda e, t=tab_id: self.begin_tab_drag(e, t), add="+")
-                widget.bind("<B1-Motion>", self.move_tab_drag, add="+")
-                widget.bind("<ButtonRelease-1>", self.end_tab_drag, add="+")
-                widget.bind("<Button-3>", lambda e, t=tab_id: self.show_tab_context_menu(e, t), add="+")
-            close.bind("<Enter>", lambda e, w=close: w.configure(bg=TAB_THEME["close_hover_bg"], fg="#ffffff"), add="+")
-            close.bind("<Leave>", lambda e, w=close, bg=style["bg"]: w.configure(bg=bg, fg=TAB_THEME["close_fg"]), add="+")
-            close.bind("<Button-3>", lambda e, t=tab_id: self.show_tab_context_menu(e, t), add="+")
-            self.tab_widgets[tab_id] = frame
-        hidden_count = len([t for t in self.tab_order if t in self.hidden_tab_ids and (t == ALL_CHANNELS_TAB or t in self.active_channels)])
+            try:
+                selector["menu"].configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", tearoff=False)
+                selector["menu"].delete(0, "end")
+                for tab_id in channel_tabs:
+                    selector["menu"].add_command(label=self.tab_display_text(tab_id, max_chars=42), command=lambda t=tab_id: self.select_tab(t))
+            except Exception:
+                pass
+            selector.pack(side="left", fill="x", expand=True, padx=(0, 5))
+            if current:
+                self.tab_widgets[current] = selector
+            close_btn = tk.Button(
+                bar, text="x", command=lambda: self.hide_tab(self.visible_channel) if self.visible_channel and self.visible_channel != ALL_CHANNELS_TAB else None,
+                bg=TAB_THEME["tab_bg"], fg=TAB_THEME["close_fg"], activebackground=TAB_THEME["close_hover_bg"], activeforeground="#ffffff",
+                relief="flat", borderwidth=0, padx=7, pady=3, font=("Segoe UI", 9, "bold")
+            )
+            close_btn.pack(side="left", padx=(0, 5))
+            if current:
+                close_btn.bind("<Button-3>", lambda e, t=current: self.show_tab_context_menu(e, t), add="+")
+
         if hidden_count:
             restore = tk.Button(
-                self.tab_bar, text=f"+ Hidden ({hidden_count})", command=self.restore_hidden_tabs_dialog,
+                bar, text=f"+{hidden_count}", command=self.restore_hidden_tabs_dialog,
                 bg=TAB_THEME["restore_bg"], fg=TAB_THEME["restore_fg"], activebackground=TAB_THEME["tab_hover_bg"], activeforeground="#ffffff",
-                relief="flat", borderwidth=0, padx=9, pady=3, font=("Segoe UI", 9)
+                relief="flat", borderwidth=0, padx=8, pady=3, font=("Segoe UI", 9)
             )
+            restore.pack(side="right")
             self.tab_widgets["__restore__"] = restore
-        self.layout_tab_widgets()
 
     def set_tab_hover(self, tab_id: str, hover: bool):
         if tab_id == self.visible_channel:
@@ -1905,32 +1918,8 @@ class SignalBridgeGui:
             pass
 
     def layout_tab_widgets(self):
-        if not hasattr(self, "tab_bar"):
-            return
-        for child in self.tab_bar.winfo_children():
-            child.grid_forget()
-        widgets = [self.tab_widgets[t] for t in self.visible_tabs() if t in self.tab_widgets]
-        if "__restore__" in self.tab_widgets:
-            widgets.append(self.tab_widgets["__restore__"])
-        if not widgets and "__empty__" in self.tab_widgets:
-            widgets = [self.tab_widgets["__empty__"]]
-        width = max(1, self.tab_bar.winfo_width() - 16)
-        x = 0
-        row = 0
-        col = 0
-        max_rows = max(1, int(SETTINGS.get("max_tab_rows", 3) or 3))
-        for widget in widgets:
-            try:
-                req = max(85, min(240, widget.winfo_reqwidth() + 8))
-            except Exception:
-                req = 140
-            if col > 0 and x + req > width and row + 1 < max_rows:
-                row += 1
-                col = 0
-                x = 0
-            widget.grid(row=row, column=col, sticky="w", padx=4, pady=3)
-            x += req + 10
-            col += 1
+        # Channel bar is intentionally single-line and pack-managed for mobile-style layout.
+        return
 
     def select_tab(self, tab_id: str):
         if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:

@@ -117,3 +117,4 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Curated starter translation-cache entries to correct common EVE terminology before first run.
 - Fixed the Appearance / Display Options footer so action buttons stay visible without resizing the window.
 - Improved channel workflow: Add Selected no longer replaces current channels, Replace All is explicit, and newly active chat channels can auto-open as tabs.
+- Reworked channel tabs into a compact one-line mobile channel bar so many channels no longer stack over the feed.

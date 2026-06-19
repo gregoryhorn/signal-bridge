@@ -315,3 +315,4 @@ The portable build also includes `data/default_esi_entities.json`, a starter cac
 - Starter translation-cache entries include curated EVE terminology fixes for common ship/item/intel phrases.
 - Appearance / Display Options keeps Apply/OK/Cancel in a fixed footer with a scrollable settings body for small windows.
 - Channels can be added non-destructively with Add Selected; Replace All is explicit, and newly active EVE chat channels auto-open as tabs while keeping focus where it is.
+- The channel area uses a compact mobile-style bar: All button, current-channel dropdown, close-current button, and hidden restore count.
