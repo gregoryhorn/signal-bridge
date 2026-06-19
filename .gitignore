@@ -37,3 +37,6 @@ Thumbs.db
 .env
 *.key
 *.pem
+
+# Local source-GUI smoke-test logs
+source-gui-*.log
