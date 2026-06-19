@@ -299,3 +299,4 @@ Before calling the app v1.0, the goal is to have:
 - Feed readability hotfix completed: neutral sender names and extra common-word highlight exclusions (`Red`, `enemy`).
 - ESI interaction hotfix completed: selected text can be explicitly added as an ESI character and applied to existing rows.
 - ESI detection refinement: adjacent chat-name chunks are now split into exact candidates, including uppercase pilot names.
+- Exclusion list generalized: one list now suppresses all recognition/highlight colors, not only ESI characters.
