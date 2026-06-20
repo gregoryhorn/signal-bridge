@@ -4537,7 +4537,9 @@ class SignalBridgeGui:
         return render_model.segment_display_lines(row, translated_text, normalize_feed_text)
 
     def row_visible_body_lines(self, row: Row, parts: dict) -> list[str]:
-        return render_model.visible_body_lines(row, parts["translated"], parts["original_text"], bool(self.translated_only.get()), normalize_feed_text)
+        # Normal feed should show catalog/user alias canonical replacements, not raw aliases.
+        # Copy Original still preserves the unmodified chat text via parts["original_text"].
+        return render_model.visible_body_lines(row, parts["translated"], parts["display_text"], bool(self.translated_only.get()), normalize_feed_text)
 
     def row_uses_multiline_segments(self, row: Row) -> bool:
         return render_model.row_uses_multiline_segments(row)
@@ -4554,7 +4556,7 @@ class SignalBridgeGui:
         if show_channel:
             prefix += f"[{row.channel}] "
         sender_prefix = f"{row.sender} > "
-        visible_text = translated if bool(self.translated_only.get()) else original_text
+        visible_text = translated if bool(self.translated_only.get()) else display_text
         visible_line = prefix + sender_prefix + visible_text
         original_line = prefix + sender_prefix + original_text
         translated_line = prefix + sender_prefix + translated
