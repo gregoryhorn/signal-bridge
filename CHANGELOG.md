@@ -1,4 +1,10 @@
-﻿- Fixed alias display so user ship/system aliases replace shorthand in the normal chat feed, not only translated/copy paths.
+- Fixed Translation Cache Manager deletion so selected grouped entries can be removed even when they are cache-backed rather than manual-only overrides.
+- Added a full Translation Cache Manager reset action that clears machine cache, manual overrides, and failure cooldowns without touching aliases, exclusions, phrase overrides, settings, ESI cache, or zKill cache.
+- Cleared the local live translation cache and removed the bundled starter translation cache so new portable installs no longer inherit polluted mixed English/CJK cache rows.
+- Promoted the current user alias list into packaged source data and refreshed the packaged default General Exclusion List checksum.
+- Added `ISSUES.md` as a public GitHub issue/known-issues list for translation cache, CJK ship coverage, Pilot Info/zKill, and release hygiene.
+
+- Fixed alias display so user ship/system aliases replace shorthand in the normal chat feed, not only translated/copy paths.
 - Improved Translation Cache Manager into a grouped correction editor with one logical row per source phrase, dual Original/English edit boxes, hidden duplicate metadata, and a safe duplicate machine-cache cleanup action.
 - Added user-supplied Chinese intel translation corrections for common ship names and tactical phrases including Hookbill, Enyo, Astero, Hecate, Curse, Tengu, Vagabond, Blackbird, gate bubbles, and Little Green Men gate camps.
 - Changed translation caching to use CJK/natural-language segments instead of whole mixed intel lines, and cleaned polluted machine-cache rows that included English intel context.

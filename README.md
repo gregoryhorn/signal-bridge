@@ -1,4 +1,4 @@
-﻿# Signal Bridge v0.3 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
+# Signal Bridge v0.3 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
 
@@ -369,3 +369,8 @@ This is tracked in `ROADMAP.md` as a must-have future feature.
 The planned LAN Web Viewer should use the same look as the desktop app where practical. It should reuse the current Appearance settings, including font, feed background, text color, category colors, bold settings, background highlights, sender-neutral styling, and General Exclusion List behavior.
 
 The web viewer should remain mobile-friendly and use fallback fonts when a phone does not have the selected desktop font.
+
+
+## Translation Cache reset note
+
+The Translation Cache Manager can delete a selected grouped entry or delete all translation entries. These actions affect translation-cache rows, manual translation overrides, and translation failure cooldowns only. They do not delete aliases, the General Exclusion List, phrase overrides, settings, ESI cache, zKill cache, logs, or chat logs.

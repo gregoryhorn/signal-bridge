@@ -1,4 +1,9 @@
-﻿- Alias management: expand dedicated ship/system alias workflows and sample-line testing as real intel shorthand appears.
+- Translation Cache Manager: completed grouped-entry deletion and all-entry reset so bad cache rows can be removed reliably from the UI.
+- Translation data hygiene: removed bundled starter translation-cache entries until the cache export path can guarantee clean segment-only sources.
+- Packaging data hygiene: current maintained alias list and General Exclusion List are now part of source/package data; runtime cache/settings/logs remain excluded.
+- Public tracking: added `ISSUES.md` for GitHub-visible known issues and short follow-up work items.
+
+- Alias management: expand dedicated ship/system alias workflows and sample-line testing as real intel shorthand appears.
 - Translation correction workflow: grouped cache rows and dual Original/English editors are in place; future work can add dedicated phrase-override editing if needed.
 - Translation quality: continue collecting live bad translations and promote stable corrections into aliases, phrase overrides, and cache/manual override workflows.
 - Translation cache cleanup: segment-based cache keys now reduce duplicated/polluted Google/Argos rows while keeping manual overrides as the highest-priority correction layer.

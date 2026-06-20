@@ -49,6 +49,405 @@
       "kind": "ship",
       "enabled": true,
       "note": "Class suffix shorthand"
+    },
+    {
+      "alias": "4H",
+      "canonical": "4-HWWF",
+      "kind": "system",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "4-H",
+      "canonical": "4-HWWF",
+      "kind": "system",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "4-g",
+      "canonical": "4GYV-Q",
+      "kind": "system",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "7-k",
+      "canonical": "7-K5EL",
+      "kind": "ship",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "YMJG",
+      "canonical": "YMJG-4",
+      "kind": "system",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "Widmark-class",
+      "canonical": "Widow",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation / OCR artifact"
+    },
+    {
+      "alias": "Widmark Class",
+      "canonical": "Widow",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation / OCR artifact"
+    },
+    {
+      "alias": "Widmark",
+      "canonical": "Widow",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation / OCR artifact"
+    },
+    {
+      "alias": "Assassin-class",
+      "canonical": "Assassin",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Class suffix shorthand"
+    },
+    {
+      "alias": "Assassin Class",
+      "canonical": "Assassin",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Class suffix shorthand"
+    },
+    {
+      "alias": "Ocato-class",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation artifact; editable in Settings > Aliases"
+    },
+    {
+      "alias": "Ocato Class",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation artifact; editable in Settings > Aliases"
+    },
+    {
+      "alias": "Ocato",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation artifact; editable in Settings > Aliases"
+    },
+    {
+      "alias": "Black Crow-class",
+      "canonical": "Blackbird",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation artifact; editable in Settings > Aliases"
+    },
+    {
+      "alias": "Black Crow Class",
+      "canonical": "Blackbird",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation artifact; editable in Settings > Aliases"
+    },
+    {
+      "alias": "Black Crow",
+      "canonical": "Blackbird",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation artifact; editable in Settings > Aliases"
+    },
+    {
+      "alias": "Stabber-class",
+      "canonical": "Stabber",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Class suffix shorthand"
+    },
+    {
+      "alias": "Stabber Class",
+      "canonical": "Stabber",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Class suffix shorthand"
+    },
+    {
+      "alias": "Vulture Class",
+      "canonical": "Buzzard",
+      "kind": "ship",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "7k",
+      "canonical": "7-K5EL",
+      "kind": "system",
+      "enabled": true,
+      "note": ""
+    },
+    {
+      "alias": "加达里海军霍克比尔级",
+      "canonical": "Caldari Navy Hookbill",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "加达里海军霍克比尔",
+      "canonical": "Caldari Navy Hookbill",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "霍克比尔级",
+      "canonical": "Caldari Navy Hookbill",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Caldari Navy Hawkbill Class",
+      "canonical": "Caldari Navy Hookbill",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Hawkbill Class",
+      "canonical": "Caldari Navy Hookbill",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "娜迦级",
+      "canonical": "Naga",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "洛基级",
+      "canonical": "Loki",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "黑鸦级",
+      "canonical": "Blackbird",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "海神级",
+      "canonical": "Poseidon",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Poseidon",
+      "canonical": "Poseidon",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "阿斯特罗级",
+      "canonical": "Astero",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Astro Class",
+      "canonical": "Astero",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "赫卡特级",
+      "canonical": "Hecate",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Heka Class",
+      "canonical": "Hecate",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "恩尤级",
+      "canonical": "Enyo",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "恩尤",
+      "canonical": "Enyo",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "短剑级",
+      "canonical": "Stabber",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Stabber级",
+      "canonical": "Stabber",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Stabber level",
+      "canonical": "Stabber",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "咒逐级",
+      "canonical": "Curse",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Curse level by level",
+      "canonical": "Curse",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "流浪",
+      "canonical": "Vagabond",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "Wandering",
+      "canonical": "Vagabond",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "偷天沟",
+      "canonical": "Tengu",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "steal the gutter",
+      "canonical": "Tengu",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Bad translation/user correction"
+    },
+    {
+      "alias": "鱼鹰级海军型",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "鱼鹰海军型",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "Osprey class naval version",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "Osprey naval version",
+      "canonical": "Osprey Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "狞獾级海军型",
+      "canonical": "Caracal Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "狞獾海军型",
+      "canonical": "Caracal Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "Caracal-class naval version",
+      "canonical": "Caracal Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "Caracal naval version",
+      "canonical": "Caracal Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "天梯级",
+      "canonical": "Skyhook",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "天梯",
+      "canonical": "Skyhook",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "sky ladder",
+      "canonical": "Skyhook",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
+    },
+    {
+      "alias": "Stabber",
+      "canonical": "Stabber",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Reported intel translation/detection correction"
     }
   ]
 }

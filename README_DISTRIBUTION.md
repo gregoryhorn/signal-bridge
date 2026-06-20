@@ -1,4 +1,4 @@
-﻿# Signal Bridge Portable Build Notes
+# Signal Bridge Portable Build Notes
 
 Goal: no-install Windows 10/11 x64 portable ZIP.
 
@@ -34,3 +34,10 @@ Use **Settings > Settings...** for the main configuration UI. The Settings Cente
 ## Settings Center
 
 Open **Settings > Settings...** after extracting the portable ZIP. The Settings Center groups General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support into one dedicated window.
+
+## Current packaged data notes
+
+- `data/default_translation_cache.json` is intentionally empty so new installs do not inherit polluted mixed English/CJK translation cache rows.
+- `data/user_aliases.json` and `data/default_exclusions.json` are bundled from the maintained source lists.
+- Runtime folders such as `cache/`, `logs/`, `config/`, `runtime/`, and local add-on state should not be published as user data.
+- See `ISSUES.md` for the public known-issues/follow-up list.

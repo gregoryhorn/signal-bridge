@@ -1,4 +1,10 @@
-﻿- Fixed normal feed rendering so Alias entries display their canonical names in chat while Copy Original keeps raw text.
+- Translation Cache Manager deletion fix: deleting a selected row now removes the grouped entry, including manual override, machine-cache records, and failure cooldowns for that source/target.
+- Added `Delete All Entries` for Translation Cache Manager reset. This intentionally leaves aliases, exclusions, phrase overrides, ESI cache, zKill cache, settings, and logs alone.
+- Removed the bundled starter translation cache for now; packaged builds start with an empty translation cache to avoid shipping polluted mixed English/CJK cache rows.
+- Updated packaged alias and default exclusion data from the current maintained local lists.
+- Added `ISSUES.md` for public known issues and follow-up work.
+
+- Fixed normal feed rendering so Alias entries display their canonical names in chat while Copy Original keeps raw text.
 - Translation Cache Manager now groups duplicate cache records, shows editable Original and English correction boxes below the tables, and saves edits as manual overrides.
 - Added additional Chinese intel translation fixes and cache/manual overrides for reported bad translations, including several ship-name corrections and tactical phrase fixes.
 - Translation cache now stores cleaner CJK/natural-language segments instead of full mixed intel rows; existing polluted machine-cache rows can be cleaned without touching manual overrides.

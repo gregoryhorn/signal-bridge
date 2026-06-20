@@ -39,7 +39,8 @@ Copy-Item .\GITHUB_RELEASE.md .\dist\SignalBridge\GITHUB_RELEASE.md -Force
 Copy-Item .\PACKAGING.md .\dist\SignalBridge\PACKAGING.md -Force
 Copy-Item .\CHANGELOG.md .\dist\SignalBridge\CHANGELOG.md -Force
 Copy-Item .\ROADMAP.md .\dist\SignalBridge\ROADMAP.md -Force
-Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\default_exclusions.json,.\data\default_exclusions.json.sha256,.\data\default_esi_entities.json,.\data\default_esi_entities.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
+Copy-Item .\ISSUES.md .\dist\SignalBridge\ISSUES.md -Force
+Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\user_aliases.json,.\data\default_exclusions.json,.\data\default_exclusions.json.sha256,.\data\default_esi_entities.json,.\data\default_esi_entities.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
 
 Compress-Archive -Path .\dist\SignalBridge\* -DestinationPath $Zip -Force
 Get-FileHash $Zip -Algorithm SHA256 | Tee-Object -FilePath "$Zip.sha256"

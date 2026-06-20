@@ -1,4 +1,4 @@
-﻿# Build and Packaging Notes
+# Build and Packaging Notes
 
 Signal Bridge is currently packaged with PyInstaller.
 
@@ -32,3 +32,10 @@ Include `data/default_esi_entities.json` and its checksum in portable builds so 
 ## Settings Center Packaging Check
 
 Release builds should include the dedicated Settings Center and keep bundled starter data files in `data/` so the Cache & Data page can report them correctly.
+
+## Current packaged data notes
+
+- `data/default_translation_cache.json` is intentionally empty so new installs do not inherit polluted mixed English/CJK translation cache rows.
+- `data/user_aliases.json` and `data/default_exclusions.json` are bundled from the maintained source lists.
+- Runtime folders such as `cache/`, `logs/`, `config/`, `runtime/`, and local add-on state should not be published as user data.
+- See `ISSUES.md` for the public known-issues/follow-up list.

@@ -1085,6 +1085,58 @@ class TranslationCache:
         except Exception as exc:
             write_log("Translation override delete failed", exc); return False
 
+    def delete_grouped_entry(self, normalized_source: str, target_lang: str = "en") -> dict:
+        """Delete one logical Translation Cache Manager row.
+
+        The UI groups manual overrides and machine-cache records by normalized
+        source/target. Deleting only a manual override made cache-backed rows
+        appear to ignore Delete. This removes the whole grouped row while
+        leaving unrelated sources untouched.
+        """
+        norm = self.normalize_source(normalized_source)
+        target = str(target_lang or "en")
+        result = {"overrides": 0, "cache": 0, "failures": 0}
+        if not norm:
+            return result
+        try:
+            con = sqlite3.connect(self.path)
+            with con:
+                cur = con.execute("delete from translation_overrides where normalized_source=? and target_lang=?", (norm, target))
+                result["overrides"] = int(cur.rowcount if cur.rowcount is not None else 0)
+                rows = con.execute("select key, source_text from translation_cache where target_lang=?", (target,)).fetchall()
+                doomed = [(str(key),) for key, source_text in rows if self.normalize_source(source_text) == norm]
+                if doomed:
+                    con.executemany("delete from translation_cache where key=?", doomed)
+                result["cache"] = len(doomed)
+                failures = con.execute("select key, source_text from translation_failures where target_lang=?", (target,)).fetchall()
+                doomed_failures = [(str(key),) for key, source_text in failures if self.normalize_source(source_text) == norm]
+                if doomed_failures:
+                    con.executemany("delete from translation_failures where key=?", doomed_failures)
+                result["failures"] = len(doomed_failures)
+            con.close()
+        except Exception as exc:
+            write_log("Translation grouped entry delete failed", exc)
+        return result
+
+    def clear_all_entries(self, include_overrides: bool = True) -> dict:
+        """Clear machine cache, failure cooldowns, and optionally manual overrides."""
+        result = {"cache": 0, "overrides": 0, "failures": 0}
+        try:
+            con = sqlite3.connect(self.path)
+            with con:
+                for table, key in (("translation_cache", "cache"), ("translation_failures", "failures")):
+                    row = con.execute(f"select count(*) from {table}").fetchone()
+                    result[key] = int((row or [0])[0] or 0)
+                    con.execute(f"delete from {table}")
+                if include_overrides:
+                    row = con.execute("select count(*) from translation_overrides").fetchone()
+                    result["overrides"] = int((row or [0])[0] or 0)
+                    con.execute("delete from translation_overrides")
+            con.close()
+        except Exception as exc:
+            write_log("Translation cache full clear failed", exc)
+        return result
+
     def recent_entries(self, search: str = "", limit: int = 100) -> list[dict]:
         out=[]; like=f"%{search.strip()}%"
         try:
@@ -1307,7 +1359,11 @@ class TranslationCache:
 
     def clear(self) -> bool:
         try:
-            con = sqlite3.connect(self.path); con.execute("delete from translation_cache"); con.commit(); con.close(); return True
+            con = sqlite3.connect(self.path)
+            with con:
+                con.execute("delete from translation_cache")
+                con.execute("delete from translation_failures")
+            con.close(); return True
         except Exception as exc:
             write_log("Translation cache clear failed", exc); return False
 
@@ -4229,10 +4285,29 @@ class SignalBridgeGui:
             action(buttons, "Save Now", save_now)
             def delete_selected():
                 item = selected_item()
-                oid = item.get("manual_id") if item else None
-                if item and oid and self.messagebox.askyesno("Translation Cache", "Delete this manual override?"):
-                    TRANSLATION_CACHE.delete_override(int(oid)); FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False); status_var.set("Manual override deleted.")
-            action(buttons, "Delete Manual Override", delete_selected)
+                if not item:
+                    status_var.set("Select a row before deleting."); return
+                source = str(item.get("normalized_source") or item.get("source_text") or "")
+                target = str(item.get("target_lang") or target_var.get() or "en")
+                if not source:
+                    status_var.set("Selected row has no source key to delete."); return
+                msg = "Delete this grouped translation entry?\n\nThis removes the manual override, machine-cache rows, and failure cooldowns for the selected source/target."
+                if self.messagebox.askyesno("Translation Cache", msg):
+                    result = TRANSLATION_CACHE.delete_grouped_entry(source, target)
+                    FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False)
+                    status_var.set(f"Deleted selected entry: {result.get('overrides',0)} override(s), {result.get('cache',0)} cache row(s), {result.get('failures',0)} cooldown(s).")
+                    self.set_status("Translation cache entry deleted")
+
+            def clear_all_translation_entries():
+                msg = "Delete ALL translation cache manager entries?\n\nThis removes machine cache, manual overrides, and failure cooldowns. Aliases, exclusions, and phrase overrides are not affected."
+                if self.messagebox.askyesno("Translation Cache", msg):
+                    result = TRANSLATION_CACHE.clear_all_entries(include_overrides=True)
+                    FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False)
+                    status_var.set(f"Deleted all translation entries: {result.get('cache',0)} cache, {result.get('overrides',0)} overrides, {result.get('failures',0)} cooldowns.")
+                    self.set_status("Translation cache manager entries cleared")
+
+            action(buttons, "Delete Selected Entry", delete_selected)
+            action(buttons, "Delete All Entries", clear_all_translation_entries)
             action(buttons, "Clean Duplicates", clean_duplicate_rows)
             action(buttons, "Cache Status", self.show_translation_cache)
             refresh_rows(keep_selection=False)
