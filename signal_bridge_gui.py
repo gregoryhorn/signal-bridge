@@ -2001,6 +2001,21 @@ def extract_intel(text: str, db: EveDb):
     for term in sorted(BUILTIN_ASSETS, key=lambda s: -len(s)):
         if re.search(word_boundary(term), text, re.I):
             assets.append(term)
+    # User/manual aliases may replace localized or bad machine-translation text
+    # with canonical English ship/object names for display.  Detect those
+    # canonicals as assets too so they highlight and feed Pilot/Intel history.
+    try:
+        canonical_display = localized_display_from_aliases(text, localized)
+    except Exception:
+        canonical_display = text
+    if canonical_display != text:
+        for term in sorted(BUILTIN_ASSETS, key=lambda s: -len(s)):
+            if re.search(word_boundary(term), canonical_display, re.I):
+                assets.append(term)
+        for ent in localized or []:
+            canonical = str(ent.get("canonical") or "").strip()
+            if canonical and CATALOG.is_ship(canonical):
+                assets.append(canonical)
     if re.search(r"(?<!\w)nv(?!\w)", text, re.I):
         assets.append("No visual")
     # Prefer the longest/canonical asset when a shorthand alias also causes a shorter
