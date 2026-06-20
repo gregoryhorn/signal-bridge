@@ -1,4 +1,5 @@
 ﻿- Alias management: expand dedicated ship/system alias workflows and sample-line testing as real intel shorthand appears.
+- Translation correction workflow: grouped cache rows and dual Original/English editors are in place; future work can add dedicated phrase-override editing if needed.
 - Translation quality: continue collecting live bad translations and promote stable corrections into aliases, phrase overrides, and cache/manual override workflows.
 - Translation cache cleanup: segment-based cache keys now reduce duplicated/polluted Google/Argos rows while keeping manual overrides as the highest-priority correction layer.
 - Feed/Pilot Info UX: continue refining compact tactical cards, entity separation, and status/signal classification.
@@ -518,4 +519,5 @@ Suggested implementation:
 - Alias workflow: continue validating multilingual intel where Latin system/ship shorthand is adjacent to Chinese characters or punctuation.
 - Completed MVP groundwork for cache-first translation management: manual exact overrides, dedicated cache page, local-first lookup, fallback controls, and failed-translation cooldowns. Phrase-level editing remains a future refinement.
 - Refined Translation Cache Manager usability with split original/translated views, live filtering, and inline auto-save editing for manual fixes.
+
 

@@ -998,6 +998,138 @@ class TranslationCache:
             write_log("Translation cache recent entries failed", exc)
         return out
 
+    def grouped_entries(self, original_filter: str = "", translated_filter: str = "", limit: int = 250) -> list[dict]:
+        """Return one logical editable row per normalized source.
+
+        Manual overrides are the winning value. Raw engine/cache duplicates are
+        folded into metadata so the UI behaves like a correction editor rather
+        than a database viewer.
+        """
+        groups: dict[tuple[str, str], dict] = {}
+        orig_f = str(original_filter or "").strip().casefold()
+        trans_f = str(translated_filter or "").strip().casefold()
+        try:
+            con = sqlite3.connect(self.path)
+            manual_rows = con.execute("""select id, source_text, normalized_source, translated_text, target_lang, enabled,
+                    hit_count, last_used_at, updated_at, note
+                from translation_overrides order by updated_at desc, id desc limit ?""", (max(limit * 3, 500),)).fetchall()
+            cache_rows = con.execute("""select key, source_text, translated_text, target_lang, engine, hit_count,
+                    last_used_at, created_at
+                from translation_cache order by last_used_at desc limit ?""", (max(limit * 4, 800),)).fetchall()
+            con.close()
+            def ensure(norm: str, target: str, source_text: str) -> dict:
+                key = (norm, target)
+                if key not in groups:
+                    groups[key] = {
+                        "kind": "group",
+                        "source_text": source_text,
+                        "normalized_source": norm,
+                        "translated_text": "",
+                        "target_lang": target,
+                        "enabled": True,
+                        "manual_id": None,
+                        "note": "",
+                        "hit_count": 0,
+                        "last_used_at": "",
+                        "updated_at": "",
+                        "duplicate_count": 0,
+                        "records": [],
+                        "engines": set(),
+                        "winning_kind": "cache",
+                    }
+                return groups[key]
+            for r in manual_rows:
+                oid, source_text, norm, translated, target, enabled, hits, last_used, updated, note = r
+                norm = str(norm or self.normalize_source(source_text))
+                target = str(target or "en")
+                g = ensure(norm, target, str(source_text or norm))
+                g["records"].append({"kind": "manual", "id": oid})
+                g["duplicate_count"] += 1
+                g["engines"].add("manual")
+                g["hit_count"] += int(hits or 0)
+                # Newest manual override wins.
+                if not g.get("manual_id"):
+                    g.update({
+                        "kind": "manual",
+                        "manual_id": int(oid),
+                        "id": int(oid),
+                        "source_text": str(source_text or norm),
+                        "translated_text": str(translated or ""),
+                        "target_lang": target,
+                        "enabled": bool(enabled),
+                        "note": str(note or ""),
+                        "last_used_at": str(last_used or ""),
+                        "updated_at": str(updated or ""),
+                        "winning_kind": "manual",
+                    })
+            for r in cache_rows:
+                key, source_text, translated, target, engine, hits, last_used, created = r
+                norm = self.normalize_source(source_text)
+                if not norm:
+                    continue
+                target = str(target or "en")
+                g = ensure(norm, target, str(source_text or norm))
+                g["records"].append({"kind": "cache", "key": key, "engine": engine})
+                g["duplicate_count"] += 1
+                g["engines"].add(str(engine or "cache"))
+                g["hit_count"] += int(hits or 0)
+                if not g.get("manual_id") and not g.get("translated_text"):
+                    g.update({
+                        "kind": "cache",
+                        "source_text": str(source_text or norm),
+                        "translated_text": str(translated or ""),
+                        "target_lang": target,
+                        "enabled": True,
+                        "note": "",
+                        "last_used_at": str(last_used or ""),
+                        "updated_at": str(created or ""),
+                        "winning_kind": "cache",
+                    })
+            rows = []
+            for g in groups.values():
+                g["engines"] = ", ".join(sorted(g.get("engines") or []))
+                if orig_f and orig_f not in str(g.get("source_text") or "").casefold():
+                    continue
+                if trans_f and trans_f not in str(g.get("translated_text") or "").casefold():
+                    continue
+                rows.append(g)
+            rows.sort(key=lambda x: (0 if x.get("manual_id") else 1, str(x.get("updated_at") or x.get("last_used_at") or "")), reverse=False)
+            # Put most recently changed/used manual rows first, then cache rows.
+            rows.sort(key=lambda x: (1 if x.get("manual_id") else 0, str(x.get("updated_at") or x.get("last_used_at") or "")), reverse=True)
+            return rows[:limit]
+        except Exception as exc:
+            write_log("Translation cache grouped entries failed", exc)
+            return []
+
+    def cleanup_duplicate_machine_rows(self, dry_run: bool = False) -> int:
+        """Remove exact duplicate machine cache rows, keeping newest/highest-hit per normalized source/target/engine."""
+        removed = 0
+        try:
+            con = sqlite3.connect(self.path)
+            rows = con.execute("select key, source_text, target_lang, engine, hit_count, last_used_at from translation_cache").fetchall()
+            keep: dict[tuple[str, str, str], tuple[str, int, str]] = {}
+            doomed: list[str] = []
+            for key, source_text, target, engine, hits, last_used in rows:
+                gkey = (self.normalize_source(source_text), str(target or "en"), str(engine or ""))
+                score = (int(hits or 0), str(last_used or ""))
+                if gkey not in keep:
+                    keep[gkey] = (str(key), score[0], score[1])
+                    continue
+                old_key, old_hits, old_last = keep[gkey]
+                if score > (old_hits, old_last):
+                    doomed.append(old_key)
+                    keep[gkey] = (str(key), score[0], score[1])
+                else:
+                    doomed.append(str(key))
+            if doomed and not dry_run:
+                with con:
+                    con.executemany("delete from translation_cache where key=?", [(k,) for k in doomed])
+            con.close()
+            removed = len(doomed)
+        except Exception as exc:
+            write_log("Translation duplicate cache cleanup failed", exc)
+        return removed
+
     def override_count(self) -> int:
         try:
             con=sqlite3.connect(self.path); row=con.execute("select count(*) from translation_overrides where enabled=1").fetchone(); con.close(); return int(row[0] or 0)
@@ -3763,7 +3895,7 @@ class SignalBridgeGui:
             r = row(c_engine); action(r, "Refresh Argos Status", self.refresh_argos_status); action(r, "Install / Repair Argos", self.install_argos_models); action(r, "Test Translation", self.test_translation_engine)
             r2 = row(c_engine); action(r2, "Open Translation Cache...", lambda: render_page("Translation Cache")); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
         def render_translation_cache():
-            c = card(body, "Translation Cache Manager", "Cache-first translation controls and manual fixes. Select a row, edit either side, and changes auto-save as a manual override.")
+            c = card(body, "Translation Cache Manager", "Grouped correction editor. One logical row per source phrase; manual edits override Google/Argos and hidden duplicates.")
             count, hits = TRANSLATION_CACHE.stats(); overrides = TRANSLATION_CACHE.override_count()
             label(c, f"Cache: {count} entries / {hits} hits | Manual overrides: {overrides}", "#8b98a8")
             label(c, f"File: {TRANSLATION_CACHE_PATH}", "#8b98a8")
@@ -3781,7 +3913,7 @@ class SignalBridgeGui:
             target_var = tk.StringVar(value="en")
             enabled_var = tk.BooleanVar(value=True)
             note_var = tk.StringVar()
-            status_var = tk.StringVar(value="Type in either filter box to live-filter. Select a row to edit; edits auto-save.")
+            status_var = tk.StringVar(value="Type in either filter box to live-filter. Select a grouped row to edit Original and English below.")
 
             filter_frame = tk.Frame(c, bg="#0b0f14"); filter_frame.pack(fill="x", pady=(8, 4))
             left_filter = tk.Frame(filter_frame, bg="#0b0f14"); left_filter.pack(side="left", fill="x", expand=True, padx=(0, 6))
@@ -3795,7 +3927,7 @@ class SignalBridgeGui:
             left = tk.Frame(tables, bg="#0b0f14"); left.pack(side="left", fill="both", expand=True, padx=(0, 6))
             right = tk.Frame(tables, bg="#0b0f14"); right.pack(side="left", fill="both", expand=True, padx=(6, 0))
             tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
-            tk.Label(right, text="Translated", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            tk.Label(right, text="English", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
             orig_list = tk.Listbox(left, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
             trans_list = tk.Listbox(right, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
             orig_scroll = tk.Scrollbar(left, orient="vertical", command=orig_list.yview)
@@ -3804,7 +3936,7 @@ class SignalBridgeGui:
             orig_list.pack(side="left", fill="both", expand=True); orig_scroll.pack(side="right", fill="y")
             trans_list.pack(side="left", fill="both", expand=True); trans_scroll.pack(side="right", fill="y")
 
-            editor = tk.LabelFrame(c, text="Edit selected translation", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+            editor = tk.LabelFrame(c, text="Edit selected correction", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
             editor.pack(fill="x", pady=(4, 6))
             edit_cols = tk.Frame(editor, bg="#0b0f14"); edit_cols.pack(fill="x")
             src_col = tk.Frame(edit_cols, bg="#0b0f14"); src_col.pack(side="left", fill="both", expand=True, padx=(0, 6))
@@ -3812,7 +3944,7 @@ class SignalBridgeGui:
             tk.Label(src_col, text="Original / source", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
             src_text = tk.Text(src_col, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
             src_text.pack(fill="x")
-            tk.Label(dst_col, text="Translated / corrected", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            tk.Label(dst_col, text="English / corrected", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
             dst_text = tk.Text(dst_col, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
             dst_text.pack(fill="x")
             opts = tk.Frame(editor, bg="#0b0f14"); opts.pack(fill="x", pady=(6, 0))
@@ -3844,16 +3976,14 @@ class SignalBridgeGui:
                 old_src = get_text(src_text) if keep_selection else ""
                 src_filter = original_filter.get().strip().casefold()
                 dst_filter = translated_filter.get().strip().casefold()
-                rows = TRANSLATION_CACHE.recent_entries("", 250)
-                if src_filter:
-                    rows = [r for r in rows if src_filter in str(r.get("source_text") or "").casefold()]
-                if dst_filter:
-                    rows = [r for r in rows if dst_filter in str(r.get("translated_text") or "").casefold()]
+                rows = TRANSLATION_CACHE.grouped_entries(src_filter, dst_filter, 250)
                 state["items"] = rows
                 orig_list.delete(0, "end"); trans_list.delete(0, "end")
                 for item in rows:
-                    prefix = "M" if item.get("kind") == "manual" else "C"
-                    orig_list.insert("end", f"[{prefix}] {preview(item.get('source_text'))}")
+                    prefix = "M" if item.get("manual_id") else "C"
+                    dup = int(item.get("duplicate_count") or 1)
+                    meta = f" d{dup}" if dup > 1 else ""
+                    orig_list.insert("end", f"[{prefix}{meta}] {preview(item.get('source_text'))}")
                     trans_list.insert("end", preview(item.get("translated_text")))
                 new_idx = None
                 if keep_selection and old_src:
@@ -3864,7 +3994,8 @@ class SignalBridgeGui:
                 if new_idx is not None:
                     orig_list.selection_set(new_idx); trans_list.selection_set(new_idx)
                     orig_list.see(new_idx); trans_list.see(new_idx)
-                status_var.set(f"Showing {len(rows)} row(s). Manual edits auto-save as overrides.")
+                hidden = sum(max(0, int(r.get("duplicate_count") or 1) - 1) for r in rows)
+                status_var.set(f"Showing {len(rows)} grouped row(s). Hidden duplicate records: {hidden}. Manual edits auto-save as overrides.")
 
             def select_index(idx):
                 if idx is None or idx < 0 or idx >= len(state["items"]):
@@ -3879,7 +4010,7 @@ class SignalBridgeGui:
                 target_var.set(str(item.get("target_lang") or "en"))
                 enabled_var.set(bool(item.get("enabled", True)))
                 note_var.set(str(item.get("note") or ""))
-                status_var.set("Editing selected row. Changes auto-save after you stop typing.")
+                status_var.set(f"Editing grouped row. Source: {item.get('winning_kind','cache')}; duplicates hidden: {max(0, int(item.get('duplicate_count') or 1)-1)}; engines: {item.get('engines','')}")
 
             def on_select(event=None):
                 widget = event.widget if event is not None else orig_list
@@ -3902,7 +4033,7 @@ class SignalBridgeGui:
                 if not source or not translated:
                     status_var.set("Source and translated text are required before auto-save."); return
                 item = selected_item()
-                override_id = item.get("id") if item and item.get("kind") == "manual" else None
+                override_id = item.get("manual_id") if item and item.get("manual_id") else None
                 state["saving"] = True
                 oid = TRANSLATION_CACHE.save_override(source, translated, target_var.get(), "auto" if target_var.get()=="en" else "en", note_var.get(), enabled_var.get(), override_id)
                 state["saving"] = False
@@ -3910,7 +4041,7 @@ class SignalBridgeGui:
                     status_var.set("Auto-save failed: source and translation are required."); return
                 FREE_TRANSLATION_CACHE.clear()
                 if item:
-                    item.update({"kind":"manual", "id": oid, "source_text": source, "translated_text": translated, "target_lang": target_var.get(), "enabled": enabled_var.get(), "note": note_var.get()})
+                    item.update({"kind":"manual", "manual_id": oid, "id": oid, "source_text": source, "normalized_source": TRANSLATION_CACHE.normalize_source(source), "translated_text": translated, "target_lang": target_var.get(), "enabled": enabled_var.get(), "note": note_var.get(), "winning_kind": "manual"})
                 status_var.set("Saved manual override. Feed update scheduled.")
                 self.set_status("Manual translation override saved")
                 self.schedule_redraw(80)
@@ -3938,14 +4069,22 @@ class SignalBridgeGui:
             original_filter.trace_add("write", live_filter)
             translated_filter.trace_add("write", live_filter)
 
+            def clean_duplicate_rows():
+                removed = TRANSLATION_CACHE.cleanup_duplicate_machine_rows(False)
+                status_var.set(f"Cleaned {removed} duplicate machine-cache record(s). Manual overrides were not deleted.")
+                self.set_status(f"Cleaned {removed} translation cache duplicates")
+                refresh_rows(False)
+
             buttons = row(c)
             action(buttons, "New Override", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New override: enter original and translated text; it will auto-save.")))
             action(buttons, "Save Now", save_now)
             def delete_selected():
                 item = selected_item()
-                if item and item.get("kind") == "manual" and item.get("id") and self.messagebox.askyesno("Translation Cache", "Delete this manual override?"):
-                    TRANSLATION_CACHE.delete_override(int(item["id"])); FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False); status_var.set("Manual override deleted.")
+                oid = item.get("manual_id") if item else None
+                if item and oid and self.messagebox.askyesno("Translation Cache", "Delete this manual override?"):
+                    TRANSLATION_CACHE.delete_override(int(oid)); FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False); status_var.set("Manual override deleted.")
             action(buttons, "Delete Manual Override", delete_selected)
+            action(buttons, "Clean Duplicates", clean_duplicate_rows)
             action(buttons, "Cache Status", self.show_translation_cache)
             refresh_rows(keep_selection=False)
 
