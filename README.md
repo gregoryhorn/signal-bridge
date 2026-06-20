@@ -1,91 +1,23 @@
 # Signal Bridge v0.4 Alpha
 
-Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
+Signal Bridge is a lightweight portable Windows app for EVE Online live chat monitoring, CN/EN translation, intel/entity highlighting, ESI pilot lookups, zKill-aware Pilot Info, aliases, exclusions, and cache-first translation correction.
 
-## Optional Intel History add-on
+It is designed for players who want a compact side-panel tool beside EVE: no installer, no admin requirement, live-only chat monitoring by default, and a clean local-first workflow.
 
-Signal Bridge's first planned optional add-on is **Intel History / Pilot Intelligence**. It is designed to keep the core app lightweight while adding local pilot profiles, ESI-confirmed sighting history, manual/auto flags, optional zKill enrichment, import/export intel packs, and a read-only Intel Query Service for future LLM-assisted intel questions.
+Current version: **0.4**
 
-See [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md) for the planning spec.
+## Screenshot
 
+![Signal Bridge v0.4 screenshot](docs/images/signal-bridge-v0.4-screenshot.png)
 
-## Version
-
-## Add-ons foundation
-
-Signal Bridge now includes the first lightweight add-ons foundation in **Settings > Add-ons**. The base app stays lean while preparing for the future optional **Intel History / Pilot Intelligence** add-on. The foundation can inspect Intel History status, keep add-on code under `modules/`, keep user data under `user_data/modules/`, install an official/local add-on ZIP, enable/disable the add-on state, and remove add-on code while keeping local data.
-
-The Intel History analysis engine itself is still planned; see [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
-
-
-Current version: 0.4
-
-
-## v0.3 Optional ESI
-
-Public ESI entity recognition is enabled by default in v0.3. OAuth remains disabled unless the user opts in for future character-aware features.
-
-Signal Bridge includes optional ESI/OAuth foundation for future EVE entity recognition and character-aware features. ESI is **disabled by default** and is never required for normal live chat monitoring or translation.
-
-ESI features:
-
-- cache-first SQLite entity cache at `cache/esi_cache.sqlite`,
-- 30-day positive cache for resolved players/entities,
-- negative cache to avoid repeated bad lookups,
-- background resolver queue only,
-- right-click sender resolve/refresh/ignore actions,
-- optional OAuth using `http://localhost:8080/callback`,
-- temporary listener bound to `127.0.0.1:8080` only during authorization,
-- local-only client secret/token storage in ignored `config/` files.
-
-## Current Interaction Behavior
-
-- Right-click a feed row for copy actions.
-- HTTP/HTTPS URLs can be clicked or copied from the context menu.
-- Use `Settings > Open Logs Folder` to inspect startup/error logs.
-- Use `Help > Check for Updates` to manually check the latest GitHub release.
-- Monitoring remains live-only by default; old chat history is not backfilled.
-
-## Current Tab Behavior
-
-- `All` is the default combined chat tab.
-- New chat tabs appear automatically unless manually hidden.
-- New tabs never steal focus.
-- Unread indicators clear when the tab is focused.
-- Hidden tabs can be restored from the Channels menu or the `+ Hidden (N)` tab-bar button.
-- Tabs wrap/stack when the window is narrowed and can be drag-reordered with hover/drag visual polish.
-- All tab shows combined chat while channel tabs stay focused.
-
-## Planned Roadmap
-
-See [ROADMAP.md](ROADMAP.md) for planned features, including tab polish, right-click/copy support, automatic translation catalog updates from GitHub, ESI character detection, URL auto-linking, and release/signing improvements.
-
-
-
-## Display, Layout, and Appearance
-
-Signal Bridge opens by default in a narrow mobile-style side-panel layout (`430x720`) so it can sit beside EVE without consuming a wide monitor area. You can still resize the window normally.
-
-Use `View > Appearance / Display Options...` to tune the feed for your eyes and monitor:
-
-- choose a preset: Default Dark, Soft Dark, Low Color / Minimal, High Contrast, or Overlay Transparent;
-- change font family and font size;
-- adjust whole-window opacity for overlay-style use;
-- enable/disable background highlight rectangles;
-- edit each highlight category with both a visible swatch and editable hex color code;
-- toggle bold per category;
-- preview changes live before applying.
-
-Highlight categories include Timestamp, Sender, Systems, Characters / ESI, Ships, Modules / Assets, ESS, Translation, and Links. Sender names are neutral by default to reduce distraction.
-
-Use `Tools > General Exclusion List...` for words or names that should stay visually neutral. Excluded terms suppress recognition/highlighting globally, including ESI red, ship orange, asset/module purple, system yellow, and ESS blue rules.
+Signal Bridge v0.4 showing the live EVE intel feed, translation workflow, ESI/Pilot Info support, configurable cache tools, aliases, exclusions, and compact Windows desktop layout.
 
 ## Download
 
 Get the Windows portable app from the GitHub release:
 
-- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2)
-- **Direct download:** [SignalBridge-v0.4-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/SignalBridge-v0.4-win64-portable.zip)
+- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.4](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.4)
+- **Direct download:** [SignalBridge-v0.4-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.4/SignalBridge-v0.4-win64-portable.zip)
 
 Extract the ZIP, then run:
 
@@ -98,31 +30,41 @@ No installer is required. The ZIP is the standalone portable package; keep the e
 SHA256:
 
 ```text
-A7AFFFDE24F94659D9ED196827544153350E05334A19C730EA01031FEC9889EE
+F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 ```
-
-## Screenshot
-
-![Signal Bridge v0.4 screenshot](docs/images/signal-bridge-v0.4-screenshot.png)
-
-Signal Bridge v0.4 showing the live EVE intel feed, translation workflow, ESI/Pilot Info support, configurable cache tools, aliases, exclusions, and compact Windows desktop layout.
-
 
 ## Features
 
-- Portable Windows app: no installer required.
+- Portable Windows app: no installer or admin rights required.
+- Live-only EVE chatlog monitoring by default; old history is not replayed on startup.
 - Dynamic EVE chat channel discovery; no channel is hard-coded.
-- Active channels appear as tabs; each tab has an `x` button to close/hide it.
-- Solar systems highlighted in yellow.
-- Ships/assets highlighted in red.
-- `ESS` highlighted in light blue.
-- EVE localization DB support for Chinese/localized ship names to English canonical names.
-- Free Google auto-detect translation to English.
-- Optional Argos Translate offline fallback.
-- Optional EN -> CN mode.
-- Always-on-top mode.
-- Configurable font family, font size, and timestamp visibility.
-- Saves settings locally in the portable app folder.
+- Combined `All` tab plus selectable channel tabs with unread state, hidden-tab restore, and drag/wrap behavior.
+- CN -> EN and EN -> CN translation modes with cache-first correction support.
+- Translation Cache Manager with editable Original/English corrections, grouped duplicate rows, delete/reset actions, and clean bundled starter cache.
+- Compact EVE catalog with catalog-driven Chinese/localized ship-name detection and curated slang aliases.
+- User-managed aliases and general exclusion list packaged with the portable app.
+- Solar systems, pilots/characters, ships/assets, ESS, URLs, and tactical intel are highlighted separately.
+- Optional ESI-backed entity detection with local SQLite cache and background-only lookups.
+- Pilot Info cards with character ID, zKill link/sync, recent local history, manual flags, and optional Intel History add-on support.
+- Appearance controls for font, opacity, themes, highlight colors, timestamp visibility, and compact side-panel layout.
+- Diagnostics, logs, health/about status, update checks, and local-only settings.
+- Optional Argos Translate scaffolding remains safety-gated; Google remains the primary online fallback.
+
+## Current App Notes
+
+- Signal Bridge opens by default in a narrow mobile-style side-panel layout (`430x720`) so it can sit beside EVE without consuming a wide monitor area.
+- Use `View > Appearance / Display Options...` to tune fonts, colors, opacity, and highlight categories.
+- Use `Settings > Translation Cache` to edit translation corrections.
+- Use `Settings > Aliases` to manage ship/system aliases.
+- Use `Tools > General Exclusion List...` for words or names that should stay visually neutral.
+- Use `Help > Check for Updates` to manually check the latest GitHub release.
+- See [ROADMAP.md](ROADMAP.md) for planned work including LAN viewer, UI polish, automation, signing, and Intel History improvements.
+
+## Optional Intel History add-on
+
+Signal Bridge includes a lightweight add-ons foundation in **Settings > Add-ons**. The first optional add-on is **Intel History / Pilot Intelligence**, designed to keep the core app lightweight while adding local pilot profiles, ESI-confirmed sighting history, manual/auto flags, optional zKill enrichment, import/export intel packs, and future read-only intel query support.
+
+See [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md) for the planning spec.
 
 ## Quick Start
 
