@@ -66,6 +66,7 @@ PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
 DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
 DEFAULT_ESI_ENTITIES_PATH = DATA_DIR / "default_esi_entities.json"
 TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
+ZKILL_CACHE_PATH = CACHE_DIR / "zkill_cache.json"
 ESI_CONFIG_PATH = CONFIG_DIR / "esi_settings.json"
 ESI_TOKENS_PATH = CONFIG_DIR / "esi_tokens.json"
 ESI_CACHE_PATH = CACHE_DIR / "esi_cache.sqlite"
@@ -4519,46 +4520,164 @@ class SignalBridgeGui:
             }
         self.show_pilot_info_card(profile)
 
+    def load_zkill_cache(self) -> dict:
+        try:
+            if ZKILL_CACHE_PATH.exists():
+                data = json.loads(ZKILL_CACHE_PATH.read_text(encoding="utf-8"))
+                return data if isinstance(data, dict) else {}
+        except Exception as exc:
+            write_log("zKill cache load failed", exc)
+        return {}
+
+    def save_zkill_cache(self, data: dict) -> None:
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            ZKILL_CACHE_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception as exc:
+            write_log("zKill cache save failed", exc)
+
+    def get_zkill_summary(self, pilot_id: int) -> dict:
+        cache = self.load_zkill_cache()
+        return cache.get(str(int(pilot_id))) or {"status": "not_synced"}
+
+    def set_zkill_summary(self, pilot_id: int, summary: dict) -> None:
+        cache = self.load_zkill_cache()
+        cache[str(int(pilot_id))] = summary
+        self.save_zkill_cache(cache)
+
+    def start_zkill_sync(self, pilot_id: int, pilot_name: str, callback):
+        def worker():
+            started = time.time()
+            now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            summary = {"status": "failed", "synced_at": now, "last_error": "unknown"}
+            ok = False
+            try:
+                headers = {"User-Agent": f"SignalBridge/{APP_VERSION} contact=github.com/gregoryhorn/signal-bridge"}
+                base = f"https://zkillboard.com/api/{{kind}}/characterID/{int(pilot_id)}/pastSeconds/2592000/"
+                out = {}
+                for kind in ("kills", "losses"):
+                    req = urllib.request.Request(base.format(kind=kind), headers=headers)
+                    with urllib.request.urlopen(req, timeout=8) as resp:
+                        payload = json.loads(resp.read().decode("utf-8", "replace"))
+                    out[kind] = payload if isinstance(payload, list) else []
+                    time.sleep(1.1)
+                kills = out.get("kills") or []
+                losses = out.get("losses") or []
+                all_items = kills + losses
+                latest = ""
+                try:
+                    latest = max(str(x.get("killmail_time") or "") for x in all_items) if all_items else ""
+                except Exception:
+                    latest = ""
+                isk_destroyed = sum(float(((x.get("zkb") or {}).get("totalValue") or 0)) for x in kills[:50])
+                isk_lost = sum(float(((x.get("zkb") or {}).get("totalValue") or 0)) for x in losses[:50])
+                danger = []
+                if len(kills) >= 10:
+                    danger.append("active killer")
+                if any(float(((x.get("zkb") or {}).get("totalValue") or 0)) >= 1_000_000_000 for x in kills[:20]):
+                    danger.append("high-value kills")
+                if len(losses) >= 10:
+                    danger.append("frequent losses")
+                summary = {
+                    "status": "synced",
+                    "pilot_id": int(pilot_id),
+                    "pilot_name": pilot_name,
+                    "synced_at": now,
+                    "latest_killmail": latest,
+                    "recent_kills_30d": len(kills),
+                    "recent_losses_30d": len(losses),
+                    "isk_destroyed_30d": round(isk_destroyed),
+                    "isk_lost_30d": round(isk_lost),
+                    "danger_tags": danger,
+                    "duration_ms": int((time.time() - started) * 1000),
+                    "last_error": "",
+                }
+                self.set_zkill_summary(int(pilot_id), summary)
+                ok = True
+                record_event("zkill_sync_completed", pilot_id=int(pilot_id), kills=len(kills), losses=len(losses), duration_ms=summary["duration_ms"])
+            except Exception as exc:
+                err = f"{type(exc).__name__}: {exc}"
+                summary = {"status": "failed", "pilot_id": int(pilot_id), "pilot_name": pilot_name, "synced_at": now, "last_error": err, "duration_ms": int((time.time() - started) * 1000)}
+                self.set_zkill_summary(int(pilot_id), summary)
+                write_log("zKill sync failed", exc)
+                record_event("zkill_sync_failed", pilot_id=int(pilot_id), error=err[:240], duration_ms=summary["duration_ms"])
+            self.queue.put(("zkill_sync_result", ok, summary, pilot_id, callback))
+        record_event("zkill_sync_started", pilot_id=int(pilot_id))
+        threading.Thread(target=worker, daemon=True).start()
+
     def show_pilot_info_card(self, profile: dict):
         tk = self.tk
         pilot = profile.get("pilot") or {}
         pilot_id = int(pilot.get("pilot_id") or 0)
         name = pilot.get("name") or "Unknown Pilot"
+        opened = time.time()
         win = tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=430, height=680, minsize=(360, 420), title=f"Pilot Info - {name}")
-        header = tk.Frame(win, bg="#111821", padx=10, pady=8)
+        self.polish_window(win, self.root, width=500, height=560, minsize=(430, 360), title=f"Pilot Info - {name}")
+        header = tk.Frame(win, bg="#111821", padx=10, pady=7)
         header.pack(fill="x")
-        corp = pilot.get("corp_name") or "Unknown corporation"
-        alliance = pilot.get("alliance_name") or "No alliance"
-        title = tk.Label(header, text=f"{name}, {corp}", bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(12, int(self.font_size.get()) + 2), "bold"), wraplength=390, justify="left")
-        title.pack(anchor="w")
-        sub = tk.Label(header, text=f"{alliance}\n" + "─" * 28, bg="#111821", fg="#8b98a8", justify="left")
-        sub.pack(anchor="w")
-        nav = tk.Label(header, text="Summary", bg="#111821", fg="#5ad7ff")
-        nav.pack(anchor="w", pady=(4, 0))
-        body = tk.Frame(win, bg="#0b0f14")
+        body = tk.Frame(win, bg="#0b0f14", padx=8, pady=6)
         body.pack(fill="both", expand=True)
         actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
         actions.pack(fill="x")
 
-        def clear_body(view="Summary"):
-            nav.configure(text=view)
-            for child in body.winfo_children():
-                child.destroy()
+        def clean_value(value, empty="—"):
+            text = str(value or "").strip()
+            return text if text and text != "-" else empty
 
-        def card(parent, title_text):
-            f = self.card_frame(parent)
+        def count_label(value):
+            try:
+                n = int(value or 0)
+            except Exception:
+                n = 0
+            return f" ×{n}" if n > 1 else ""
+
+        def fmt_isk(value):
+            try:
+                n = float(value or 0)
+            except Exception:
+                return "—"
+            if n >= 1_000_000_000:
+                return f"{n/1_000_000_000:.1f}b ISK"
+            if n >= 1_000_000:
+                return f"{n/1_000_000:.0f}m ISK"
+            return f"{n:.0f} ISK"
+
+        def chip(parent, text, bg="#1c2835", fg="#d7dde5"):
+            tk.Label(parent, text=str(text), bg=bg, fg=fg, padx=6, pady=2).pack(side="left", padx=(0, 4), pady=2)
+
+        def section(parent, title_text):
+            f = tk.Frame(parent, bg="#0f1722", padx=8, pady=6)
+            f.pack(fill="x", pady=(0, 6))
             tk.Label(f, text=title_text, bg=f.cget("bg"), fg="#f2f5f8", font=(self.font_family.get(), int(self.font_size.get()), "bold")).pack(anchor="w")
             return f
 
         def label(parent, text, color="#d7dde5"):
-            tk.Label(parent, text=str(text), bg=parent.cget("bg"), fg=color, justify="left", wraplength=380).pack(anchor="w")
+            tk.Label(parent, text=str(text), bg=parent.cget("bg"), fg=color, justify="left", wraplength=455).pack(anchor="w")
 
         def button(parent, text, command):
             tk.Button(parent, text=text, command=command, bg="#1c2835", fg="#d7dde5", activebackground="#263544", activeforeground="#ffffff", relief="flat").pack(side="left", padx=3, pady=2)
 
         def active_flags():
             return [f for f in profile.get("flags", []) if int(f.get("active", 0) or 0)]
+
+        def latest_row():
+            recent = profile.get("recent_sightings", []) or []
+            return recent[0] if recent else {}
+
+        def render_header():
+            for child in header.winfo_children(): child.destroy()
+            corp = clean_value(pilot.get("corp_name"), "Unknown corporation")
+            alliance = clean_value(pilot.get("alliance_name"), "No alliance")
+            last = latest_row()
+            zks = self.get_zkill_summary(pilot_id)
+            tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(13, int(self.font_size.get()) + 3), "bold"), wraplength=460, justify="left").pack(anchor="w")
+            meta = f"{corp} · {alliance}"
+            tk.Label(header, text=meta, bg="#111821", fg="#8b98a8", justify="left", wraplength=460).pack(anchor="w")
+            last_bits = f"Last: {self.friendly_datetime(last.get('timestamp')) if last else 'unknown'} · {clean_value(last.get('system_name'))} · {profile.get('report_count', 0)} reports · zKill: {zks.get('status','not_synced').replace('_',' ')}"
+            tk.Label(header, text=last_bits, bg="#111821", fg="#5ad7ff", justify="left", wraplength=460).pack(anchor="w", pady=(3, 0))
+
+        def clear_body():
+            for child in body.winfo_children(): child.destroy()
 
         def refresh_profile():
             nonlocal profile, pilot
@@ -4569,77 +4688,96 @@ class SignalBridgeGui:
             render_summary()
 
         def render_summary():
-            clear_body("Summary")
-            recent = profile.get("recent_sightings", [])
-            last = recent[0] if recent else {}
-            c = card(body, "Summary")
-            label(c, f"Reports: {profile.get('report_count', 0)}")
-            label(c, f"First seen: {pilot.get('first_seen') or 'unknown'}")
-            label(c, f"Last seen: {pilot.get('last_seen') or 'unknown'}")
-            label(c, f"Last sighting: {last.get('timestamp','none')} — {last.get('system_name') or '-'} — {last.get('ship_name') or '-'}")
-            c = card(body, "Flags")
+            clear_body(); render_header()
             flags = active_flags()
-            flag_text = ", ".join(((f.get("icon") or "") + " " + (f.get("label") or f.get("flag") or "")).strip() for f in flags) if flags else "No active flags."
-            label(c, flag_text)
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Add/Edit Flags", render_flags)
-            c = card(body, "Recent Activity")
-            for r0 in recent[:5]:
-                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}")
+            strip = tk.Frame(body, bg="#0b0f14"); strip.pack(fill="x", pady=(0, 4))
+            if flags:
+                for f in flags[:5]: chip(strip, ((f.get("icon") or "") + " " + (f.get("label") or f.get("flag") or "")).strip(), "#392333", "#ffd1dc")
+            else:
+                chip(strip, "No active flags", "#14202d", "#8b98a8")
+            for x in (profile.get("top_systems") or [])[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#24351a", "#ffe16a")
+            for x in (profile.get("top_ships") or [])[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
+
+            last = latest_row()
+            sbox = section(body, "Summary")
+            grid = tk.Frame(sbox, bg=sbox.cget("bg")); grid.pack(fill="x", pady=(2, 0))
+            items = [
+                ("Reports", profile.get("report_count", 0)),
+                ("First", self.friendly_datetime(pilot.get("first_seen"))),
+                ("Last", self.friendly_datetime(pilot.get("last_seen"))),
+                ("System", clean_value(last.get("system_name"))),
+                ("Ship/Status", clean_value(last.get("ship_name"), "Unknown")),
+            ]
+            for i, (k, v) in enumerate(items):
+                tk.Label(grid, text=f"{k}: ", bg=grid.cget("bg"), fg="#8b98a8").grid(row=i//2, column=(i%2)*2, sticky="w", padx=(0, 2))
+                tk.Label(grid, text=str(v), bg=grid.cget("bg"), fg="#d7dde5").grid(row=i//2, column=(i%2)*2+1, sticky="w", padx=(0, 14))
+
+            abox = section(body, "Recent Activity")
+            recent = profile.get("recent_sightings", []) or []
             if not recent:
-                label(c, "No local sightings yet.", "#8b98a8")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_sightings)
-            c = card(body, "Top Ships")
-            label(c, "; ".join(f"{x.get('name')} {x.get('reports') or x.get('sightings')}" for x in profile.get("top_ships", [])[:5]) or "No ship history yet.")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_ships)
-            c = card(body, "Top Systems")
-            label(c, "; ".join(f"{x.get('name')} {x.get('reports') or x.get('sightings')}" for x in profile.get("top_systems", [])[:5]) or "No system history yet.")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(4,0)); button(r, "Details", render_systems)
+                label(abox, "No local sightings yet.", "#8b98a8")
+            else:
+                for r0 in recent[:6]:
+                    tm = self.friendly_datetime(r0.get("timestamp")).replace("Today ", "")
+                    sysname = clean_value(r0.get("system_name"))
+                    ship = clean_value(r0.get("ship_name"), "Unknown")
+                    cnt = count_label(r0.get("duplicate_count", 1))
+                    label(abox, f"{tm:<10}  {sysname:<8}  {ship}{cnt}")
+
+            tbox = section(body, "Top")
+            row1 = tk.Frame(tbox, bg=tbox.cget("bg")); row1.pack(fill="x")
+            tk.Label(row1, text="Ships:", bg=row1.cget("bg"), fg="#8b98a8").pack(side="left")
+            ships = (profile.get("top_ships") or [])[:5]
+            if ships:
+                for x in ships: chip(row1, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
+            else: chip(row1, "None", "#14202d", "#8b98a8")
+            row2 = tk.Frame(tbox, bg=tbox.cget("bg")); row2.pack(fill="x")
+            tk.Label(row2, text="Systems:", bg=row2.cget("bg"), fg="#8b98a8").pack(side="left")
+            systems = (profile.get("top_systems") or [])[:5]
+            if systems:
+                for x in systems: chip(row2, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#24351a", "#ffe16a")
+            else: chip(row2, "None", "#14202d", "#8b98a8")
+
+            zbox = section(body, "zKill")
+            zks = self.get_zkill_summary(pilot_id)
+            if zks.get("status") == "synced":
+                tags = ", ".join(zks.get("danger_tags") or []) or "none"
+                label(zbox, f"Synced: {self.friendly_datetime(zks.get('synced_at'))} | Kills 30d: {zks.get('recent_kills_30d', 0)} | Losses 30d: {zks.get('recent_losses_30d', 0)}")
+                label(zbox, f"ISK: destroyed {fmt_isk(zks.get('isk_destroyed_30d'))}, lost {fmt_isk(zks.get('isk_lost_30d'))} | Tags: {tags}", "#8b98a8")
+            elif zks.get("status") == "syncing":
+                label(zbox, "Syncing zKill in background...", "#5ad7ff")
+            elif zks.get("status") == "failed":
+                label(zbox, f"Sync failed: {zks.get('last_error','unknown')}", "#ff8f8f")
+            else:
+                label(zbox, "Not synced. Use Sync zKill for cached 30-day kill/loss summary.", "#8b98a8")
+
+            self.diagnostics["last_pilot_card_open_ms"] = int((time.time() - opened) * 1000)
+            record_event("pilot_card_rendered", pilot_id=pilot_id, duration_ms=self.diagnostics["last_pilot_card_open_ms"], reports=profile.get("report_count", 0))
 
         def render_sightings():
-            clear_body("Recent Sightings")
-            c = card(body, "Recent Sightings")
+            clear_body(); render_header()
+            c = section(body, "Recent Sightings")
             for r0 in profile.get("recent_sightings", [])[:25]:
-                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {r0.get('system_name') or '-'}  {r0.get('ship_name') or '-'}  x{r0.get('duplicate_count', 1)}  [{r0.get('source','local')}]")
-            if not profile.get("recent_sightings"):
-                label(c, "No local sightings yet.", "#8b98a8")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
-
-        def render_ships():
-            clear_body("Top Ships")
-            c = card(body, "Top Ships")
-            for x in profile.get("top_ships", [])[:25]:
-                label(c, f"{x.get('name')} — reports {x.get('reports') or 0}, sightings {x.get('sightings') or 0}, first {x.get('first_seen') or '-'}, last {x.get('last_seen') or '-'}")
-            if not profile.get("top_ships"):
-                label(c, "No ship history yet.", "#8b98a8")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
-
-        def render_systems():
-            clear_body("Top Systems")
-            c = card(body, "Top Systems")
-            for x in profile.get("top_systems", [])[:25]:
-                label(c, f"{x.get('name')} — reports {x.get('reports') or 0}, sightings {x.get('sightings') or 0}, first {x.get('first_seen') or '-'}, last {x.get('last_seen') or '-'}")
-            if not profile.get("top_systems"):
-                label(c, "No system history yet.", "#8b98a8")
+                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {clean_value(r0.get('system_name'))}  {clean_value(r0.get('ship_name'), 'Unknown')}{count_label(r0.get('duplicate_count', 1))}  [{r0.get('source','local')}]")
+            if not profile.get("recent_sightings"): label(c, "No local sightings yet.", "#8b98a8")
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
 
         def render_flags():
-            clear_body("Flags")
-            c = card(body, "Edit Manual Flags")
-            choices = [("Watchlist", "⭐"), ("FC", "👑"), ("Scout", "👁"), ("Hot Dropper", "🔥"), ("High Threat", "⚠️"), ("Extreme Threat", "☠️"), ("Friendly", ""), ("Do Not Track", "")]
+            clear_body(); render_header()
+            c = section(body, "Edit Manual Flags")
+            choices = [("Watchlist", "★"), ("FC", "FC"), ("Scout", "Scout"), ("Hot Dropper", "🔥"), ("High Threat", "⚠"), ("Extreme Threat", "☠"), ("Friendly", ""), ("Do Not Track", "DNT")]
             current = {f.get("label") or f.get("flag") for f in active_flags() if f.get("source") == "manual"}
             vars = []
             for label_text, icon in choices:
                 var = tk.BooleanVar(value=label_text in current)
                 tk.Checkbutton(c, text=f"{icon} {label_text}".strip(), variable=var, bg=c.cget("bg"), fg="#d7dde5", selectcolor="#0b0f14", activebackground=c.cget("bg"), activeforeground="#ffffff").pack(anchor="w")
                 vars.append((label_text, icon, var))
-            note_label = tk.Label(c, text="Optional note/reason", bg=c.cget("bg"), fg="#8b98a8"); note_label.pack(anchor="w", pady=(6,0))
-            notes = tk.Entry(c, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); notes.pack(fill="x", pady=(2,2))
+            notes = tk.Entry(c, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); notes.pack(fill="x", pady=(6,2))
             def save_flags():
                 selected = [{"flag": label_text, "label": label_text, "icon": icon, "reason": notes.get().strip()} for label_text, icon, var in vars if var.get()]
                 result = self.intel_history_call("set_manual_flags", pilot_id, selected)
                 if result and result.get("ok"):
-                    self.set_status(f"Pilot flags saved: {name}")
-                    refresh_profile()
+                    self.set_status(f"Pilot flags saved: {name}"); refresh_profile()
                 else:
                     self.messagebox.showwarning("Pilot Flags", f"Could not save flags: {result}")
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "Save", save_flags); button(r, "< Back", render_summary)
@@ -4647,17 +4785,28 @@ class SignalBridgeGui:
         def copy_summary():
             text = self.intel_history_call("copyable_pilot_summary", pilot_id)
             if text:
-                self.copy_to_clipboard(text)
-                self.set_status(f"Copied pilot summary: {name}")
+                self.copy_to_clipboard(text); self.set_status(f"Copied pilot summary: {name}")
 
         def open_zkill():
             webbrowser.open(f"https://zkillboard.com/character/{pilot_id}/")
 
-        button(actions, "Copy Summary", copy_summary)
+        def sync_zkill():
+            self.set_zkill_summary(pilot_id, {"status": "syncing", "pilot_id": pilot_id, "pilot_name": name, "synced_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+            render_summary()
+            self.set_status(f"Syncing zKill: {name}")
+            def done(ok, summary, pid):
+                render_summary()
+                self.set_status(("zKill synced" if ok else "zKill sync failed") + f": {name}")
+            self.start_zkill_sync(pilot_id, name, done)
+
+        button(actions, "Copy", copy_summary)
         button(actions, "Flags", render_flags)
+        button(actions, "Activity", render_sightings)
+        button(actions, "Sync zKill", sync_zkill)
         button(actions, "Open zKill", open_zkill)
         button(actions, "Close", win.destroy)
         render_summary()
+
 
     def clicked_context(self, event, row: Row | None) -> dict:
         """Resolve the exact clicked token/span for the context menu.
@@ -5308,6 +5457,10 @@ class SignalBridgeGui:
                     self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
                 elif isinstance(item, tuple) and item[0] == "translation_result":
                     self.handle_translation_result(item[1], item[2], item[3], item[4], item[5], item[6])
+                elif isinstance(item, tuple) and item[0] == "zkill_sync_result":
+                    handler = item[4] if len(item) > 4 else None
+                    if callable(handler):
+                        handler(item[1], item[2], item[3])
                 elif isinstance(item, tuple) and item[0] == "argos_status":
                     status = str(item[1])
                     self.argos_status_text.set(status)

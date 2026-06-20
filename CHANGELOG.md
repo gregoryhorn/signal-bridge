@@ -208,3 +208,4 @@ Initial portable Windows preview release.
 - Added chunked/cancellable feed redraw so large display updates yield back to Tk instead of rebuilding all rows synchronously.
 - Extracted feed display-line logic into a pure render-model helper to reduce GUI-file complexity and protect fixture-tested output.
 - Reactivated CN/EN free-text direction toggles through a safe background translation queue instead of render-thread MT calls.
+- Redesigned Pilot Info as a compact normalized local snapshot card and added manual cache-backed zKill sync.
