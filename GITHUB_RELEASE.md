@@ -1,4 +1,5 @@
 - Fixed normal feed rendering so Alias entries display their canonical names in chat while Copy Original keeps raw text.
+- Translation cache now stores cleaner CJK/natural-language segments instead of full mixed intel rows; existing polluted machine-cache rows can be cleaned without touching manual overrides.
 - Added Settings > Aliases for ship/system aliases; aliases replace visible shorthand with canonical names and refresh recognition without app restart.
 - Pilot Info/feed readability cleanup: No Visual/Cyno classification, compact no-scroll summary behavior, entity separators, and cyno-based temporary Hot Drop Risk flagging.
 - Intel History Manual Flags v0.1 has landed in source: compact feed badges for flagged ESI pilots, quick right-click Watchlist/High Threat/Do Not Track actions, and Do Not Track suppression for future local history recording.

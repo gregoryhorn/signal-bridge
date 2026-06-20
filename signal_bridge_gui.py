@@ -1028,6 +1028,33 @@ class TranslationCache:
         except Exception as exc:
             write_log("Translation failure record failed", exc)
 
+    def cleanup_polluted_mixed_rows(self, dry_run: bool = False) -> int:
+        """Remove engine cache rows that include English intel context plus CJK.
+
+        Manual overrides are intentionally untouched. This only deletes machine cache rows
+        whose source_text is larger than the derived translation segment.
+        """
+        removed = 0
+        try:
+            con = sqlite3.connect(self.path)
+            rows = con.execute("select key, source_text, target_lang, engine from translation_cache").fetchall()
+            doomed = []
+            for key, source_text, target_lang, engine in rows:
+                src = str(source_text or "")
+                if not re.search(r"[\u3400-\u9fff\uf900-\ufaff]", src):
+                    continue
+                segment = cjk_translation_source(src)
+                if segment and segment != normalize_feed_text(src) and len(segment) + 8 < len(normalize_feed_text(src)):
+                    doomed.append(str(key))
+            if doomed and not dry_run:
+                with con:
+                    con.executemany("delete from translation_cache where key=?", [(k,) for k in doomed])
+            removed = len(doomed)
+            con.close()
+        except Exception as exc:
+            write_log("Translation polluted-cache cleanup failed", exc)
+        return removed
+
     def stats(self):
         try:
             con = sqlite3.connect(self.path)
@@ -2094,6 +2121,42 @@ def argos_translate_fallback(text: str, source: str = "zh", target: str = "en") 
     ARGOS_STATUS_CACHE["error"] = "Argos direct translation disabled pending safe add-on flow"
     return None
 
+def cjk_translation_source(text: str) -> str:
+    """Return the smallest useful source string for CJK translation/cache.
+
+    Live intel often mixes English/EVE context with a short Chinese phrase.
+    Cache only the phrase-bearing span so Google/Argos/cache rows are reusable
+    and do not include already-English intel words.
+    """
+    raw = normalize_feed_text(text)
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    if not raw or not cjk_re.search(raw):
+        return raw
+    matches = list(cjk_re.finditer(raw))
+    if not matches:
+        return raw
+    start = matches[0].start()
+    end = matches[-1].end()
+    # Include adjacent EVE/system tokens directly attached to CJK, e.g. 4H别过YMJG门.
+    left = start
+    while left > 0 and re.match(r"[A-Za-z0-9_-]", raw[left - 1]):
+        left -= 1
+    right = end
+    while right < len(raw) and re.match(r"[A-Za-z0-9_-]", raw[right]):
+        right += 1
+    segment = raw[left:right].strip(" \t·|-:,;[]()")
+    # If the first CJK phrase is preceded by a pure English intel prefix, discard it.
+    # Keep compact attached tokens but do not keep words like gate/red/camp/30+.
+    segment = re.sub(r"^(?:gate|red|camp|clear|clr|blue|hostile|neut|neutral|local|fleet|class|on|in|at|from|to|jump|jumping|out|comes?)\b\s*", "", segment, flags=re.I).strip()
+    return segment or raw
+
+
+def translation_source_for_cache(text: str, direction: str) -> str:
+    direction = direction or "zh-en"
+    if direction == "zh-en":
+        return cjk_translation_source(text)
+    return normalize_feed_text(text)
+
 def translation_langs_for_direction(direction: str) -> tuple[str, str, str, str]:
     if direction == "en-zh":
         return "en", "zh-CN", "en", "zh"
@@ -2138,13 +2201,14 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
         return "", "not-needed"
     if direction == "en-zh" and not has_english_letters(text):
         return "", "not-needed"
-    cached, label = translation_cache_lookup(text, direction, preferred_engine, fallback_mode)
+    cache_text = translation_source_for_cache(text, direction)
+    cached, label = translation_cache_lookup(cache_text, direction, preferred_engine, fallback_mode)
     if cached:
         return cached, label
     if str(fallback_mode or "").lower() in {"cache-only", "offline-cache"}:
         return "", "cache-miss-offline"
     source, target, argos_source, argos_target = translation_langs_for_direction(direction)
-    override_text, override_changed = apply_phrase_overrides(text, direction)
+    override_text, override_changed = apply_phrase_overrides(cache_text, direction)
     if override_changed and direction == "zh-en" and not has_non_english_signal(override_text):
         return override_text.strip(), "phrase-override"
     protected=[]; work=override_text; terms=[]
@@ -2157,22 +2221,22 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
         if not term or term not in work: continue
         token=f"SBX{idx}"; work=work.replace(term, token); protected.append((token, term))
     for engine in translation_engine_order(preferred_engine, fallback_mode):
-        if TRANSLATION_CACHE.failure_active(text, target, engine):
+        if TRANSLATION_CACHE.failure_active(cache_text, target, engine):
             continue
         try:
             translated = google_translate_free(work, source=source, target=target) if engine == "google" else argos_translate_fallback(work, source=argos_source, target=argos_target)
         except Exception as exc:
-            translated = ""; TRANSLATION_CACHE.record_failure(text, target, engine, f"{type(exc).__name__}: {exc}", cooldown_minutes)
+            translated = ""; TRANSLATION_CACHE.record_failure(cache_text, target, engine, f"{type(exc).__name__}: {exc}", cooldown_minutes)
         if not translated:
-            TRANSLATION_CACHE.record_failure(text, target, engine, "empty result", cooldown_minutes)
+            TRANSLATION_CACHE.record_failure(cache_text, target, engine, "empty result", cooldown_minutes)
             continue
         out=translated
         for token, original in protected:
             out=re.sub(rf"\b{re.escape(token)}\b", original, out)
         out=out.strip()
         if out:
-            TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(text, source, target, engine), text, source, target, out, engine)
-            return out, f"{engine}-cached"
+            TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(cache_text, source, target, engine), cache_text, source, target, out, engine)
+            return out, f"segment:{engine}-cached"
     return "", "fallback-failed"
 
 def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
@@ -6237,7 +6301,8 @@ class SignalBridgeGui:
         mode = mode_var.get() if mode_var is not None else "cache-first-auto"
         if mode == "cache-only":
             fallback = "cache-only"
-        cached, source_label = translation_cache_lookup(source_text, direction, pref, fallback)
+        cache_source_text = translation_source_for_cache(source_text, direction)
+        cached, source_label = translation_cache_lookup(cache_source_text, direction, pref, fallback)
         if cached:
             cache[direction] = normalize_feed_text(cached)
             if direction == "zh-en": row.free_translation = cache[direction]
@@ -6252,7 +6317,7 @@ class SignalBridgeGui:
             try: row._last_translation_decision = "skipped: cache-only translation miss"
             except Exception: pass
             return
-        key = (id(row), direction, source_text)
+        key = (id(row), direction, cache_source_text)
         if key in self.translation_pending:
             return
         if len(self.translation_pending) >= 24:
@@ -6263,10 +6328,10 @@ class SignalBridgeGui:
             return
         self.translation_pending.add(key)
         try:
-            self.translation_queue.put_nowait((key, row, source_text, list(row.systems), list(row.assets), list(row.localized), list(row.counts), list(row.links), list(row.esi_candidates), direction, pref, fallback))
+            self.translation_queue.put_nowait((key, row, cache_source_text, list(row.systems), list(row.assets), list(row.localized), list(row.counts), list(row.links), list(row.esi_candidates), direction, pref, fallback))
             self.diagnostics["translation_pending"] = len(self.translation_pending)
             try:
-                row._last_translation_decision = f"queued: background {direction} translation"
+                row._last_translation_decision = f"queued: background {direction} translation segment"
             except Exception:
                 pass
             record_event("translation_queued", direction=direction, sender=row.sender, channel=row.channel)

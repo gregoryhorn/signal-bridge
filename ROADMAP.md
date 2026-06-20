@@ -1,4 +1,5 @@
 - Alias management: expand dedicated ship/system alias workflows and sample-line testing as real intel shorthand appears.
+- Translation cache cleanup: segment-based cache keys now reduce duplicated/polluted Google/Argos rows while keeping manual overrides as the highest-priority correction layer.
 - Feed/Pilot Info UX: continue refining compact tactical cards, entity separation, and status/signal classification.
 ﻿# Signal Bridge Roadmap
 

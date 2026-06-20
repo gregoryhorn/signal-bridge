@@ -1,4 +1,5 @@
 - Fixed alias display so user ship/system aliases replace shorthand in the normal chat feed, not only translated/copy paths.
+- Changed translation caching to use CJK/natural-language segments instead of whole mixed intel lines, and cleaned polluted machine-cache rows that included English intel context.
 - Added a dedicated ship/system Alias page and user alias file so shorthand like Enyou Class and Apocalypse Navy is displayed as the canonical ship name.
 - Improved Pilot Info/feed readability: status/signal terms no longer show as ships, the card avoids default scrolling, feed entities get subtle separators, and cyno intel can temporarily flag likely hotdroppers.
 
