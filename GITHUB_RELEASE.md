@@ -1,4 +1,5 @@
-- Fixed normal feed rendering so Alias entries display their canonical names in chat while Copy Original keeps raw text.
+﻿- Fixed normal feed rendering so Alias entries display their canonical names in chat while Copy Original keeps raw text.
+- Added additional Chinese intel translation fixes and cache/manual overrides for reported bad translations, including several ship-name corrections and tactical phrase fixes.
 - Translation cache now stores cleaner CJK/natural-language segments instead of full mixed intel rows; existing polluted machine-cache rows can be cleaned without touching manual overrides.
 - Added Settings > Aliases for ship/system aliases; aliases replace visible shorthand with canonical names and refresh recognition without app restart.
 - Pilot Info/feed readability cleanup: No Visual/Cyno classification, compact no-scroll summary behavior, entity separators, and cyno-based temporary Hot Drop Risk flagging.
@@ -210,3 +211,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Aliases now trigger when adjacent to Chinese text, e.g. YMJG星门 and 4H别过 correctly render as YMJG-4 and 4-HWWF.
 - Translation Cache Manager MVP: dedicated settings page for cache-first behavior, manual exact translation overrides, cache-only/offline mode, fallback controls, and failure cooldowns.
 - Translation Cache Manager UI polish: split Original/Translated tables, live filters, click-to-edit, and auto-saving manual overrides.
+

@@ -32,6 +32,118 @@
       "direction": "zh-en",
       "enabled": true,
       "note": "User shorthand alias for Caracal Navy Issue"
+    },
+    {
+      "source": "加达里海军霍克比尔级",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "黑鸦级",
+      "target": "Blackbird",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "海神级",
+      "target": "Poseidon",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "阿斯特罗级",
+      "target": "Astero",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "赫卡特级",
+      "target": "Hecate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "恩尤级",
+      "target": "Enyo",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "咒逐级",
+      "target": "Curse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "流浪",
+      "target": "Vagabond",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "偷天沟",
+      "target": "Tengu",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "轻拦",
+      "target": "interdictor",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "打泡泡",
+      "target": "bubble up",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "门口",
+      "target": "gate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "来人了才跳过来",
+      "target": "only jumps in when people arrive",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "小绿人突击队",
+      "target": "Little Green Men assault team",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "堵了",
+      "target": "camped",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "门",
+      "target": "gate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
     }
   ]
 }

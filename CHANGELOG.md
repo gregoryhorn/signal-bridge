@@ -1,4 +1,5 @@
-- Fixed alias display so user ship/system aliases replace shorthand in the normal chat feed, not only translated/copy paths.
+﻿- Fixed alias display so user ship/system aliases replace shorthand in the normal chat feed, not only translated/copy paths.
+- Added user-supplied Chinese intel translation corrections for common ship names and tactical phrases including Hookbill, Enyo, Astero, Hecate, Curse, Tengu, Vagabond, Blackbird, gate bubbles, and Little Green Men gate camps.
 - Changed translation caching to use CJK/natural-language segments instead of whole mixed intel lines, and cleaned polluted machine-cache rows that included English intel context.
 - Added a dedicated ship/system Alias page and user alias file so shorthand like Enyou Class and Apocalypse Navy is displayed as the canonical ship name.
 - Improved Pilot Info/feed readability: status/signal terms no longer show as ships, the card avoids default scrolling, feed entities get subtle separators, and cyno intel can temporarily flag likely hotdroppers.
@@ -222,3 +223,4 @@ Initial portable Windows preview release.
 - Fixed ship/system aliases next to Chinese text so short Latin aliases like YMJG and 4H trigger even when immediately followed by CJK characters, while preserving protection against replacements inside longer Latin tokens.
 - Added a cache-first Translation Cache Manager MVP with manual exact overrides, cache-only mode, fallback controls, and failure cooldowns so repeated/corrected translations reduce reliance on Google/Argos.
 - Improved the Translation Cache Manager with side-by-side Original and Translated tables, live filtering, click-to-edit rows, and debounced auto-save manual overrides that update the feed.
+
