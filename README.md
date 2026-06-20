@@ -1,4 +1,4 @@
-# Signal Bridge v0.3 Alpha version. I will make it better :) If you find bugs or want features log an issue here in githb.
+# Signal Bridge v0.4 Alpha
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN
 
@@ -18,7 +18,7 @@ Signal Bridge now includes the first lightweight add-ons foundation in **Setting
 The Intel History analysis engine itself is still planned; see [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
 
 
-Current version: 0.1
+Current version: 0.4
 
 
 ## v0.3 Optional ESI
@@ -85,7 +85,7 @@ Use `Tools > General Exclusion List...` for words or names that should stay visu
 Get the Windows portable app from the GitHub release:
 
 - **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.2)
-- **Direct download:** [SignalBridge-v0.3-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/SignalBridge-v0.3-win64-portable.zip)
+- **Direct download:** [SignalBridge-v0.4-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.2/SignalBridge-v0.4-win64-portable.zip)
 
 Extract the ZIP, then run:
 
@@ -103,11 +103,10 @@ A7AFFFDE24F94659D9ED196827544153350E05334A19C730EA01031FEC9889EE
 
 ## Screenshot
 
-![Signal Bridge screenshot](docs/images/signal-bridge-screenshot.png)
+![Signal Bridge v0.4 screenshot](docs/images/signal-bridge-v0.4-screenshot.png)
 
-Signal Bridge is a lightweight Windows desktop tool for monitoring EVE Online chat logs and making intel easier to read.
+Signal Bridge v0.4 showing the live EVE intel feed, translation workflow, ESI/Pilot Info support, configurable cache tools, aliases, exclusions, and compact Windows desktop layout.
 
-It watches selected EVE chat channels, highlights important entities, and can translate localized/non-English text while preserving EVE-specific terms.
 
 ## Features
 
@@ -374,3 +373,9 @@ The web viewer should remain mobile-friendly and use fallback fonts when a phone
 ## Translation Cache reset note
 
 The Translation Cache Manager can delete a selected grouped entry or delete all translation entries. These actions affect translation-cache rows, manual translation overrides, and translation failure cooldowns only. They do not delete aliases, the General Exclusion List, phrase overrides, settings, ESI cache, zKill cache, logs, or chat logs.
+
+## SEO / discovery details
+
+Signal Bridge is a lightweight Windows EVE Online intel tool for live chatlog monitoring, Chinese-to-English EVE intel translation, EVE Online ship and system recognition, ESI pilot intelligence, zKillboard-assisted Pilot Info, cache-first translation correction, and portable no-install Windows operation.
+
+Keywords: EVE Online intel tool, EVE Online chatlog monitor, EVE Chinese translation, EVE Online CN EN translator, EVE Online ESI pilot info, zKillboard pilot intelligence, EVE Online fleet intel, EVE Online local chat monitor, Signal Bridge, Windows portable EVE tool, Tranquility chat logs, EVE ship alias detection, EVE system highlighting.

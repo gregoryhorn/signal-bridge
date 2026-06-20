@@ -41,3 +41,8 @@ Open **Settings > Settings...** after extracting the portable ZIP. The Settings 
 - `data/user_aliases.json` and `data/default_exclusions.json` are bundled from the maintained source lists.
 - Runtime folders such as `cache/`, `logs/`, `config/`, `runtime/`, and local add-on state should not be published as user data.
 - See `ISSUES.md` for the public known-issues/follow-up list.
+
+
+## v0.4 package note
+
+The v0.4 portable package includes `ISSUES.md`, `docs/images/signal-bridge-v0.4-screenshot.png`, the maintained `data/user_aliases.json`, normalized `data/default_exclusions.json`, and an empty `data/default_translation_cache.json` so new installs start with a clean translation cache.

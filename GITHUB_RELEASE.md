@@ -1,3 +1,23 @@
+# Signal Bridge v0.4
+
+Portable Windows release for EVE Online chat intel monitoring and translation.
+
+## Highlights
+
+- Fixed Translation Cache Manager deletion: selected rows can now delete grouped manual/cache/failure entries instead of manual overrides only.
+- Added full Translation Cache reset while preserving aliases, exclusions, phrase overrides, settings, ESI cache, zKill cache, logs, and chat logs.
+- Removed bundled starter translation cache so new installs start clean instead of inheriting polluted mixed English/CJK cache rows.
+- Bundled the maintained alias list and default General Exclusion List.
+- Added `ISSUES.md` public known-issues/follow-up list.
+- Added a refreshed app screenshot and README SEO/discovery details.
+
+## Assets
+
+- `SignalBridge-v0.4-win64-portable.zip`
+- `SignalBridge-v0.4-win64-portable.zip.sha256`
+- `SignalBridge.exe.sha256`
+- catalog/data JSON assets and checksums
+
 - Translation Cache Manager deletion fix: deleting a selected row now removes the grouped entry, including manual override, machine-cache records, and failure cooldowns for that source/target.
 - Added `Delete All Entries` for Translation Cache Manager reset. This intentionally leaves aliases, exclusions, phrase overrides, ESI cache, zKill cache, settings, and logs alone.
 - Removed the bundled starter translation cache for now; packaged builds start with an empty translation cache to avoid shipping polluted mixed English/CJK cache rows.
@@ -46,8 +66,8 @@ The current foundation supports local add-on status, module/data folder separati
 3. Verify package exists:
 
    ```powershell
-   Get-Item .\SignalBridge-v0.3-win64-portable.zip
-   Get-FileHash .\SignalBridge-v0.3-win64-portable.zip -Algorithm SHA256
+   Get-Item .\SignalBridge-v0.4-win64-portable.zip
+   Get-FileHash .\SignalBridge-v0.4-win64-portable.zip -Algorithm SHA256
    ```
 
 4. Extract ZIP to a clean folder and run:
@@ -62,13 +82,13 @@ The current foundation supports local add-on status, module/data folder separati
 
 Upload:
 
-- `SignalBridge-v0.3-win64-portable.zip`
+- `SignalBridge-v0.4-win64-portable.zip`
 - SHA256 checksum in release notes
 
 ## Suggested Release Notes
 
 ```markdown
-# Signal Bridge v0.3
+# Signal Bridge v0.4
 
 - ESI public entity recognition is now enabled by default for new installs; OAuth remains disabled and optional.
 
@@ -97,7 +117,7 @@ Portable Windows release for EVE Online chat intel monitoring and translation.
 
 ## Install
 
-Download and extract `SignalBridge-v0.3-win64-portable.zip`, then run `SignalBridge.exe`.
+Download and extract `SignalBridge-v0.4-win64-portable.zip`, then run `SignalBridge.exe`.
 
 ## SHA256
 
@@ -108,7 +128,7 @@ Download and extract `SignalBridge-v0.3-win64-portable.zip`, then run `SignalBri
 
 Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. This does not necessarily mean malware; it is common for new unsigned PyInstaller apps. Long-term mitigation is code signing and reputation building.
 
-### v0.3 message character detection update
+### v0.4 message character detection update
 - ESI now detects likely character names inside message bodies using a cache-first, conservative candidate extractor.
 - System names and EVE catalog entities are excluded before ESI checks to protect API rate limits.
 - Detected character names are preserved during translation and are not translated into Chinese.

@@ -1,3 +1,7 @@
+## v0.4 publication note
+
+Signal Bridge v0.4 published the current known issue list alongside the refreshed README, screenshot, packaged alias/exclusion data, and clean translation-cache release assets. Continue using this file for concise public issue tracking.
+
 # Signal Bridge Public Issue List
 
 This list tracks current known issues and follow-up work for the public GitHub repo. It is intentionally concise so users can see what is known without reading the full roadmap.

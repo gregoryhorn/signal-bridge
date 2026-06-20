@@ -1,3 +1,9 @@
+## v0.4 - 2026-06-20
+
+- Released Signal Bridge v0.4 with cleaned Translation Cache Manager deletion/reset behavior, empty bundled translation cache, packaged maintained alias/exclusion lists, public `ISSUES.md`, refreshed screenshot, and updated Windows portable assets.
+- Bumped app/package version from 0.3 to 0.4.
+- Added README screenshot and SEO/discovery details for EVE Online intel, translation, ESI Pilot Info, zKillboard, and portable Windows workflows.
+
 - Fixed Translation Cache Manager deletion so selected grouped entries can be removed even when they are cache-backed rather than manual-only overrides.
 - Added a full Translation Cache Manager reset action that clears machine cache, manual overrides, and failure cooldowns without touching aliases, exclusions, phrase overrides, settings, ESI cache, or zKill cache.
 - Cleared the local live translation cache and removed the bundled starter translation cache so new portable installs no longer inherit polluted mixed English/CJK cache rows.

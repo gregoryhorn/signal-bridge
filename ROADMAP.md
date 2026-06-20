@@ -1,3 +1,7 @@
+## v0.4 release note
+
+Signal Bridge v0.4 focuses on release hygiene and correction workflows: Translation Cache deletion/reset, empty bundled translation cache, packaged maintained aliases/exclusions, public issue list, refreshed screenshot, and SEO-ready GitHub docs. Future work continues with translation editor polish, CJK shorthand coverage, Pilot Info/zKill verification, LAN viewer planning, and release automation.
+
 - Translation Cache Manager: completed grouped-entry deletion and all-entry reset so bad cache rows can be removed reliably from the UI.
 - Translation data hygiene: removed bundled starter translation-cache entries until the cache export path can guarantee clean segment-only sources.
 - Packaging data hygiene: current maintained alias list and General Exclusion List are now part of source/package data; runtime cache/settings/logs remain excluded.
