@@ -1,3 +1,4 @@
+- Alias management: expand dedicated ship/system alias workflows and sample-line testing as real intel shorthand appears.
 - Feed/Pilot Info UX: continue refining compact tactical cards, entity separation, and status/signal classification.
 ﻿# Signal Bridge Roadmap
 

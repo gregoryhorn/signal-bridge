@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "aliases": [
+    {
+      "alias": "Enyu",
+      "canonical": "Enyo",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Common typo/transliteration"
+    },
+    {
+      "alias": "Enyu Class",
+      "canonical": "Enyo",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Common typo/transliteration"
+    },
+    {
+      "alias": "Enyou",
+      "canonical": "Enyo",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Common typo/transliteration"
+    },
+    {
+      "alias": "Enyou Class",
+      "canonical": "Enyo",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Common typo/transliteration"
+    },
+    {
+      "alias": "Apocalypse Navy",
+      "canonical": "Apocalypse Navy Issue",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Common intel shorthand"
+    },
+    {
+      "alias": "Prophet Class",
+      "canonical": "Prophecy",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Machine translation often says Prophet Class"
+    },
+    {
+      "alias": "Stork Class",
+      "canonical": "Stork",
+      "kind": "ship",
+      "enabled": true,
+      "note": "Class suffix shorthand"
+    }
+  ]
+}

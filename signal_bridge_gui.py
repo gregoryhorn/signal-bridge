@@ -63,6 +63,7 @@ CATALOG_PATH = DATA_DIR / "eve_catalog.json"
 CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
 CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
 PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
+USER_ALIASES_PATH = DATA_DIR / "user_aliases.json"
 DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
 DEFAULT_ESI_ENTITIES_PATH = DATA_DIR / "default_esi_entities.json"
 TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
@@ -641,7 +642,99 @@ class EveCatalog:
         return key in self.ship_names or canonical.casefold() in self.ship_names or self.alias_kinds.get(key) == "ship"
 
 
+
+def default_user_aliases() -> list[dict]:
+    """Small starter aliases for common intel shorthand/translation artifacts."""
+    return [
+        {"alias": "Enyu", "canonical": "Enyo", "kind": "ship", "enabled": True, "note": "Common typo/transliteration"},
+        {"alias": "Enyu Class", "canonical": "Enyo", "kind": "ship", "enabled": True, "note": "Common typo/transliteration"},
+        {"alias": "Enyou", "canonical": "Enyo", "kind": "ship", "enabled": True, "note": "Common typo/transliteration"},
+        {"alias": "Enyou Class", "canonical": "Enyo", "kind": "ship", "enabled": True, "note": "Common typo/transliteration"},
+        {"alias": "Apocalypse Navy", "canonical": "Apocalypse Navy Issue", "kind": "ship", "enabled": True, "note": "Common intel shorthand"},
+        {"alias": "Prophet Class", "canonical": "Prophecy", "kind": "ship", "enabled": True, "note": "Machine translation often says Prophet Class"},
+        {"alias": "Stork Class", "canonical": "Stork", "kind": "ship", "enabled": True, "note": "Class suffix shorthand"},
+    ]
+
+
+def normalize_user_alias_entry(entry: dict) -> dict | None:
+    alias = str((entry or {}).get("alias") or "").strip()
+    canonical = str((entry or {}).get("canonical") or "").strip()
+    kind = str((entry or {}).get("kind") or "ship").strip().lower()
+    if kind not in {"ship", "system"}:
+        kind = "ship"
+    if not alias or not canonical:
+        return None
+    return {
+        "alias": alias,
+        "canonical": canonical,
+        "kind": kind,
+        "enabled": bool((entry or {}).get("enabled", True)),
+        "note": str((entry or {}).get("note") or "").strip(),
+    }
+
+
+def load_user_aliases() -> list[dict]:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    aliases: list[dict] = []
+    if USER_ALIASES_PATH.exists():
+        try:
+            data = json.loads(USER_ALIASES_PATH.read_text(encoding="utf-8"))
+            raw = data.get("aliases") if isinstance(data, dict) else data
+            for entry in raw or []:
+                norm = normalize_user_alias_entry(entry)
+                if norm:
+                    aliases.append(norm)
+        except Exception as exc:
+            write_log("User alias load failed", exc)
+    # Seed defaults without overwriting existing user choices.
+    seen = {a["alias"].casefold() for a in aliases}
+    changed = False
+    for entry in default_user_aliases():
+        if entry["alias"].casefold() not in seen:
+            aliases.append(dict(entry)); seen.add(entry["alias"].casefold()); changed = True
+    if changed or not USER_ALIASES_PATH.exists():
+        save_user_aliases(aliases)
+    return aliases
+
+
+def save_user_aliases(aliases: list[dict]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    clean_aliases = []
+    seen = set()
+    for entry in aliases or []:
+        norm = normalize_user_alias_entry(entry)
+        if not norm:
+            continue
+        key = (norm["kind"], norm["alias"].casefold())
+        if key in seen:
+            continue
+        seen.add(key); clean_aliases.append(norm)
+    USER_ALIASES_PATH.write_text(json.dumps({"version": 1, "aliases": clean_aliases}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def apply_user_aliases_to_catalog(catalog: EveCatalog, aliases: list[dict]) -> None:
+    for entry in aliases or []:
+        if not entry.get("enabled", True):
+            continue
+        alias = str(entry.get("alias") or "").strip()
+        canonical = str(entry.get("canonical") or "").strip()
+        kind = str(entry.get("kind") or "ship").lower()
+        if not alias or not canonical:
+            continue
+        key = alias.casefold()
+        if kind == "system":
+            catalog.systems[key] = canonical
+        else:
+            catalog.aliases[key] = canonical
+            catalog.alias_kinds[key] = "ship"
+            if isinstance(catalog.ship_names, dict):
+                catalog.ship_names.setdefault(canonical.casefold(), canonical)
+            elif hasattr(catalog.ship_names, "add"):
+                catalog.ship_names.add(canonical.casefold())
+
 CATALOG = EveCatalog()
+USER_ALIASES = load_user_aliases()
+apply_user_aliases_to_catalog(CATALOG, USER_ALIASES)
 
 # User/community shorthand aliases that should override ambiguous machine translation.
 # Keep this small and explicit; the compact catalog still provides normal SDE names.
@@ -656,6 +749,21 @@ for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
         CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
     elif hasattr(CATALOG.ship_names, "add"):
         CATALOG.ship_names.add(_canonical.casefold())
+
+
+def reload_user_aliases() -> list[dict]:
+    global CATALOG, USER_ALIASES
+    USER_ALIASES = load_user_aliases()
+    CATALOG.load()
+    apply_user_aliases_to_catalog(CATALOG, USER_ALIASES)
+    for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
+        CATALOG.aliases.setdefault(_alias.casefold(), _canonical)
+        CATALOG.alias_kinds.setdefault(_alias.casefold(), "ship")
+        if isinstance(CATALOG.ship_names, dict):
+            CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
+        elif hasattr(CATALOG.ship_names, "add"):
+            CATALOG.ship_names.add(_canonical.casefold())
+    return USER_ALIASES
 
 class TranslationCache:
     def __init__(self, path: Path = TRANSLATION_CACHE_PATH):
@@ -1520,10 +1628,15 @@ class EveDb:
 
 
 def extract_intel(text: str, db: EveDb):
-    systems = unique(SYSTEM_RE.findall(text) + [CATALOG.lookup_system(t) for t in candidate_terms(text) if CATALOG.lookup_system(t)])
+    systems = unique(SYSTEM_RE.findall(text))
     assets: list[str] = []
     localized: list[dict] = []
     for term in sorted(candidate_terms(text), key=lambda s: -len(s)):
+        sys_hit = CATALOG.lookup_system(term)
+        if sys_hit:
+            systems.append(sys_hit)
+            if sys_hit.lower() != term.lower():
+                localized.append({"original": term, "canonical": sys_hit})
         hit = db.lookup_type(term)
         if hit:
             assets.append(hit)
@@ -1534,8 +1647,18 @@ def extract_intel(text: str, db: EveDb):
             assets.append(term)
     if re.search(r"(?<!\w)nv(?!\w)", text, re.I):
         assets.append("No visual")
+    # Prefer the longest/canonical asset when a shorthand alias also causes a shorter
+    # partial type hit, e.g. Apocalypse Navy -> Apocalypse Navy Issue should not also
+    # leave a separate Apocalypse asset in the same row.
+    unique_assets = unique(assets)
+    filtered_assets: list[str] = []
+    for asset in unique_assets:
+        akey = str(asset or "").casefold()
+        if akey and any(akey != str(other or "").casefold() and akey in str(other or "").casefold() for other in unique_assets):
+            continue
+        filtered_assets.append(asset)
     intent = "clear" if CLEAR.search(text) else "movement" if MOVE.search(text) else "hostile" if HOSTILE.search(text) else "unknown"
-    return systems, unique(assets), localized, unique(COUNT_RE.findall(text)), unique(LINK_RE.findall(text)), intent
+    return unique(systems), filtered_assets, localized, unique(COUNT_RE.findall(text)), unique(LINK_RE.findall(text)), intent
 
 
 def translate_text(text: str, localized: list[dict], intent: str) -> str:
@@ -2229,6 +2352,7 @@ class SignalBridgeGui:
         settings_menu.add_command(label="Settings...", command=self.show_settings_center)
         settings_menu.add_separator()
         settings_menu.add_command(label="Appearance...", command=lambda: self.show_settings_center("Appearance"))
+        settings_menu.add_command(label="Aliases...", command=lambda: self.show_settings_center("Aliases"))
         settings_menu.add_command(label="ESI...", command=lambda: self.show_settings_center("ESI"))
         settings_menu.add_command(label="Exclusions...", command=lambda: self.show_settings_center("Exclusions"))
         settings_menu.add_command(label="Add-ons...", command=lambda: self.show_settings_center("Add-ons"))
@@ -3182,9 +3306,12 @@ class SignalBridgeGui:
         )
         self.messagebox.showinfo("Intel History Add-on", text)
 
+    def show_alias_editor(self):
+        self.show_settings_center("Aliases")
+
     def show_settings_center(self, initial_page: str = "General"):
         tk = self.tk
-        pages = ["General", "Channels", "Appearance", "Translation", "EVE Catalog", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
+        pages = ["General", "Channels", "Appearance", "Translation", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
         if initial_page not in pages:
             initial_page = "General"
         win = tk.Toplevel(self.root)
@@ -3262,7 +3389,71 @@ class SignalBridgeGui:
         def render_catalog():
             c = card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
             label(c, f"Catalog loaded: {CATALOG.loaded}"); label(c, f"Version: {CATALOG.version}"); label(c, f"Counts: {CATALOG.counts()}", "#8b98a8"); label(c, f"Path: {CATALOG_PATH}", "#8b98a8")
-            r = row(c); action(r, "Check Catalog Updates", self.check_catalog_updates); action(r, "Restore Previous Catalog", self.restore_previous_catalog); action(r, "Health Status", self.show_health)
+            r = row(c); action(r, "Aliases...", self.show_alias_editor); action(r, "Check Catalog Updates", self.check_catalog_updates); action(r, "Restore Previous Catalog", self.restore_previous_catalog); action(r, "Health Status", self.show_health)
+        def render_aliases():
+            aliases_state = {"items": [dict(x) for x in USER_ALIASES]}
+            c = card(body, "Ship & System Aliases", "Aliases replace shorthand or bad translation artifacts with the canonical name in the visible feed and recognition. Use this for ship and system aliases only.")
+            label(c, f"Stored at: {USER_ALIASES_PATH}", "#8b98a8")
+            form = tk.Frame(c, bg="#0b0f14"); form.pack(fill="x", pady=4)
+            alias_var = tk.StringVar(); canonical_var = tk.StringVar(); kind_var = tk.StringVar(value="ship"); enabled_var = tk.BooleanVar(value=True); note_var = tk.StringVar()
+            def small_label(parent, text): tk.Label(parent, text=text, bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            left = tk.Frame(form, bg="#0b0f14"); left.pack(side="left", fill="x", expand=True, padx=(0, 8))
+            right = tk.Frame(form, bg="#0b0f14"); right.pack(side="left", fill="x", expand=True)
+            small_label(left, "Alias seen in chat"); tk.Entry(left, textvariable=alias_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
+            small_label(right, "Canonical display name"); tk.Entry(right, textvariable=canonical_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
+            opts = tk.Frame(c, bg="#0b0f14"); opts.pack(fill="x", pady=4)
+            tk.OptionMenu(opts, kind_var, "ship", "system").pack(side="left", padx=(0, 8))
+            tk.Checkbutton(opts, text="Enabled", variable=enabled_var, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left")
+            tk.Entry(opts, textvariable=note_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(side="left", fill="x", expand=True, padx=(8, 0))
+            list_frame = tk.Frame(c, bg="#0b0f14"); list_frame.pack(fill="both", expand=True, pady=6)
+            lb = tk.Listbox(list_frame, height=12, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
+            lb.pack(side="left", fill="both", expand=True)
+            lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview); lb_scroll.pack(side="right", fill="y"); lb.configure(yscrollcommand=lb_scroll.set)
+            def fmt_alias(entry):
+                status = "on" if entry.get("enabled", True) else "off"
+                return f"[{entry.get('kind','ship')}/{status}] {entry.get('alias','')}  ->  {entry.get('canonical','')}"
+            def reload_list():
+                lb.delete(0, "end")
+                for entry in aliases_state["items"]:
+                    lb.insert("end", fmt_alias(entry))
+            def selected_index():
+                sel = lb.curselection()
+                return int(sel[0]) if sel else None
+            def load_selected(_event=None):
+                idx = selected_index()
+                if idx is None: return
+                entry = aliases_state["items"][idx]
+                alias_var.set(entry.get("alias", "")); canonical_var.set(entry.get("canonical", "")); kind_var.set(entry.get("kind", "ship")); enabled_var.set(bool(entry.get("enabled", True))); note_var.set(entry.get("note", ""))
+            def persist_aliases():
+                save_user_aliases(aliases_state["items"])
+                reload_user_aliases()
+                self.redraw_feed()
+                self.set_status("Aliases saved and feed refreshed")
+            def add_or_update():
+                entry = normalize_user_alias_entry({"alias": alias_var.get(), "canonical": canonical_var.get(), "kind": kind_var.get(), "enabled": enabled_var.get(), "note": note_var.get()})
+                if not entry:
+                    self.messagebox.showwarning("Aliases", "Alias and canonical name are required."); return
+                idx = selected_index()
+                if idx is None:
+                    aliases_state["items"].append(entry)
+                else:
+                    aliases_state["items"][idx] = entry
+                persist_aliases(); reload_list()
+            def delete_selected():
+                idx = selected_index()
+                if idx is None: return
+                del aliases_state["items"][idx]
+                persist_aliases(); reload_list(); alias_var.set(""); canonical_var.set(""); note_var.set("")
+            def test_alias():
+                sample = alias_var.get().strip()
+                if not sample: sample = "Apocalypse Navy"
+                kind = kind_var.get()
+                hit = CATALOG.lookup_system(sample) if kind == "system" else CATALOG.lookup_type(sample)
+                self.messagebox.showinfo("Alias Test", f"{sample}\n=> {hit or 'no match'}")
+            btns = row(c)
+            action(btns, "Add / Update", add_or_update); action(btns, "Delete", delete_selected); action(btns, "Test", test_alias); action(btns, "Reload", lambda: (aliases_state.update(items=[dict(x) for x in reload_user_aliases()]), reload_list()))
+            lb.bind("<<ListboxSelect>>", load_selected)
+            reload_list()
         def render_esi():
             c = card(body, "ESI", "Optional cache-first background ESI recognition. Live monitoring works even when ESI is disabled.")
             check(c, "Enable public ESI entity recognition", self.esi_enabled, self.save_esi_ui_settings); check(c, "Enable OAuth features", self.esi_oauth_enabled, self.save_esi_ui_settings)
@@ -3326,8 +3517,8 @@ class SignalBridgeGui:
             label(c2, DONATION_TEXT, "#8b98a8")
             r = row(c2); action(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty")); action(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
             r2 = row(c); action(r2, "About", self.show_about); action(r2, "Support / Donate ISK", self.show_support); action(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
-        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
-        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
+        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "Aliases": render_aliases, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
+        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
         def render_page(page):
             clear(); title.configure(text=page); subtitle.configure(text=descriptions.get(page, ""))
             for name, btn in nav_buttons.items(): style_button(btn, name == page)
@@ -4693,7 +4884,7 @@ class SignalBridgeGui:
         name = pilot.get("name") or "Unknown Pilot"
         opened = time.time()
         win = tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=620, height=520, minsize=(520, 430), title=f"Pilot Info - {name}")
+        self.polish_window(win, self.root, width=720, height=620, minsize=(640, 520), title=f"Pilot Info - {name}")
         header = tk.Frame(win, bg="#111821", padx=10, pady=7)
         header.pack(fill="x")
         scroll_outer = tk.Frame(win, bg="#0b0f14")
@@ -4854,7 +5045,7 @@ class SignalBridgeGui:
             return f
 
         def label(parent, text, color="#d7dde5"):
-            tk.Label(parent, text=str(text), bg=parent.cget("bg"), fg=color, justify="left", wraplength=455).pack(anchor="w")
+            tk.Label(parent, text=str(text), bg=parent.cget("bg"), fg=color, justify="left", wraplength=620).pack(anchor="w")
 
         def button(parent, text, command):
             tk.Button(parent, text=text, command=command, bg="#1c2835", fg="#d7dde5", activebackground="#263544", activeforeground="#ffffff", relief="flat").pack(side="left", padx=3, pady=2)
@@ -4872,11 +5063,11 @@ class SignalBridgeGui:
             alliance = clean_value(pilot.get("alliance_name"), "No alliance")
             last = latest_row()
             zks = self.get_zkill_summary(pilot_id)
-            tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(13, int(self.font_size.get()) + 3), "bold"), wraplength=460, justify="left").pack(anchor="w")
+            tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(13, int(self.font_size.get()) + 3), "bold"), wraplength=650, justify="left").pack(anchor="w")
             meta = f"{corp} · {alliance}"
-            tk.Label(header, text=meta, bg="#111821", fg="#8b98a8", justify="left", wraplength=460).pack(anchor="w")
+            tk.Label(header, text=meta, bg="#111821", fg="#8b98a8", justify="left", wraplength=650).pack(anchor="w")
             last_bits = f"Last: {self.friendly_datetime(last.get('timestamp')) if last else 'unknown'} · {clean_value(last.get('system_name'))} · {profile.get('report_count', 0)} reports · zKill: {zks.get('status','not_synced').replace('_',' ')}"
-            tk.Label(header, text=last_bits, bg="#111821", fg="#5ad7ff", justify="left", wraplength=460).pack(anchor="w", pady=(3, 0))
+            tk.Label(header, text=last_bits, bg="#111821", fg="#5ad7ff", justify="left", wraplength=650).pack(anchor="w", pady=(3, 0))
 
         def clear_body():
             for child in body.winfo_children(): child.destroy()
@@ -4890,9 +5081,9 @@ class SignalBridgeGui:
             render_summary()
         try:
             win.update_idletasks()
-            max_h = max(430, min(560, win.winfo_screenheight() - 80))
+            max_h = max(520, min(680, win.winfo_screenheight() - 80))
             req_h = min(max_h, max(430, win.winfo_reqheight()))
-            win.geometry(f"620x{req_h}")
+            win.geometry(f"720x{req_h}")
             record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
         except Exception:
             pass
@@ -5040,9 +5231,9 @@ class SignalBridgeGui:
         render_summary()
         try:
             win.update_idletasks()
-            max_h = max(430, min(560, win.winfo_screenheight() - 80))
+            max_h = max(520, min(680, win.winfo_screenheight() - 80))
             req_h = min(max_h, max(430, win.winfo_reqheight()))
-            win.geometry(f"620x{req_h}")
+            win.geometry(f"720x{req_h}")
             record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
         except Exception:
             pass
