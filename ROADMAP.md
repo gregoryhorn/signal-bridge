@@ -514,3 +514,4 @@ Suggested implementation:
 - Alias workflow: keep alias replacement fast and render-safe with cached user/manual rules, canonical system display, and diagnostics for slow alias rendering.
 
 - Alias workflow: continue validating multilingual intel where Latin system/ship shorthand is adjacent to Chinese characters or punctuation.
+- Completed MVP groundwork for cache-first translation management: manual exact overrides, dedicated cache page, local-first lookup, fallback controls, and failed-translation cooldowns. Phrase-level editing remains a future refinement.

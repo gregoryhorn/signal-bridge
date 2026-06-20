@@ -219,3 +219,4 @@ Initial portable Windows preview release.
 - Fixed an alias feed stall by limiting dynamic alias replacement to user/manual aliases, caching per-row display text, and precompiling a small alias rule set instead of the full EVE catalog. Fixed system aliases such as 4-H -> 4-HWWF so they display canonically and keep system highlighting instead of purple module styling.
 
 - Fixed ship/system aliases next to Chinese text so short Latin aliases like YMJG and 4H trigger even when immediately followed by CJK characters, while preserving protection against replacements inside longer Latin tokens.
+- Added a cache-first Translation Cache Manager MVP with manual exact overrides, cache-only mode, fallback controls, and failure cooldowns so repeated/corrected translations reduce reliance on Google/Argos.

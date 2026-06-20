@@ -111,6 +111,8 @@ def load_settings() -> dict:
         "translation_direction": "zh-en",
         "translation_preferred_engine": "auto",
         "translation_fallback_mode": "online-only",
+        "translation_cache_mode": "cache-first-auto",
+        "translation_failure_cooldown_minutes": 60,
         "compact_mode": True,
         "font_family": "Segoe UI",
         "font_size": 10,
@@ -845,6 +847,15 @@ class TranslationCache:
                 key text primary key, source_text text not null, source_lang text,
                 target_lang text not null, translated_text text not null, engine text not null,
                 created_at text not null, last_used_at text not null, hit_count integer not null default 0)""")
+            con.execute("""create table if not exists translation_overrides(
+                id integer primary key autoincrement, source_text text not null, normalized_source text not null,
+                source_lang text, target_lang text not null, translated_text text not null,
+                enabled integer not null default 1, note text, created_at text not null, updated_at text not null,
+                last_used_at text, hit_count integer not null default 0)""")
+            con.execute("create index if not exists idx_translation_overrides_lookup on translation_overrides(normalized_source, target_lang, enabled)")
+            con.execute("""create table if not exists translation_failures(
+                key text primary key, source_text text not null, target_lang text not null, engine text not null,
+                failure_reason text, failed_at text not null, retry_after text not null, fail_count integer not null default 1)""")
             con.commit(); con.close()
         except Exception as exc:
             write_log("Translation cache init failed", exc)
@@ -912,6 +923,110 @@ class TranslationCache:
         except Exception as exc:
             write_log("Translation starter seed failed", exc)
         return inserted
+
+    def normalize_source(self, text: str) -> str:
+        return re.sub(r"\s+", " ", str(text or "").strip())
+
+    def key_for(self, source_text: str, source_lang: str, target_lang: str, engine: str) -> str:
+        import hashlib
+        norm = self.normalize_source(source_text)
+        digest = hashlib.sha256(f"{source_lang}|{target_lang}|{engine}|{norm}".encode("utf-8")).hexdigest()
+        return f"{engine}|{source_lang}|{target_lang}|{digest}"
+
+    def get_override(self, source_text: str, target_lang: str) -> str | None:
+        norm = self.normalize_source(source_text)
+        if not norm:
+            return None
+        try:
+            con = sqlite3.connect(self.path)
+            row = con.execute("""select id, translated_text, hit_count from translation_overrides
+                where normalized_source=? and target_lang=? and enabled=1 order by updated_at desc, id desc limit 1""", (norm, target_lang)).fetchone()
+            if row:
+                now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                con.execute("update translation_overrides set last_used_at=?, hit_count=? where id=?", (now, int(row[2] or 0)+1, int(row[0])))
+                con.commit(); con.close(); return str(row[1])
+            con.close()
+        except Exception as exc:
+            write_log("Translation override get failed", exc)
+        return None
+
+    def save_override(self, source_text: str, translated_text: str, target_lang: str = "en", source_lang: str = "auto", note: str = "", enabled: bool = True, override_id: int | None = None) -> int | None:
+        norm = self.normalize_source(source_text)
+        translated = str(translated_text or "").strip()
+        if not norm or not translated:
+            return None
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            con = sqlite3.connect(self.path)
+            if override_id:
+                con.execute("update translation_overrides set source_text=?, normalized_source=?, source_lang=?, target_lang=?, translated_text=?, enabled=?, note=?, updated_at=? where id=?", (source_text, norm, source_lang, target_lang, translated, 1 if enabled else 0, note, now, int(override_id)))
+                oid = int(override_id)
+            else:
+                cur = con.execute("""insert into translation_overrides(source_text, normalized_source, source_lang, target_lang, translated_text, enabled, note, created_at, updated_at, hit_count)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""", (source_text, norm, source_lang, target_lang, translated, 1 if enabled else 0, note, now, now))
+                oid = int(cur.lastrowid)
+            con.commit(); con.close(); return oid
+        except Exception as exc:
+            write_log("Translation override save failed", exc); return None
+
+    def delete_override(self, override_id: int) -> bool:
+        try:
+            con = sqlite3.connect(self.path); con.execute("delete from translation_overrides where id=?", (int(override_id),)); con.commit(); con.close(); return True
+        except Exception as exc:
+            write_log("Translation override delete failed", exc); return False
+
+    def recent_entries(self, search: str = "", limit: int = 100) -> list[dict]:
+        out=[]; like=f"%{search.strip()}%"
+        try:
+            con=sqlite3.connect(self.path)
+            if search.strip():
+                rows=con.execute("select id,source_text,translated_text,target_lang,enabled,hit_count,last_used_at,updated_at,note from translation_overrides where source_text like ? or translated_text like ? order by updated_at desc limit ?",(like,like,limit)).fetchall()
+            else:
+                rows=con.execute("select id,source_text,translated_text,target_lang,enabled,hit_count,last_used_at,updated_at,note from translation_overrides order by updated_at desc limit ?",(limit,)).fetchall()
+            for r in rows:
+                out.append({"kind":"manual","id":r[0],"source_text":r[1],"translated_text":r[2],"target_lang":r[3],"enabled":bool(r[4]),"hit_count":r[5],"last_used_at":r[6],"updated_at":r[7],"note":r[8] or ""})
+            rem=max(0,limit-len(out))
+            if rem:
+                if search.strip():
+                    rows=con.execute("select key,source_text,translated_text,target_lang,engine,hit_count,last_used_at,created_at from translation_cache where source_text like ? or translated_text like ? order by last_used_at desc limit ?",(like,like,rem)).fetchall()
+                else:
+                    rows=con.execute("select key,source_text,translated_text,target_lang,engine,hit_count,last_used_at,created_at from translation_cache order by last_used_at desc limit ?",(rem,)).fetchall()
+                for r in rows:
+                    out.append({"kind":"cache","key":r[0],"source_text":r[1],"translated_text":r[2],"target_lang":r[3],"engine":r[4],"hit_count":r[5],"last_used_at":r[6],"updated_at":r[7],"enabled":True,"note":""})
+            con.close()
+        except Exception as exc:
+            write_log("Translation cache recent entries failed", exc)
+        return out
+
+    def override_count(self) -> int:
+        try:
+            con=sqlite3.connect(self.path); row=con.execute("select count(*) from translation_overrides where enabled=1").fetchone(); con.close(); return int(row[0] or 0)
+        except Exception:
+            return 0
+
+    def failure_key(self, source_text: str, target_lang: str, engine: str) -> str:
+        import hashlib
+        return hashlib.sha256(f"fail|{target_lang}|{engine}|{self.normalize_source(source_text)}".encode("utf-8")).hexdigest()
+
+    def failure_active(self, source_text: str, target_lang: str, engine: str) -> bool:
+        try:
+            key=self.failure_key(source_text,target_lang,engine); now=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            con=sqlite3.connect(self.path); row=con.execute("select retry_after from translation_failures where key=?",(key,)).fetchone(); con.close()
+            return bool(row and str(row[0]) > now)
+        except Exception:
+            return False
+
+    def record_failure(self, source_text: str, target_lang: str, engine: str, reason: str, cooldown_minutes: int = 60) -> None:
+        try:
+            import datetime as _dt
+            now_dt=_dt.datetime.utcnow(); retry=now_dt+_dt.timedelta(minutes=max(1,int(cooldown_minutes or 60)))
+            now=now_dt.strftime("%Y-%m-%dT%H:%M:%SZ"); retry_s=retry.strftime("%Y-%m-%dT%H:%M:%SZ"); key=self.failure_key(source_text,target_lang,engine)
+            con=sqlite3.connect(self.path)
+            con.execute("""insert into translation_failures(key,source_text,target_lang,engine,failure_reason,failed_at,retry_after,fail_count) values(?,?,?,?,?,?,?,1)
+                on conflict(key) do update set failure_reason=excluded.failure_reason, failed_at=excluded.failed_at, retry_after=excluded.retry_after, fail_count=translation_failures.fail_count+1""", (key,source_text,target_lang,engine,str(reason or "")[:240],now,retry_s))
+            con.commit(); con.close()
+        except Exception as exc:
+            write_log("Translation failure record failed", exc)
 
     def stats(self):
         try:
@@ -1979,6 +2094,87 @@ def argos_translate_fallback(text: str, source: str = "zh", target: str = "en") 
     ARGOS_STATUS_CACHE["error"] = "Argos direct translation disabled pending safe add-on flow"
     return None
 
+def translation_langs_for_direction(direction: str) -> tuple[str, str, str, str]:
+    if direction == "en-zh":
+        return "en", "zh-CN", "en", "zh"
+    return "auto", "en", "zh", "en"
+
+
+def translation_engine_order(preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> list[str]:
+    pref = str(preferred_engine or "auto").lower()
+    fallback = str(fallback_mode or "google-argos").lower()
+    if fallback in {"cache-only", "offline-cache"}:
+        return []
+    if pref == "argos":
+        return ["argos"] if fallback == "offline-only" else ["argos", "google"]
+    if pref == "google":
+        return ["google"] if fallback == "online-only" else ["google", "argos"]
+    if fallback == "argos-google":
+        return ["argos", "google"]
+    if fallback == "offline-only":
+        return ["argos"]
+    if fallback == "online-only":
+        return ["google"]
+    return ["google", "argos"]
+
+
+def translation_cache_lookup(source_text: str, direction: str, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> tuple[str, str]:
+    source, target, _argos_source, _argos_target = translation_langs_for_direction(direction)
+    override = TRANSLATION_CACHE.get_override(source_text, target)
+    if override:
+        return normalize_feed_text(override), "manual-override"
+    for engine in translation_engine_order(preferred_engine, fallback_mode):
+        hit = TRANSLATION_CACHE.get(TRANSLATION_CACHE.key_for(source_text, source, target, engine))
+        if hit:
+            return normalize_feed_text(hit), f"cache:{engine}"
+    return "", "miss"
+
+
+def translate_free_text_cached(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos", cooldown_minutes: int = 60) -> tuple[str, str]:
+    direction = direction or "zh-en"
+    if direction == "off":
+        return "", "off"
+    if direction == "zh-en" and not has_non_english_signal(text):
+        return "", "not-needed"
+    if direction == "en-zh" and not has_english_letters(text):
+        return "", "not-needed"
+    cached, label = translation_cache_lookup(text, direction, preferred_engine, fallback_mode)
+    if cached:
+        return cached, label
+    if str(fallback_mode or "").lower() in {"cache-only", "offline-cache"}:
+        return "", "cache-miss-offline"
+    source, target, argos_source, argos_target = translation_langs_for_direction(direction)
+    override_text, override_changed = apply_phrase_overrides(text, direction)
+    if override_changed and direction == "zh-en" and not has_non_english_signal(override_text):
+        return override_text.strip(), "phrase-override"
+    protected=[]; work=override_text; terms=[]
+    terms.extend(systems); terms.extend(assets); terms.extend(counts); terms.extend(links); terms.extend(HTTP_LINK_RE.findall(text))
+    if character_names: terms.extend(character_names)
+    terms.extend(re.findall(r"\b\d+(?:\.\d+)?\s*(?:isk|m|mil|b|bil|kk)\b", text, re.I))
+    for ent in localized:
+        terms.append(ent.get("original", "")); terms.append(ent.get("canonical", ""))
+    for idx, term in enumerate(sorted(unique(terms), key=len, reverse=True)):
+        if not term or term not in work: continue
+        token=f"SBX{idx}"; work=work.replace(term, token); protected.append((token, term))
+    for engine in translation_engine_order(preferred_engine, fallback_mode):
+        if TRANSLATION_CACHE.failure_active(text, target, engine):
+            continue
+        try:
+            translated = google_translate_free(work, source=source, target=target) if engine == "google" else argos_translate_fallback(work, source=argos_source, target=argos_target)
+        except Exception as exc:
+            translated = ""; TRANSLATION_CACHE.record_failure(text, target, engine, f"{type(exc).__name__}: {exc}", cooldown_minutes)
+        if not translated:
+            TRANSLATION_CACHE.record_failure(text, target, engine, "empty result", cooldown_minutes)
+            continue
+        out=translated
+        for token, original in protected:
+            out=re.sub(rf"\b{re.escape(token)}\b", original, out)
+        out=out.strip()
+        if out:
+            TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(text, source, target, engine), text, source, target, out, engine)
+            return out, f"{engine}-cached"
+    return "", "fallback-failed"
+
 def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
     direction = direction or "zh-en"
     if direction == "off":
@@ -2322,7 +2518,9 @@ class SignalBridgeGui:
         self.translate_chinese_text = tk.BooleanVar(value=bool(SETTINGS.get("translate_free_text", True)))
         self.translation_direction = tk.StringVar(value=str(SETTINGS.get("translation_direction", "zh-en")))
         self.translation_preferred_engine = tk.StringVar(value=str(SETTINGS.get("translation_preferred_engine", "auto")))
-        self.translation_fallback_mode = tk.StringVar(value=str(SETTINGS.get("translation_fallback_mode", "google-argos")))
+        self.translation_fallback_mode = tk.StringVar(value=str(SETTINGS.get("translation_fallback_mode", "online-only")))
+        self.translation_cache_mode = tk.StringVar(value=str(SETTINGS.get("translation_cache_mode", "cache-first-auto")))
+        self.translation_failure_cooldown_minutes = tk.IntVar(value=int(SETTINGS.get("translation_failure_cooldown_minutes", 60) or 60))
         self.argos_status_text = tk.StringVar(value="Argos status: not checked")
         self.appearance = self.normalize_appearance(SETTINGS.get("appearance"))
         self.font_family = tk.StringVar(value=str(self.appearance.get("font_family", SETTINGS.get("font_family", "Segoe UI"))))
@@ -3423,7 +3621,7 @@ class SignalBridgeGui:
 
     def show_settings_center(self, initial_page: str = "General"):
         tk = self.tk
-        pages = ["General", "Channels", "Appearance", "Translation", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
+        pages = ["General", "Channels", "Appearance", "Translation", "Translation Cache", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
         if initial_page not in pages:
             initial_page = "General"
         win = tk.Toplevel(self.root)
@@ -3492,12 +3690,76 @@ class SignalBridgeGui:
             c_engine = card(body, "Translation Engine", "Argos is offline/local when installed; Google is online and remains lightweight by default.")
             label(c_engine, "Preferred engine")
             opt1 = tk.OptionMenu(c_engine, self.translation_preferred_engine, "auto", "argos", "google", command=lambda _=None: self.save_translation_engine_settings()); opt1.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat"); opt1.pack(anchor="w", pady=(0, 4))
+            label(c_engine, "Cache mode")
+            opt0 = tk.OptionMenu(c_engine, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt0.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat"); opt0.pack(anchor="w", pady=(0, 4))
             label(c_engine, "Fallback mode")
-            opt2 = tk.OptionMenu(c_engine, self.translation_fallback_mode, "google-argos", "argos-google", "offline-only", "online-only", command=lambda _=None: self.save_translation_engine_settings()); opt2.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat"); opt2.pack(anchor="w", pady=(0, 4))
+            opt2 = tk.OptionMenu(c_engine, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt2.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat"); opt2.pack(anchor="w", pady=(0, 4))
             tk.Label(c_engine, textvariable=self.argos_status_text, bg="#0b0f14", fg="#8b98a8", wraplength=640, justify="left").pack(anchor="w", fill="x", pady=2)
             count, hits = TRANSLATION_CACHE.stats(); label(c_engine, f"Translation cache: {count} entries, {hits} hits", "#8b98a8")
             r = row(c_engine); action(r, "Refresh Argos Status", self.refresh_argos_status); action(r, "Install / Repair Argos", self.install_argos_models); action(r, "Test Translation", self.test_translation_engine)
-            r2 = row(c_engine); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+            r2 = row(c_engine); action(r2, "Open Translation Cache...", lambda: render_page("Translation Cache")); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+        def render_translation_cache():
+            c = card(body, "Translation Cache Manager", "Cache-first translation controls and manual fixes. Manual overrides beat Google/Argos/cache and survive restarts.")
+            count, hits = TRANSLATION_CACHE.stats(); overrides = TRANSLATION_CACHE.override_count()
+            label(c, f"Cache: {count} entries / {hits} hits | Manual overrides: {overrides}", "#8b98a8")
+            label(c, f"File: {TRANSLATION_CACHE_PATH}", "#8b98a8")
+            controls = row(c)
+            tk.Label(controls, text="Mode", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
+            opt_mode = tk.OptionMenu(controls, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt_mode.pack(side="left", padx=(0,8))
+            tk.Label(controls, text="Fallback", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
+            opt_fb = tk.OptionMenu(controls, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt_fb.pack(side="left", padx=(0,8))
+            tk.Label(controls, text="Failure cooldown min", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
+            tk.Spinbox(controls, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff").pack(side="left")
+            search_var = tk.StringVar(); edit_id = {"id": None}
+            tk.Label(c, text="Search source or translation", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            tk.Entry(c, textvariable=search_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x", pady=(0,6))
+            list_frame = tk.Frame(c, bg="#0b0f14"); list_frame.pack(fill="both", expand=True, pady=6)
+            lb = tk.Listbox(list_frame, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
+            lb.pack(side="left", fill="both", expand=True)
+            lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview); lb_scroll.pack(side="right", fill="y"); lb.configure(yscrollcommand=lb_scroll.set)
+            state = {"items": []}
+            src = tk.Text(c, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
+            dst = tk.Text(c, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
+            note_var = tk.StringVar(); enabled_var = tk.BooleanVar(value=True); target_var = tk.StringVar(value="en")
+            def set_text(widget, value):
+                widget.delete("1.0", "end"); widget.insert("1.0", str(value or ""))
+            def get_text(widget): return widget.get("1.0", "end").strip()
+            def refresh_list():
+                state["items"] = TRANSLATION_CACHE.recent_entries(search_var.get(), 100)
+                lb.delete(0, "end")
+                for item in state["items"]:
+                    sp = str(item.get("source_text") or "").replace("\n", " ")[:48]
+                    dp = str(item.get("translated_text") or "").replace("\n", " ")[:48]
+                    lb.insert("end", f"[{item.get('kind')}] {sp}  ->  {dp}")
+            def load_selected(_event=None):
+                sel = lb.curselection()
+                if not sel: return
+                item = state["items"][int(sel[0])]
+                edit_id["id"] = item.get("id") if item.get("kind") == "manual" else None
+                set_text(src, item.get("source_text") or ""); set_text(dst, item.get("translated_text") or "")
+                target_var.set(str(item.get("target_lang") or "en")); enabled_var.set(bool(item.get("enabled", True))); note_var.set(str(item.get("note") or ""))
+            lb.bind("<<ListboxSelect>>", load_selected)
+            buttons_top = row(c)
+            action(buttons_top, "Search / Refresh", refresh_list)
+            action(buttons_top, "New Override", lambda: (edit_id.update({"id": None}), set_text(src, ""), set_text(dst, ""), note_var.set(""), enabled_var.set(True)))
+            tk.Label(c, text="Source text", bg="#0b0f14", fg="#8b98a8").pack(anchor="w"); src.pack(fill="x", pady=(0,4))
+            tk.Label(c, text="Correct translation / manual override", bg="#0b0f14", fg="#8b98a8").pack(anchor="w"); dst.pack(fill="x", pady=(0,4))
+            opts = tk.Frame(c, bg="#0b0f14"); opts.pack(fill="x", pady=4)
+            tk.Label(opts, text="Target", bg="#0b0f14", fg="#8b98a8").pack(side="left")
+            tk.OptionMenu(opts, target_var, "en", "zh-CN").pack(side="left", padx=6)
+            tk.Checkbutton(opts, text="Enabled", variable=enabled_var, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
+            tk.Entry(opts, textvariable=note_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(side="left", fill="x", expand=True, padx=6)
+            def save_override_ui():
+                oid = TRANSLATION_CACHE.save_override(get_text(src), get_text(dst), target_var.get(), "auto" if target_var.get()=="en" else "en", note_var.get(), enabled_var.get(), edit_id.get("id"))
+                if not oid:
+                    self.messagebox.showwarning("Translation Cache", "Source and translation are required."); return
+                edit_id["id"] = oid; FREE_TRANSLATION_CACHE.clear(); self.redraw_feed(); refresh_list(); self.set_status("Manual translation override saved")
+            def delete_override_ui():
+                if edit_id.get("id") and self.messagebox.askyesno("Translation Cache", "Delete this manual override?"):
+                    TRANSLATION_CACHE.delete_override(int(edit_id["id"])); edit_id["id"] = None; FREE_TRANSLATION_CACHE.clear(); self.redraw_feed(); refresh_list(); self.set_status("Manual translation override deleted")
+            buttons = row(c); action(buttons, "Save Manual Override", save_override_ui); action(buttons, "Delete Manual Override", delete_override_ui); action(buttons, "Cache Status", self.show_translation_cache)
+            refresh_list()
+
         def render_catalog():
             c = card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
             label(c, f"Catalog loaded: {CATALOG.loaded}"); label(c, f"Version: {CATALOG.version}"); label(c, f"Counts: {CATALOG.counts()}", "#8b98a8"); label(c, f"Path: {CATALOG_PATH}", "#8b98a8")
@@ -3629,8 +3891,8 @@ class SignalBridgeGui:
             label(c2, DONATION_TEXT, "#8b98a8")
             r = row(c2); action(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty")); action(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
             r2 = row(c); action(r2, "About", self.show_about); action(r2, "Support / Donate ISK", self.show_support); action(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
-        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "EVE Catalog": render_catalog, "Aliases": render_aliases, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
-        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
+        renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "Translation Cache": render_translation_cache, "EVE Catalog": render_catalog, "Aliases": render_aliases, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
+        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "Translation Cache":"Cache-first translation controls and manual exact overrides.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
         def render_page(page):
             clear(); title.configure(text=page); subtitle.configure(text=descriptions.get(page, ""))
             for name, btn in nav_buttons.items(): style_button(btn, name == page)
@@ -3941,6 +4203,11 @@ class SignalBridgeGui:
         self.queue.put(("argos_status", status))
 
     def save_translation_engine_settings(self):
+        SETTINGS["translation_preferred_engine"] = self.translation_preferred_engine.get()
+        SETTINGS["translation_fallback_mode"] = self.translation_fallback_mode.get()
+        SETTINGS["translation_cache_mode"] = self.translation_cache_mode.get()
+        SETTINGS["translation_failure_cooldown_minutes"] = int(self.translation_failure_cooldown_minutes.get() or 60)
+        save_settings(SETTINGS)
         self.persist_settings()
         pref = self.translation_preferred_engine.get()
         fallback = self.translation_fallback_mode.get()
@@ -4533,10 +4800,10 @@ class SignalBridgeGui:
 
     def show_translation_cache(self):
         count, hits = TRANSLATION_CACHE.stats()
-        self.messagebox.showinfo("Translation Cache", f"Cache file: {TRANSLATION_CACHE_PATH}\nEntries: {count}\nHits: {hits}")
+        self.messagebox.showinfo("Translation Cache", f"Cache file: {TRANSLATION_CACHE_PATH}\nEntries: {count}\nHits: {hits}\nManual overrides: {TRANSLATION_CACHE.override_count()}\nMode: {self.translation_cache_mode.get()}\nFallback: {self.translation_fallback_mode.get()}")
 
     def clear_translation_cache(self):
-        if self.messagebox.askyesno("Translation Cache", "Clear all cached machine translations?"):
+        if self.messagebox.askyesno("Translation Cache", "Clear cached machine translations? Manual overrides are kept."):
             if TRANSLATION_CACHE.clear():
                 FREE_TRANSLATION_CACHE.clear(); self.set_status("Translation cache cleared")
 
@@ -5837,6 +6104,29 @@ class SignalBridgeGui:
         cache = self.row_translation_cache(row)
         if cache.get(direction):
             return
+        pref_var = getattr(self, "translation_preferred_engine", None)
+        fallback_var = getattr(self, "translation_fallback_mode", None)
+        mode_var = getattr(self, "translation_cache_mode", None)
+        pref = pref_var.get() if pref_var is not None else "auto"
+        fallback = fallback_var.get() if fallback_var is not None else "online-only"
+        mode = mode_var.get() if mode_var is not None else "cache-first-auto"
+        if mode == "cache-only":
+            fallback = "cache-only"
+        cached, source_label = translation_cache_lookup(source_text, direction, pref, fallback)
+        if cached:
+            cache[direction] = normalize_feed_text(cached)
+            if direction == "zh-en": row.free_translation = cache[direction]
+            row.translation_source = source_label
+            self.diagnostics["translation_cache_hits"] = int(self.diagnostics.get("translation_cache_hits") or 0) + 1
+            try: row._last_translation_decision = f"used: {source_label}"
+            except Exception: pass
+            return
+        self.diagnostics["translation_cache_misses"] = int(self.diagnostics.get("translation_cache_misses") or 0) + 1
+        if fallback == "cache-only":
+            self.diagnostics["translation_background_skipped_offline"] = int(self.diagnostics.get("translation_background_skipped_offline") or 0) + 1
+            try: row._last_translation_decision = "skipped: cache-only translation miss"
+            except Exception: pass
+            return
         key = (id(row), direction, source_text)
         if key in self.translation_pending:
             return
@@ -5848,10 +6138,6 @@ class SignalBridgeGui:
             return
         self.translation_pending.add(key)
         try:
-            pref_var = getattr(self, "translation_preferred_engine", None)
-            fallback_var = getattr(self, "translation_fallback_mode", None)
-            pref = pref_var.get() if pref_var is not None else "auto"
-            fallback = fallback_var.get() if fallback_var is not None else "online-only"
             self.translation_queue.put_nowait((key, row, source_text, list(row.systems), list(row.assets), list(row.localized), list(row.counts), list(row.links), list(row.esi_candidates), direction, pref, fallback))
             self.diagnostics["translation_pending"] = len(self.translation_pending)
             try:
@@ -5876,15 +6162,18 @@ class SignalBridgeGui:
             started = time.time()
             result = ""
             error = ""
+            source_label = ""
             try:
-                result = translate_free_text(text, systems, assets, localized, counts, links, direction, names, pref, fallback)
+                cooldown_var = getattr(self, "translation_failure_cooldown_minutes", None)
+                cooldown = int(cooldown_var.get() if cooldown_var is not None else 60)
+                result, source_label = translate_free_text_cached(text, systems, assets, localized, counts, links, direction, names, pref, fallback, cooldown)
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
                 write_log("Background translation failed", exc)
             duration_ms = int((time.time() - started) * 1000)
-            self.queue.put(("translation_result", key, row, direction, result or "", error, duration_ms))
+            self.queue.put(("translation_result", key, row, direction, result or "", error, duration_ms, source_label))
 
-    def handle_translation_result(self, key, row: Row, direction: str, result: str, error: str, duration_ms: int):
+    def handle_translation_result(self, key, row: Row, direction: str, result: str, error: str, duration_ms: int, source_label: str = ""):
         self.translation_pending.discard(key)
         self.diagnostics["translation_pending"] = len(self.translation_pending)
         self.diagnostics["last_translation_ms"] = duration_ms
@@ -5907,9 +6196,9 @@ class SignalBridgeGui:
         cache[direction] = normalize_feed_text(result)
         if direction == "zh-en":
             row.free_translation = cache[direction]
-        row.translation_source = "catalog/db+background-mt" if (row.translation or row.localized) else "background-mt"
+        row.translation_source = source_label or ("catalog/db+background-mt" if (row.translation or row.localized) else "background-mt")
         try:
-            row._last_translation_decision = f"used: background {direction} translation ({duration_ms}ms)"
+            row._last_translation_decision = f"used: {source_label or 'background'} {direction} translation ({duration_ms}ms)"
         except Exception:
             pass
         record_event("translation_completed", direction=direction, duration_ms=duration_ms, sender=row.sender, channel=row.channel)
@@ -6041,7 +6330,7 @@ class SignalBridgeGui:
                     self.status_label.configure(text="Update check failed; see logs")
                     self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
                 elif isinstance(item, tuple) and item[0] == "translation_result":
-                    self.handle_translation_result(item[1], item[2], item[3], item[4], item[5], item[6])
+                    self.handle_translation_result(item[1], item[2], item[3], item[4], item[5], item[6], item[7] if len(item) > 7 else "")
                 elif isinstance(item, tuple) and item[0] == "zkill_sync_result":
                     handler = item[4] if len(item) > 4 else None
                     if callable(handler):

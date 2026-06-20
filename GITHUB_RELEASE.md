@@ -207,3 +207,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Fixed alias-related feed stalls and system-alias coloring: user aliases now render from a small cached rule set, and system aliases like 4-H -> 4-HWWF stay highlighted as systems.
 
 - Aliases now trigger when adjacent to Chinese text, e.g. YMJG星门 and 4H别过 correctly render as YMJG-4 and 4-HWWF.
+- Translation Cache Manager MVP: dedicated settings page for cache-first behavior, manual exact translation overrides, cache-only/offline mode, fallback controls, and failure cooldowns.
