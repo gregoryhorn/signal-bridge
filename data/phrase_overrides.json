@@ -144,6 +144,55 @@
       "direction": "zh-en",
       "enabled": true,
       "note": "User correction"
+    },
+    {
+      "source": "鱼鹰级海军型",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "狞獾级海军型",
+      "target": "Caracal Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "天梯级",
+      "target": "Skyhook",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "天梯",
+      "target": "Skyhook",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "sky ladder",
+      "target": "Skyhook",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "Caracal-class naval version",
+      "target": "Caracal Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "Osprey class naval version",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
     }
   ]
 }

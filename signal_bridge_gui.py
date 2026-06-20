@@ -439,11 +439,13 @@ BUILTIN_ASSETS = {
     "Cyno", "Dictor", "Dread", "Tornado", "Purifier", "Stiletto", "Hecate", "Rook", "Heretic", "Svipul", "Naga", "Minmatar Shuttle",
     "Shuttle", "Stabber Fleet Issue", "Crucifier", "Bifrost", "Stabber", "Manticore", "Scalpel", "Cynabal", "Retribution", "Vedmak",
     "Vagabond", "Proteus", "Machariel", "Typhoon", "Kikimora", "Raptor", "Condor", "Garmur", "Cormorant", "Kirin", "Redeemer",
+    "Osprey Navy Issue", "Caracal Navy Issue", "Skyhook",
 }
 
 CLEAR = re.compile(r"\b(clear|clr|safe|blue only)\b", re.I)
 MOVE = re.compile(r"\b(jump|jumped|jumping|gate|warp|undock|dock|moving|status|leaving|going|cyno|beacon)\b", re.I)
-HOSTILE = re.compile(r"\b(hostile|neut|neutral|red|tackle|camp|gang|fleet|goons?|bombers?|hound squad|bubble|ess theft|intrusion)\b", re.I)
+HOSTILE = re.compile(r"\b(hostile|neut|neutral|red|tackle|camp|gang|fleet|goons?|bombers?|hound squad|bubble|ess theft|intrusion|refugee)\b", re.I)
+HOSTILE_DISPLAY_TERMS = {"refugee"}
 
 @dataclass
 class IntelSegment:
@@ -808,6 +810,17 @@ apply_user_aliases_to_catalog(CATALOG, USER_ALIASES)
 MANUAL_TYPE_ALIASES = {
     "çŸ­å‰‘": "Stabber",
     "æµ·ç‹žç¾": "Caracal Navy Issue",
+    '鱼鹰级海军型': 'Osprey Navy Issue',
+    '鱼鹰海军型': 'Osprey Navy Issue',
+    'Osprey class naval version': 'Osprey Navy Issue',
+    'Osprey naval version': 'Osprey Navy Issue',
+    '狞獾级海军型': 'Caracal Navy Issue',
+    '狞獾海军型': 'Caracal Navy Issue',
+    'Caracal-class naval version': 'Caracal Navy Issue',
+    'Caracal naval version': 'Caracal Navy Issue',
+    '天梯级': 'Skyhook',
+    '天梯': 'Skyhook',
+    'sky ladder': 'Skyhook',
 }
 for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
     CATALOG.aliases.setdefault(_alias.casefold(), _canonical)
@@ -1998,6 +2011,8 @@ def extract_intel(text: str, db: EveDb):
     localized_pairs = [(str(e.get("original") or "").casefold(), str(e.get("canonical") or "").casefold()) for e in localized]
     for asset in unique_assets:
         akey = str(asset or "").casefold()
+        if akey in HOSTILE_DISPLAY_TERMS:
+            continue
         if akey and any(akey != str(other or "").casefold() and akey in str(other or "").casefold() for other in unique_assets):
             continue
         # If a shorter catalog hit only appears as part of an alias phrase that
@@ -6134,6 +6149,8 @@ class SignalBridgeGui:
         # Tag exact spans inside the inserted region.
         region_start = start_index
         region_end = self.text.index("end-1c")
+        for hostile_term in sorted(HOSTILE_DISPLAY_TERMS, key=len, reverse=True):
+            self.tag_term(hostile_term, "esi", region_start, region_end)
         system_terms = set(str(x).casefold() for x in unique(systems))
         for term in sorted(unique(assets), key=len, reverse=True):
             term_key = normalize_esi_query(term)
