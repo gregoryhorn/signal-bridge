@@ -745,6 +745,58 @@ def apply_user_aliases_to_catalog(catalog: EveCatalog, aliases: list[dict]) -> N
             elif hasattr(catalog.ship_names, "add"):
                 catalog.ship_names.add(canonical.casefold())
 
+
+ALIAS_RULE_VERSION = 0
+ALIAS_REPLACEMENT_RULES: list[tuple[str, str, re.Pattern]] = []
+
+
+def rebuild_alias_replacement_rules() -> None:
+    """Precompute display alias rules so feed redraw stays cheap.
+
+    Important: this must use only user/manual aliases, not the full catalog.
+    The full compact catalog contains hundreds of thousands of systems/types;
+    turning all of them into regex replacements stalls the Tk UI.
+    """
+    global ALIAS_RULE_VERSION, ALIAS_REPLACEMENT_RULES
+    entries: list[tuple[str, str]] = []
+    try:
+        for entry in USER_ALIASES or []:
+            if not entry.get("enabled", True):
+                continue
+            alias_s = str(entry.get("alias") or "").strip()
+            canonical_s = str(entry.get("canonical") or "").strip()
+            if alias_s and canonical_s and alias_s.casefold() != canonical_s.casefold():
+                entries.append((alias_s, canonical_s))
+        for alias_s, canonical_s in MANUAL_TYPE_ALIASES.items():
+            if alias_s and canonical_s and str(alias_s).casefold() != str(canonical_s).casefold():
+                entries.append((str(alias_s), str(canonical_s)))
+    except Exception as exc:
+        write_log("Alias rule rebuild failed", exc)
+    seen: set[str] = set()
+    rules: list[tuple[str, str, re.Pattern]] = []
+    for alias, canonical in sorted(entries, key=lambda kv: -len(kv[0])):
+        key = alias.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            # Prevent replacing inside a canonical phrase already produced by an
+            # earlier row-specific replacement, e.g. Apocalypse Navy should not
+            # turn Apocalypse Navy Issue into Apocalypse Navy Issue Issue.
+            suffix_guard = ""
+            ckey = canonical.casefold()
+            if ckey.startswith(key):
+                suffix = canonical[len(alias):]
+                if suffix:
+                    suffix_guard = r"(?!(?:" + re.escape(suffix) + r")(?=$|[^\w-]))"
+            pattern = re.compile(r"(?<![\w-])" + re.escape(alias) + suffix_guard + r"(?![\w-])", re.I)
+        except Exception:
+            continue
+        rules.append((key, canonical, pattern))
+    ALIAS_REPLACEMENT_RULES = rules
+    ALIAS_RULE_VERSION += 1
+
+
 CATALOG = EveCatalog()
 USER_ALIASES = load_user_aliases()
 apply_user_aliases_to_catalog(CATALOG, USER_ALIASES)
@@ -762,6 +814,7 @@ for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
         CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
     elif hasattr(CATALOG.ship_names, "add"):
         CATALOG.ship_names.add(_canonical.casefold())
+rebuild_alias_replacement_rules()
 
 
 def reload_user_aliases() -> list[dict]:
@@ -776,6 +829,7 @@ def reload_user_aliases() -> list[dict]:
             CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
         elif hasattr(CATALOG.ship_names, "add"):
             CATALOG.ship_names.add(_canonical.casefold())
+    rebuild_alias_replacement_rules()
     return USER_ALIASES
 
 class TranslationCache:
@@ -1694,45 +1748,37 @@ def translate_text(text: str, localized: list[dict], intent: str) -> str:
 def localized_display_from_aliases(text: str, localized: list[dict] | None = None) -> str:
     """Return display text with current catalog/user aliases applied.
 
-    Rows may have been parsed before the user added an alias, so render-time
-    replacement must consult the current alias catalog instead of only relying
-    on stale row.localized. This is display-only; raw copy paths still use the
-    original row text.
+    Uses precompiled alias rules plus cheap lowercase containment checks. This
+    keeps aliases dynamic without running every regex against every row during
+    redraw.
     """
     out = str(text or "")
-    entries: list[dict] = []
-    for ent in localized or []:
-        if ent.get("original") and ent.get("canonical"):
-            entries.append({"original": str(ent.get("original")), "canonical": str(ent.get("canonical"))})
-    try:
-        for alias, canonical in getattr(CATALOG, "aliases", {}).items():
-            if alias and canonical and str(alias).casefold() != str(canonical).casefold():
-                entries.append({"original": str(alias), "canonical": str(canonical)})
-    except Exception:
-        pass
-    seen = set()
-    ordered = []
-    for ent in sorted(entries, key=lambda e: -len(e.get("original", ""))):
-        key = (ent.get("original", "").casefold(), ent.get("canonical", "").casefold())
-        if key in seen:
+    if not out:
+        return out
+    lower = out.casefold()
+    # First apply row-specific localized matches from extraction. These are few
+    # and avoid waiting for a full alias-rule rebuild when a row already knows
+    # its canonical entity.
+    for ent in sorted(localized or [], key=lambda e: -len(str(e.get("original") or ""))):
+        original = str(ent.get("original") or "").strip()
+        canonical = str(ent.get("canonical") or "").strip()
+        if not original or not canonical or original.casefold() not in lower:
             continue
-        seen.add(key)
-        ordered.append(ent)
-    for ent in ordered:
-        original = ent.get("original", "")
-        canonical = ent.get("canonical", "")
-        if not original or not canonical:
-            continue
-        # Use Python boundaries here instead of the Tk/Tcl-safe word_boundary()
-        # helper.  Aliases often contain spaces or hyphens (4-H, Black Crow-class,
-        # Apocalypse Navy), and rows parsed before alias edits must still render
-        # with current canonical names.  Treat letters/digits/underscore/hyphen as
-        # token characters so short aliases do not replace inside longer terms.
-        pattern = r"(?<![\w-])" + re.escape(original) + r"(?![\w-])"
         try:
-            out = re.sub(pattern, canonical, out, flags=re.I)
+            pattern = re.compile(r"(?<![\w-])" + re.escape(original) + r"(?![\w-])", re.I)
+            out = pattern.sub(canonical, out)
+            lower = out.casefold()
         except Exception:
             out = out.replace(original, canonical)
+            lower = out.casefold()
+    for alias_lower, canonical, pattern in ALIAS_REPLACEMENT_RULES:
+        if alias_lower not in lower:
+            continue
+        try:
+            out = pattern.sub(canonical, out)
+            lower = out.casefold()
+        except Exception:
+            pass
     return out
 
 
@@ -5493,13 +5539,15 @@ class SignalBridgeGui:
         # Tag exact spans inside the inserted region.
         region_start = start_index
         region_end = self.text.index("end-1c")
-        for term in sorted(unique(systems), key=len, reverse=True):
-            if is_globally_excluded(term):
-                continue
-            self.tag_term(term, "system", region_start, region_end)
+        system_terms = set(str(x).casefold() for x in unique(systems))
         for term in sorted(unique(assets), key=len, reverse=True):
             term_key = normalize_esi_query(term)
             if term_key in COMMON_ESI_NOISE or is_globally_excluded(term):
+                continue
+            # System aliases/canonicals must stay yellow.  If extraction produced
+            # a duplicate module/asset hit for the same visible text, skip it so
+            # module purple cannot override the system tag.
+            if str(term or "").casefold() in system_terms or CATALOG.lookup_system(str(term or "")):
                 continue
             if term.lower() == "ess":
                 self.tag_term_whole_word(term, "ess", region_start, region_end)
@@ -5507,6 +5555,11 @@ class SignalBridgeGui:
                 self.tag_term(term, "asset", region_start, region_end)
             else:
                 self.tag_term(term, "module", region_start, region_end)
+        # Apply systems after assets/modules so system yellow wins any overlap.
+        for term in sorted(unique(systems), key=len, reverse=True):
+            if is_globally_excluded(term):
+                continue
+            self.tag_term(term, "system", region_start, region_end)
         # Defensive: highlight standalone literal ESS unless excluded by the user.
         if not is_globally_excluded("ESS"):
             self.tag_term_whole_word("ESS", "ess", region_start, region_end)
@@ -5548,7 +5601,21 @@ class SignalBridgeGui:
             pos = last
 
     def localized_display_text(self, row: Row) -> str:
-        return normalize_feed_text(localized_display_from_aliases(row.text, row.localized))
+        try:
+            cache_key = (ALIAS_RULE_VERSION, row.text, tuple((str(e.get("original", "")), str(e.get("canonical", ""))) for e in (row.localized or [])))
+            if getattr(row, "_display_alias_cache_key", None) == cache_key:
+                return getattr(row, "_display_alias_cache", "")
+            started = time.time()
+            display = normalize_feed_text(localized_display_from_aliases(row.text, row.localized))
+            setattr(row, "_display_alias_cache_key", cache_key)
+            setattr(row, "_display_alias_cache", display)
+            alias_ms = int((time.time() - started) * 1000)
+            if alias_ms > 50:
+                record_event("slow_alias_display", duration_ms=alias_ms, alias_rules=len(ALIAS_REPLACEMENT_RULES), text_len=len(row.text or ""))
+            return display
+        except Exception as exc:
+            write_log("Alias display cache failed", exc)
+            return normalize_feed_text(row.text)
 
     def redraw_feed(self):
         """Cancellable, chunked feed redraw.
@@ -5894,7 +5961,11 @@ class SignalBridgeGui:
         self.text.insert("end", sender_prefix, "sender")
         body_start = self.text.index("end-1c")
         display_lines = self.row_visible_body_lines(row, parts)
-        tag_assets = row.assets + [normalize_feed_text(x.get("original", "")) for x in row.localized]
+        tag_assets = row.assets + [
+            normalize_feed_text(x.get("original", ""))
+            for x in row.localized
+            if not CATALOG.lookup_system(str(x.get("canonical", "") or x.get("original", "")))
+        ]
         multiline = self.row_uses_multiline_segments(row)
         for idx, line in enumerate(display_lines):
             if idx > 0:

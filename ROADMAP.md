@@ -510,3 +510,5 @@ Suggested implementation:
 - Pilot Info follow-up: tactical zKill priority, No Visual/status normalization, and fixed-footer scrollable card layout are now implemented in source.
 
 - Alias workflow: continue improving user-editable ship/system aliases, bad translation cleanup, and safe canonical display in the live feed.
+
+- Alias workflow: keep alias replacement fast and render-safe with cached user/manual rules, canonical system display, and diagnostics for slow alias rendering.
