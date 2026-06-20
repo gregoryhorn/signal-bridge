@@ -3699,66 +3699,191 @@ class SignalBridgeGui:
             r = row(c_engine); action(r, "Refresh Argos Status", self.refresh_argos_status); action(r, "Install / Repair Argos", self.install_argos_models); action(r, "Test Translation", self.test_translation_engine)
             r2 = row(c_engine); action(r2, "Open Translation Cache...", lambda: render_page("Translation Cache")); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
         def render_translation_cache():
-            c = card(body, "Translation Cache Manager", "Cache-first translation controls and manual fixes. Manual overrides beat Google/Argos/cache and survive restarts.")
+            c = card(body, "Translation Cache Manager", "Cache-first translation controls and manual fixes. Select a row, edit either side, and changes auto-save as a manual override.")
             count, hits = TRANSLATION_CACHE.stats(); overrides = TRANSLATION_CACHE.override_count()
             label(c, f"Cache: {count} entries / {hits} hits | Manual overrides: {overrides}", "#8b98a8")
             label(c, f"File: {TRANSLATION_CACHE_PATH}", "#8b98a8")
             controls = row(c)
             tk.Label(controls, text="Mode", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
-            opt_mode = tk.OptionMenu(controls, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt_mode.pack(side="left", padx=(0,8))
+            tk.OptionMenu(controls, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
             tk.Label(controls, text="Fallback", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
-            opt_fb = tk.OptionMenu(controls, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt_fb.pack(side="left", padx=(0,8))
+            tk.OptionMenu(controls, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
             tk.Label(controls, text="Failure cooldown min", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
             tk.Spinbox(controls, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff").pack(side="left")
-            search_var = tk.StringVar(); edit_id = {"id": None}
-            tk.Label(c, text="Search source or translation", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
-            tk.Entry(c, textvariable=search_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x", pady=(0,6))
-            list_frame = tk.Frame(c, bg="#0b0f14"); list_frame.pack(fill="both", expand=True, pady=6)
-            lb = tk.Listbox(list_frame, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
-            lb.pack(side="left", fill="both", expand=True)
-            lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview); lb_scroll.pack(side="right", fill="y"); lb.configure(yscrollcommand=lb_scroll.set)
-            state = {"items": []}
-            src = tk.Text(c, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
-            dst = tk.Text(c, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
-            note_var = tk.StringVar(); enabled_var = tk.BooleanVar(value=True); target_var = tk.StringVar(value="en")
-            def set_text(widget, value):
-                widget.delete("1.0", "end"); widget.insert("1.0", str(value or ""))
-            def get_text(widget): return widget.get("1.0", "end").strip()
-            def refresh_list():
-                state["items"] = TRANSLATION_CACHE.recent_entries(search_var.get(), 100)
-                lb.delete(0, "end")
-                for item in state["items"]:
-                    sp = str(item.get("source_text") or "").replace("\n", " ")[:48]
-                    dp = str(item.get("translated_text") or "").replace("\n", " ")[:48]
-                    lb.insert("end", f"[{item.get('kind')}] {sp}  ->  {dp}")
-            def load_selected(_event=None):
-                sel = lb.curselection()
-                if not sel: return
-                item = state["items"][int(sel[0])]
-                edit_id["id"] = item.get("id") if item.get("kind") == "manual" else None
-                set_text(src, item.get("source_text") or ""); set_text(dst, item.get("translated_text") or "")
-                target_var.set(str(item.get("target_lang") or "en")); enabled_var.set(bool(item.get("enabled", True))); note_var.set(str(item.get("note") or ""))
-            lb.bind("<<ListboxSelect>>", load_selected)
-            buttons_top = row(c)
-            action(buttons_top, "Search / Refresh", refresh_list)
-            action(buttons_top, "New Override", lambda: (edit_id.update({"id": None}), set_text(src, ""), set_text(dst, ""), note_var.set(""), enabled_var.set(True)))
-            tk.Label(c, text="Source text", bg="#0b0f14", fg="#8b98a8").pack(anchor="w"); src.pack(fill="x", pady=(0,4))
-            tk.Label(c, text="Correct translation / manual override", bg="#0b0f14", fg="#8b98a8").pack(anchor="w"); dst.pack(fill="x", pady=(0,4))
-            opts = tk.Frame(c, bg="#0b0f14"); opts.pack(fill="x", pady=4)
+
+            state = {"items": [], "selected_index": None, "autosave_after": None, "loading": False, "saving": False}
+            original_filter = tk.StringVar()
+            translated_filter = tk.StringVar()
+            target_var = tk.StringVar(value="en")
+            enabled_var = tk.BooleanVar(value=True)
+            note_var = tk.StringVar()
+            status_var = tk.StringVar(value="Type in either filter box to live-filter. Select a row to edit; edits auto-save.")
+
+            filter_frame = tk.Frame(c, bg="#0b0f14"); filter_frame.pack(fill="x", pady=(8, 4))
+            left_filter = tk.Frame(filter_frame, bg="#0b0f14"); left_filter.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            right_filter = tk.Frame(filter_frame, bg="#0b0f14"); right_filter.pack(side="left", fill="x", expand=True, padx=(6, 0))
+            tk.Label(left_filter, text="Filter original", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            tk.Entry(left_filter, textvariable=original_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
+            tk.Label(right_filter, text="Filter translated", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            tk.Entry(right_filter, textvariable=translated_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
+
+            tables = tk.Frame(c, bg="#0b0f14"); tables.pack(fill="both", expand=True, pady=6)
+            left = tk.Frame(tables, bg="#0b0f14"); left.pack(side="left", fill="both", expand=True, padx=(0, 6))
+            right = tk.Frame(tables, bg="#0b0f14"); right.pack(side="left", fill="both", expand=True, padx=(6, 0))
+            tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            tk.Label(right, text="Translated", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            orig_list = tk.Listbox(left, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            trans_list = tk.Listbox(right, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            orig_scroll = tk.Scrollbar(left, orient="vertical", command=orig_list.yview)
+            trans_scroll = tk.Scrollbar(right, orient="vertical", command=trans_list.yview)
+            orig_list.configure(yscrollcommand=orig_scroll.set); trans_list.configure(yscrollcommand=trans_scroll.set)
+            orig_list.pack(side="left", fill="both", expand=True); orig_scroll.pack(side="right", fill="y")
+            trans_list.pack(side="left", fill="both", expand=True); trans_scroll.pack(side="right", fill="y")
+
+            editor = tk.LabelFrame(c, text="Edit selected translation", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+            editor.pack(fill="x", pady=(4, 6))
+            edit_cols = tk.Frame(editor, bg="#0b0f14"); edit_cols.pack(fill="x")
+            src_col = tk.Frame(edit_cols, bg="#0b0f14"); src_col.pack(side="left", fill="both", expand=True, padx=(0, 6))
+            dst_col = tk.Frame(edit_cols, bg="#0b0f14"); dst_col.pack(side="left", fill="both", expand=True, padx=(6, 0))
+            tk.Label(src_col, text="Original / source", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            src_text = tk.Text(src_col, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
+            src_text.pack(fill="x")
+            tk.Label(dst_col, text="Translated / corrected", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            dst_text = tk.Text(dst_col, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
+            dst_text.pack(fill="x")
+            opts = tk.Frame(editor, bg="#0b0f14"); opts.pack(fill="x", pady=(6, 0))
             tk.Label(opts, text="Target", bg="#0b0f14", fg="#8b98a8").pack(side="left")
-            tk.OptionMenu(opts, target_var, "en", "zh-CN").pack(side="left", padx=6)
-            tk.Checkbutton(opts, text="Enabled", variable=enabled_var, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
+            tk.OptionMenu(opts, target_var, "en", "zh-CN", command=lambda _=None: schedule_autosave()).pack(side="left", padx=6)
+            tk.Checkbutton(opts, text="Enabled", variable=enabled_var, command=lambda: schedule_autosave(), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
             tk.Entry(opts, textvariable=note_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(side="left", fill="x", expand=True, padx=6)
-            def save_override_ui():
-                oid = TRANSLATION_CACHE.save_override(get_text(src), get_text(dst), target_var.get(), "auto" if target_var.get()=="en" else "en", note_var.get(), enabled_var.get(), edit_id.get("id"))
+            tk.Label(editor, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", fill="x", pady=(4, 0))
+
+            def preview(text, n=96):
+                text = str(text or "").replace("\r", " ").replace("\n", " ").strip()
+                return text[:n-1] + "…" if len(text) > n else text
+
+            def set_text(widget, value):
+                state["loading"] = True
+                widget.delete("1.0", "end"); widget.insert("1.0", str(value or ""))
+                state["loading"] = False
+
+            def get_text(widget):
+                return widget.get("1.0", "end").strip()
+
+            def selected_item():
+                idx = state.get("selected_index")
+                if idx is None or idx < 0 or idx >= len(state["items"]):
+                    return None
+                return state["items"][idx]
+
+            def refresh_rows(keep_selection=True):
+                old_src = get_text(src_text) if keep_selection else ""
+                src_filter = original_filter.get().strip().casefold()
+                dst_filter = translated_filter.get().strip().casefold()
+                rows = TRANSLATION_CACHE.recent_entries("", 250)
+                if src_filter:
+                    rows = [r for r in rows if src_filter in str(r.get("source_text") or "").casefold()]
+                if dst_filter:
+                    rows = [r for r in rows if dst_filter in str(r.get("translated_text") or "").casefold()]
+                state["items"] = rows
+                orig_list.delete(0, "end"); trans_list.delete(0, "end")
+                for item in rows:
+                    prefix = "M" if item.get("kind") == "manual" else "C"
+                    orig_list.insert("end", f"[{prefix}] {preview(item.get('source_text'))}")
+                    trans_list.insert("end", preview(item.get("translated_text")))
+                new_idx = None
+                if keep_selection and old_src:
+                    for i, item in enumerate(rows):
+                        if str(item.get("source_text") or "") == old_src:
+                            new_idx = i; break
+                state["selected_index"] = new_idx
+                if new_idx is not None:
+                    orig_list.selection_set(new_idx); trans_list.selection_set(new_idx)
+                    orig_list.see(new_idx); trans_list.see(new_idx)
+                status_var.set(f"Showing {len(rows)} row(s). Manual edits auto-save as overrides.")
+
+            def select_index(idx):
+                if idx is None or idx < 0 or idx >= len(state["items"]):
+                    return
+                state["selected_index"] = idx
+                orig_list.selection_clear(0, "end"); trans_list.selection_clear(0, "end")
+                orig_list.selection_set(idx); trans_list.selection_set(idx)
+                orig_list.see(idx); trans_list.see(idx)
+                item = state["items"][idx]
+                set_text(src_text, item.get("source_text") or "")
+                set_text(dst_text, item.get("translated_text") or "")
+                target_var.set(str(item.get("target_lang") or "en"))
+                enabled_var.set(bool(item.get("enabled", True)))
+                note_var.set(str(item.get("note") or ""))
+                status_var.set("Editing selected row. Changes auto-save after you stop typing.")
+
+            def on_select(event=None):
+                widget = event.widget if event is not None else orig_list
+                sel = widget.curselection()
+                if sel:
+                    select_index(int(sel[0]))
+
+            def sync_scroll_from_orig(*args):
+                trans_list.yview_moveto(args[0]) if args and args[0] else None
+            def sync_scroll_from_trans(*args):
+                orig_list.yview_moveto(args[0]) if args and args[0] else None
+            # Keep selection synchronized; scrollbars remain independent enough for normal use.
+            orig_list.bind("<<ListboxSelect>>", on_select); trans_list.bind("<<ListboxSelect>>", on_select)
+
+            def save_now():
+                state["autosave_after"] = None
+                if state.get("loading") or state.get("saving"):
+                    return
+                source = get_text(src_text); translated = get_text(dst_text)
+                if not source or not translated:
+                    status_var.set("Source and translated text are required before auto-save."); return
+                item = selected_item()
+                override_id = item.get("id") if item and item.get("kind") == "manual" else None
+                state["saving"] = True
+                oid = TRANSLATION_CACHE.save_override(source, translated, target_var.get(), "auto" if target_var.get()=="en" else "en", note_var.get(), enabled_var.get(), override_id)
+                state["saving"] = False
                 if not oid:
-                    self.messagebox.showwarning("Translation Cache", "Source and translation are required."); return
-                edit_id["id"] = oid; FREE_TRANSLATION_CACHE.clear(); self.redraw_feed(); refresh_list(); self.set_status("Manual translation override saved")
-            def delete_override_ui():
-                if edit_id.get("id") and self.messagebox.askyesno("Translation Cache", "Delete this manual override?"):
-                    TRANSLATION_CACHE.delete_override(int(edit_id["id"])); edit_id["id"] = None; FREE_TRANSLATION_CACHE.clear(); self.redraw_feed(); refresh_list(); self.set_status("Manual translation override deleted")
-            buttons = row(c); action(buttons, "Save Manual Override", save_override_ui); action(buttons, "Delete Manual Override", delete_override_ui); action(buttons, "Cache Status", self.show_translation_cache)
-            refresh_list()
+                    status_var.set("Auto-save failed: source and translation are required."); return
+                FREE_TRANSLATION_CACHE.clear()
+                if item:
+                    item.update({"kind":"manual", "id": oid, "source_text": source, "translated_text": translated, "target_lang": target_var.get(), "enabled": enabled_var.get(), "note": note_var.get()})
+                status_var.set("Saved manual override. Feed update scheduled.")
+                self.set_status("Manual translation override saved")
+                self.schedule_redraw(80)
+                refresh_rows(keep_selection=True)
+
+            def schedule_autosave(event=None):
+                if state.get("loading") or state.get("saving"):
+                    return
+                if state.get("autosave_after"):
+                    try: c.after_cancel(state["autosave_after"])
+                    except Exception: pass
+                state["autosave_after"] = c.after(700, save_now)
+                status_var.set("Editing… auto-save pending")
+
+            def live_filter(*_args):
+                if state.get("autosave_after"):
+                    try: c.after_cancel(state["autosave_after"])
+                    except Exception: pass
+                    state["autosave_after"] = None
+                refresh_rows(keep_selection=True)
+
+            src_text.bind("<KeyRelease>", schedule_autosave)
+            dst_text.bind("<KeyRelease>", schedule_autosave)
+            note_var.trace_add("write", lambda *_: schedule_autosave())
+            original_filter.trace_add("write", live_filter)
+            translated_filter.trace_add("write", live_filter)
+
+            buttons = row(c)
+            action(buttons, "New Override", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New override: enter original and translated text; it will auto-save.")))
+            action(buttons, "Save Now", save_now)
+            def delete_selected():
+                item = selected_item()
+                if item and item.get("kind") == "manual" and item.get("id") and self.messagebox.askyesno("Translation Cache", "Delete this manual override?"):
+                    TRANSLATION_CACHE.delete_override(int(item["id"])); FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False); status_var.set("Manual override deleted.")
+            action(buttons, "Delete Manual Override", delete_selected)
+            action(buttons, "Cache Status", self.show_translation_cache)
+            refresh_rows(keep_selection=False)
 
         def render_catalog():
             c = card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")

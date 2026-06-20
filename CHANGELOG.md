@@ -220,3 +220,4 @@ Initial portable Windows preview release.
 
 - Fixed ship/system aliases next to Chinese text so short Latin aliases like YMJG and 4H trigger even when immediately followed by CJK characters, while preserving protection against replacements inside longer Latin tokens.
 - Added a cache-first Translation Cache Manager MVP with manual exact overrides, cache-only mode, fallback controls, and failure cooldowns so repeated/corrected translations reduce reliance on Google/Argos.
+- Improved the Translation Cache Manager with side-by-side Original and Translated tables, live filtering, click-to-edit rows, and debounced auto-save manual overrides that update the feed.

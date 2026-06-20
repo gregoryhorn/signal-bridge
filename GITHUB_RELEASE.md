@@ -208,3 +208,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 
 - Aliases now trigger when adjacent to Chinese text, e.g. YMJG星门 and 4H别过 correctly render as YMJG-4 and 4-HWWF.
 - Translation Cache Manager MVP: dedicated settings page for cache-first behavior, manual exact translation overrides, cache-only/offline mode, fallback controls, and failure cooldowns.
+- Translation Cache Manager UI polish: split Original/Translated tables, live filters, click-to-edit, and auto-saving manual overrides.
