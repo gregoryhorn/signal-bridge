@@ -201,3 +201,5 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Reactivated Auto -> EN and EN -> CN free-text translation toggles using a safe background queue; rendering still never performs blocking MT.
 - Pilot Info card now uses a compact normalized layout with manual Sync zKill support and cached zKill summary state.
 - Pilot Info card tactical cleanup: No Visual is no longer shown as a ship, zKill sync stores recent event summaries for priority signals, and the card uses a scrollable body with fixed footer actions.
+
+- Alias display now updates the normal chat feed with canonical names instead of leaving raw aliases visible; short system aliases and translated ship-class artifacts are handled more reliably.

@@ -213,3 +213,5 @@ Initial portable Windows preview release.
 - Reactivated CN/EN free-text direction toggles through a safe background translation queue instead of render-thread MT calls.
 - Redesigned Pilot Info as a compact normalized local snapshot card and added manual cache-backed zKill sync.
 - Cleaned up Pilot Info tactical display so No Visual is treated as status, zKill recent events drive HIGH/MED/QUIET priority, and card body scrolls while footer buttons stay visible.
+
+- Fixed alias display so current ship/system aliases are applied dynamically in the normal chat feed, including rows parsed before the alias was added. Added starter cleanup aliases for common bad translation artifacts such as Widmark-class, Black Crow-class, Ocato-class, Assassin-class, and Stabber-class.

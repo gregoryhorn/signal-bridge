@@ -653,6 +653,19 @@ def default_user_aliases() -> list[dict]:
         {"alias": "Apocalypse Navy", "canonical": "Apocalypse Navy Issue", "kind": "ship", "enabled": True, "note": "Common intel shorthand"},
         {"alias": "Prophet Class", "canonical": "Prophecy", "kind": "ship", "enabled": True, "note": "Machine translation often says Prophet Class"},
         {"alias": "Stork Class", "canonical": "Stork", "kind": "ship", "enabled": True, "note": "Class suffix shorthand"},
+        {"alias": "Widmark-class", "canonical": "Widow", "kind": "ship", "enabled": True, "note": "Machine translation / OCR artifact"},
+        {"alias": "Widmark Class", "canonical": "Widow", "kind": "ship", "enabled": True, "note": "Machine translation / OCR artifact"},
+        {"alias": "Widmark", "canonical": "Widow", "kind": "ship", "enabled": True, "note": "Machine translation / OCR artifact"},
+        {"alias": "Assassin-class", "canonical": "Assassin", "kind": "ship", "enabled": True, "note": "Class suffix shorthand"},
+        {"alias": "Assassin Class", "canonical": "Assassin", "kind": "ship", "enabled": True, "note": "Class suffix shorthand"},
+        {"alias": "Ocato-class", "canonical": "Osprey Navy Issue", "kind": "ship", "enabled": True, "note": "Machine translation artifact; editable in Settings > Aliases"},
+        {"alias": "Ocato Class", "canonical": "Osprey Navy Issue", "kind": "ship", "enabled": True, "note": "Machine translation artifact; editable in Settings > Aliases"},
+        {"alias": "Ocato", "canonical": "Osprey Navy Issue", "kind": "ship", "enabled": True, "note": "Machine translation artifact; editable in Settings > Aliases"},
+        {"alias": "Black Crow-class", "canonical": "Blackbird", "kind": "ship", "enabled": True, "note": "Machine translation artifact; editable in Settings > Aliases"},
+        {"alias": "Black Crow Class", "canonical": "Blackbird", "kind": "ship", "enabled": True, "note": "Machine translation artifact; editable in Settings > Aliases"},
+        {"alias": "Black Crow", "canonical": "Blackbird", "kind": "ship", "enabled": True, "note": "Machine translation artifact; editable in Settings > Aliases"},
+        {"alias": "Stabber-class", "canonical": "Stabber", "kind": "ship", "enabled": True, "note": "Class suffix shorthand"},
+        {"alias": "Stabber Class", "canonical": "Stabber", "kind": "ship", "enabled": True, "note": "Class suffix shorthand"},
     ]
 
 
@@ -1628,7 +1641,9 @@ class EveDb:
 
 
 def extract_intel(text: str, db: EveDb):
-    systems = unique(SYSTEM_RE.findall(text))
+    systems = []
+    for raw_sys in SYSTEM_RE.findall(text):
+        systems.append(CATALOG.lookup_system(raw_sys) or raw_sys)
     assets: list[str] = []
     localized: list[dict] = []
     for term in sorted(candidate_terms(text), key=lambda s: -len(s)):
@@ -1652,9 +1667,15 @@ def extract_intel(text: str, db: EveDb):
     # leave a separate Apocalypse asset in the same row.
     unique_assets = unique(assets)
     filtered_assets: list[str] = []
+    localized_pairs = [(str(e.get("original") or "").casefold(), str(e.get("canonical") or "").casefold()) for e in localized]
     for asset in unique_assets:
         akey = str(asset or "").casefold()
         if akey and any(akey != str(other or "").casefold() and akey in str(other or "").casefold() for other in unique_assets):
+            continue
+        # If a shorter catalog hit only appears as part of an alias phrase that
+        # produced a different canonical ship, drop the shorter false positive.
+        # Example: Black Crow -> Blackbird should not also leave Crow.
+        if akey and any(akey != canon and akey in orig and canon in {str(x or "").casefold() for x in unique_assets} for orig, canon in localized_pairs):
             continue
         filtered_assets.append(asset)
     intent = "clear" if CLEAR.search(text) else "movement" if MOVE.search(text) else "hostile" if HOSTILE.search(text) else "unknown"
@@ -1668,6 +1689,51 @@ def translate_text(text: str, localized: list[dict], intent: str) -> str:
         out = out.replace(ent["original"], ent["canonical"])
         changed = True
     return out if changed else ""
+
+
+def localized_display_from_aliases(text: str, localized: list[dict] | None = None) -> str:
+    """Return display text with current catalog/user aliases applied.
+
+    Rows may have been parsed before the user added an alias, so render-time
+    replacement must consult the current alias catalog instead of only relying
+    on stale row.localized. This is display-only; raw copy paths still use the
+    original row text.
+    """
+    out = str(text or "")
+    entries: list[dict] = []
+    for ent in localized or []:
+        if ent.get("original") and ent.get("canonical"):
+            entries.append({"original": str(ent.get("original")), "canonical": str(ent.get("canonical"))})
+    try:
+        for alias, canonical in getattr(CATALOG, "aliases", {}).items():
+            if alias and canonical and str(alias).casefold() != str(canonical).casefold():
+                entries.append({"original": str(alias), "canonical": str(canonical)})
+    except Exception:
+        pass
+    seen = set()
+    ordered = []
+    for ent in sorted(entries, key=lambda e: -len(e.get("original", ""))):
+        key = (ent.get("original", "").casefold(), ent.get("canonical", "").casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(ent)
+    for ent in ordered:
+        original = ent.get("original", "")
+        canonical = ent.get("canonical", "")
+        if not original or not canonical:
+            continue
+        # Use Python boundaries here instead of the Tk/Tcl-safe word_boundary()
+        # helper.  Aliases often contain spaces or hyphens (4-H, Black Crow-class,
+        # Apocalypse Navy), and rows parsed before alias edits must still render
+        # with current canonical names.  Treat letters/digits/underscore/hyphen as
+        # token characters so short aliases do not replace inside longer terms.
+        pattern = r"(?<![\w-])" + re.escape(original) + r"(?![\w-])"
+        try:
+            out = re.sub(pattern, canonical, out, flags=re.I)
+        except Exception:
+            out = out.replace(original, canonical)
+    return out
 
 
 def split_intel_segments(text: str) -> list[tuple[str, str]]:
@@ -5482,13 +5548,7 @@ class SignalBridgeGui:
             pos = last
 
     def localized_display_text(self, row: Row) -> str:
-        display = row.text
-        for ent in sorted(row.localized, key=lambda e: -len(e.get("original", ""))):
-            original = ent.get("original", "")
-            canonical = ent.get("canonical", "")
-            if original and canonical:
-                display = display.replace(original, canonical)
-        return normalize_feed_text(display)
+        return normalize_feed_text(localized_display_from_aliases(row.text, row.localized))
 
     def redraw_feed(self):
         """Cancellable, chunked feed redraw.
