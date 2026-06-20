@@ -502,3 +502,4 @@ Suggested implementation:
 - Refined segmentation display to keep normal rows chat-like and reserve split rendering for multi-event rows.
 - Added LLM-friendly architecture foundation: project map, invariants, contracts, fixture checks, and maintainability-first refactor guidance.
 - Completed first pass of chunked/cancellable redraw; continue monitoring diagnostics for remaining queue/render stalls.
+- Began RenderRow/render-model extraction by moving feed display-line decisions into a pure helper behind fixture checks.

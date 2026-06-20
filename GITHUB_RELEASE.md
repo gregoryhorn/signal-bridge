@@ -194,3 +194,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Corrected the segmentation display: normal rows remain compact while repeated/back-to-back intel rows split cleanly without noisy duplicated chips.
 - Added maintainability/LLM-friendly project docs, contracts, fixture cases, and a fast offline fixture checker for safer future changes.
 - Added chunked/cancellable feed redraw to reduce UI stalls during channel switches and display-setting changes.
+- Extracted feed display-line logic into a small pure render-model helper, keeping fixture-tested output stable while improving maintainability.

@@ -24,6 +24,7 @@ import urllib.request
 import urllib.error
 import zipfile
 from dataclasses import dataclass, field
+import signal_bridge_render_model as render_model
 from pathlib import Path
 from typing import Callable
 
@@ -4313,31 +4314,13 @@ class SignalBridgeGui:
         self.root.after(100, self.root.destroy)
 
     def segment_display_lines(self, row: Row, translated_text: str) -> list[str]:
-        """Return compact display lines.
-
-        Segmentation is primarily an internal/diagnostic model.  The feed should
-        stay chat-like by default: single-segment rows render as the original
-        visible line.  Only genuinely multi-segment rows are split for clarity.
-        """
-        segments = getattr(row, "segments", None) or []
-        if len(segments) <= 1:
-            return [translated_text]
-        lines: list[str] = []
-        for seg in segments:
-            if seg.kind == "kill":
-                # Keep the original segment words together; this avoids over-transforming
-                # pilot/ship formatting while still separating repeated kill markers.
-                lines.append(f"[KILL] {seg.text}")
-            else:
-                lines.append(seg.text)
-        return [normalize_feed_text(line) for line in lines if normalize_feed_text(line)] or [translated_text]
+        return render_model.segment_display_lines(row, translated_text, normalize_feed_text)
 
     def row_visible_body_lines(self, row: Row, parts: dict) -> list[str]:
-        text = parts["translated"] if bool(self.translated_only.get()) else parts["original_text"]
-        return self.segment_display_lines(row, text)
+        return render_model.visible_body_lines(row, parts["translated"], parts["original_text"], bool(self.translated_only.get()), normalize_feed_text)
 
     def row_uses_multiline_segments(self, row: Row) -> bool:
-        return len(getattr(row, "segments", None) or []) > 1
+        return render_model.row_uses_multiline_segments(row)
 
     def row_display_parts(self, row: Row) -> dict:
         original_text = normalize_feed_text(row.text)

@@ -206,3 +206,4 @@ Initial portable Windows preview release.
 - Corrected segmented feed display so single-event rows stay compact and only multi-event rows split into aligned lines.
 - Added an LLM-friendly architecture foundation with project map, invariants, architecture/Argos plans, contract docs, feed fixtures, and a fast fixture checker.
 - Added chunked/cancellable feed redraw so large display updates yield back to Tk instead of rebuilding all rows synchronously.
+- Extracted feed display-line logic into a pure render-model helper to reduce GUI-file complexity and protect fixture-tested output.
