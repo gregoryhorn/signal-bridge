@@ -512,3 +512,5 @@ Suggested implementation:
 - Alias workflow: continue improving user-editable ship/system aliases, bad translation cleanup, and safe canonical display in the live feed.
 
 - Alias workflow: keep alias replacement fast and render-safe with cached user/manual rules, canonical system display, and diagnostics for slow alias rendering.
+
+- Alias workflow: continue validating multilingual intel where Latin system/ship shorthand is adjacent to Chinese characters or punctuation.

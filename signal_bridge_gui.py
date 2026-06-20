@@ -788,8 +788,8 @@ def rebuild_alias_replacement_rules() -> None:
             if ckey.startswith(key):
                 suffix = canonical[len(alias):]
                 if suffix:
-                    suffix_guard = r"(?!(?:" + re.escape(suffix) + r")(?=$|[^\w-]))"
-            pattern = re.compile(r"(?<![\w-])" + re.escape(alias) + suffix_guard + r"(?![\w-])", re.I)
+                    suffix_guard = r"(?!(?:" + re.escape(suffix) + r")(?=$|[^A-Za-z0-9_-]))"
+            pattern = re.compile(r"(?<![A-Za-z0-9_-])" + re.escape(alias) + suffix_guard + r"(?![A-Za-z0-9_-])", re.I)
         except Exception:
             continue
         rules.append((key, canonical, pattern))
@@ -1765,7 +1765,7 @@ def localized_display_from_aliases(text: str, localized: list[dict] | None = Non
         if not original or not canonical or original.casefold() not in lower:
             continue
         try:
-            pattern = re.compile(r"(?<![\w-])" + re.escape(original) + r"(?![\w-])", re.I)
+            pattern = re.compile(r"(?<![A-Za-z0-9_-])" + re.escape(original) + r"(?![A-Za-z0-9_-])", re.I)
             out = pattern.sub(canonical, out)
             lower = out.casefold()
         except Exception:

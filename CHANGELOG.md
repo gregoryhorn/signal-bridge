@@ -217,3 +217,5 @@ Initial portable Windows preview release.
 - Fixed alias display so current ship/system aliases are applied dynamically in the normal chat feed, including rows parsed before the alias was added. Added starter cleanup aliases for common bad translation artifacts such as Widmark-class, Black Crow-class, Ocato-class, Assassin-class, and Stabber-class.
 
 - Fixed an alias feed stall by limiting dynamic alias replacement to user/manual aliases, caching per-row display text, and precompiling a small alias rule set instead of the full EVE catalog. Fixed system aliases such as 4-H -> 4-HWWF so they display canonically and keep system highlighting instead of purple module styling.
+
+- Fixed ship/system aliases next to Chinese text so short Latin aliases like YMJG and 4H trigger even when immediately followed by CJK characters, while preserving protection against replacements inside longer Latin tokens.

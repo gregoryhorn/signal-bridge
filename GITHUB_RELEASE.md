@@ -205,3 +205,5 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Alias display now updates the normal chat feed with canonical names instead of leaving raw aliases visible; short system aliases and translated ship-class artifacts are handled more reliably.
 
 - Fixed alias-related feed stalls and system-alias coloring: user aliases now render from a small cached rule set, and system aliases like 4-H -> 4-HWWF stay highlighted as systems.
+
+- Aliases now trigger when adjacent to Chinese text, e.g. YMJG星门 and 4H别过 correctly render as YMJG-4 and 4-HWWF.
