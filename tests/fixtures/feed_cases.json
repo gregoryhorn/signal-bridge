@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "sighting_voice_nv_preserve_single_line",
+      "sender": "Adria Orici",
+      "text": "DL1C-E Jormungandr 🔥 Voice 🔥 nv",
+      "expected": {
+        "display_lines": [
+          "DL1C-E Jormungandr 🔥 Voice 🔥 nv"
+        ],
+        "segment_count": 1,
+        "systems": [
+          "DL1C-E"
+        ],
+        "assets_contains": [
+          "No visual"
+        ]
+      }
+    },
+    {
+      "name": "multi_kill_chinese_split",
+      "sender": "Tacxi",
+      "text": "击杀：Akai Likoris Basilisk 击杀：True Quark Basilisk",
+      "expected": {
+        "display_lines": [
+          "[KILL] Akai Likoris Basilisk",
+          "[KILL] True Quark Basilisk"
+        ],
+        "segment_count": 2,
+        "assets_contains": [
+          "Basilisk"
+        ]
+      }
+    },
+    {
+      "name": "single_kill_preserve_line",
+      "sender": "Tacxi",
+      "text": "击杀：River Sky Basilisk",
+      "expected": {
+        "display_lines": [
+          "击杀：River Sky Basilisk"
+        ],
+        "segment_count": 1,
+        "assets_contains": [
+          "Basilisk"
+        ]
+      }
+    },
+    {
+      "name": "single_kill_nighthawk_preserve_line",
+      "sender": "Tacxi",
+      "text": "击杀：Igritt Saint Nighthawk",
+      "expected": {
+        "display_lines": [
+          "击杀：Igritt Saint Nighthawk"
+        ],
+        "segment_count": 1,
+        "assets_contains": [
+          "Nighthawk"
+        ]
+      }
+    },
+    {
+      "name": "foreign_note_preserve_line",
+      "sender": "Maloun",
+      "text": "FA-DMO сдк",
+      "expected": {
+        "display_lines": [
+          "FA-DMO сдк"
+        ],
+        "segment_count": 1,
+        "systems": [
+          "FA-DMO"
+        ]
+      }
+    },
+    {
+      "name": "localized_ship_trace_case",
+      "sender": "RUYADESHAOJIANG",
+      "text": "Bigus Dingus DOI 咒灭级 X445-5",
+      "expected": {
+        "segment_count": 1,
+        "systems": [
+          "X445-5"
+        ]
+      }
+    }
+  ]
+}

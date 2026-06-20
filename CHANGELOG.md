@@ -204,3 +204,4 @@ Initial portable Windows preview release.
 - Added diagnostic traces for feed rows: translation decisions, entity recognition summaries, and right-click context traces available from the feed context menu.
 - Added a general intel segmentation/render-safety refactor: rows can now carry structured segments, repeated kill reports split into separate feed lines, segment diagnostics are visible, and feed rendering no longer hydrates ESI in the render path.
 - Corrected segmented feed display so single-event rows stay compact and only multi-event rows split into aligned lines.
+- Added an LLM-friendly architecture foundation with project map, invariants, architecture/Argos plans, contract docs, feed fixtures, and a fast fixture checker.

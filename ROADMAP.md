@@ -500,3 +500,4 @@ Suggested implementation:
 - Diagnostic tracing expanded with feed-row translation decisions, entity recognition summaries, and click-context traces. Future work: diagnostic ZIP export and deeper ESI/Intel History traces.
 - Completed first pass of the segmentation/render-safety refactor: structured row segments, separated multi-event intel display, segment diagnostics, and render path safety. Next work: chunked redraw and deeper segment/entity quality tuning.
 - Refined segmentation display to keep normal rows chat-like and reserve split rendering for multi-event rows.
+- Added LLM-friendly architecture foundation: project map, invariants, contracts, fixture checks, and maintainability-first refactor guidance.
