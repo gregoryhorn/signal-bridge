@@ -21,3 +21,9 @@ Display rules:
 - Empty values render as muted `—` or `Unknown`, not repeated dashes.
 - Counts of 1 are hidden in compact activity rows.
 - zKill is manual, cache-first, background-only, timeout-protected, and diagnostic-logged.
+## Tactical normalization
+
+- `No visual` / `nv` are statuses, not ship names. Display ship as `Unknown` and status as `No visual`.
+- zKill summaries may include `recent_events[]` with type, time, ship, value, and ids.
+- Priority rules: same-day zKill event = HIGH, same-week event = MED, same confirmed ship = HIGH.
+- The Pilot Info body may scroll, but footer action buttons must remain visible.

@@ -505,3 +505,4 @@ Suggested implementation:
 - Began RenderRow/render-model extraction by moving feed display-line decisions into a pure helper behind fixture checks.
 - Added safe background free-text translation queue as the first translation-job pipeline step.
 - Added Pilot Info v2 local snapshot UI and manual zKill sync as a step toward richer pilot intelligence.
+- Pilot Info follow-up: tactical zKill priority, No Visual/status normalization, and fixed-footer scrollable card layout are now implemented in source.

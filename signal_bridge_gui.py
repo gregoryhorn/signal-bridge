@@ -4545,6 +4545,48 @@ class SignalBridgeGui:
         cache[str(int(pilot_id))] = summary
         self.save_zkill_cache(cache)
 
+    def zkill_type_name(self, type_id: int | None, type_cache: dict) -> str:
+        if not type_id:
+            return ""
+        key = str(int(type_id))
+        if key in type_cache:
+            return str(type_cache.get(key) or "")
+        try:
+            url = f"https://esi.evetech.net/latest/universe/types/{int(type_id)}/?datasource=tranquility&language=en"
+            req = urllib.request.Request(url, headers={"User-Agent": f"SignalBridge/{APP_VERSION}"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                payload = json.loads(resp.read().decode("utf-8", "replace"))
+            name = str(payload.get("name") or "") if isinstance(payload, dict) else ""
+        except Exception:
+            name = f"type {int(type_id)}"
+        type_cache[key] = name
+        return name
+
+    def zkill_event_from_killmail(self, item: dict, kind: str, pilot_id: int, type_cache: dict) -> dict:
+        victim = item.get("victim") or {}
+        attackers = item.get("attackers") or []
+        role = "loss" if kind == "losses" else "kill"
+        ship_type_id = victim.get("ship_type_id")
+        if kind == "kills":
+            for attacker in attackers:
+                try:
+                    if int(attacker.get("character_id") or 0) == int(pilot_id):
+                        ship_type_id = attacker.get("ship_type_id") or ship_type_id
+                        break
+                except Exception:
+                    pass
+        ship = self.zkill_type_name(ship_type_id, type_cache)
+        return {
+            "type": "loss" if kind == "losses" else "kill",
+            "time": str(item.get("killmail_time") or ""),
+            "ship": ship,
+            "ship_type_id": int(ship_type_id or 0),
+            "system_id": int(item.get("solar_system_id") or 0),
+            "value": float(((item.get("zkb") or {}).get("totalValue") or 0)),
+            "killmail_id": int(item.get("killmail_id") or 0),
+            "role": role,
+        }
+
     def start_zkill_sync(self, pilot_id: int, pilot_name: str, callback):
         def worker():
             started = time.time()
@@ -4552,6 +4594,8 @@ class SignalBridgeGui:
             summary = {"status": "failed", "synced_at": now, "last_error": "unknown"}
             ok = False
             try:
+                cache = self.load_zkill_cache()
+                type_cache = dict(cache.get("type_names") or {})
                 headers = {"User-Agent": f"SignalBridge/{APP_VERSION} contact=github.com/gregoryhorn/signal-bridge"}
                 base = f"https://zkillboard.com/api/{{kind}}/characterID/{int(pilot_id)}/pastSeconds/2592000/"
                 out = {}
@@ -4569,6 +4613,15 @@ class SignalBridgeGui:
                     latest = max(str(x.get("killmail_time") or "") for x in all_items) if all_items else ""
                 except Exception:
                     latest = ""
+                recent_events = []
+                for kind, items in (("kills", kills), ("losses", losses)):
+                    for item in items[:8]:
+                        try:
+                            recent_events.append(self.zkill_event_from_killmail(item, kind, int(pilot_id), type_cache))
+                        except Exception as exc:
+                            write_log("zKill event parse failed", exc)
+                recent_events.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
+                recent_events = recent_events[:10]
                 isk_destroyed = sum(float(((x.get("zkb") or {}).get("totalValue") or 0)) for x in kills[:50])
                 isk_lost = sum(float(((x.get("zkb") or {}).get("totalValue") or 0)) for x in losses[:50])
                 danger = []
@@ -4578,6 +4631,10 @@ class SignalBridgeGui:
                     danger.append("high-value kills")
                 if len(losses) >= 10:
                     danger.append("frequent losses")
+                if recent_events:
+                    newest = recent_events[0]
+                    if str(newest.get("time") or "")[:10] == time.strftime("%Y-%m-%d", time.gmtime()):
+                        danger.append("active today")
                 summary = {
                     "status": "synced",
                     "pilot_id": int(pilot_id),
@@ -4588,13 +4645,16 @@ class SignalBridgeGui:
                     "recent_losses_30d": len(losses),
                     "isk_destroyed_30d": round(isk_destroyed),
                     "isk_lost_30d": round(isk_lost),
-                    "danger_tags": danger,
+                    "danger_tags": sorted(set(danger)),
+                    "recent_events": recent_events,
                     "duration_ms": int((time.time() - started) * 1000),
                     "last_error": "",
                 }
-                self.set_zkill_summary(int(pilot_id), summary)
+                cache[str(int(pilot_id))] = summary
+                cache["type_names"] = type_cache
+                self.save_zkill_cache(cache)
                 ok = True
-                record_event("zkill_sync_completed", pilot_id=int(pilot_id), kills=len(kills), losses=len(losses), duration_ms=summary["duration_ms"])
+                record_event("zkill_sync_completed", pilot_id=int(pilot_id), kills=len(kills), losses=len(losses), events=len(recent_events), duration_ms=summary["duration_ms"])
             except Exception as exc:
                 err = f"{type(exc).__name__}: {exc}"
                 summary = {"status": "failed", "pilot_id": int(pilot_id), "pilot_name": pilot_name, "synced_at": now, "last_error": err, "duration_ms": int((time.time() - started) * 1000)}
@@ -4605,6 +4665,7 @@ class SignalBridgeGui:
         record_event("zkill_sync_started", pilot_id=int(pilot_id))
         threading.Thread(target=worker, daemon=True).start()
 
+
     def show_pilot_info_card(self, profile: dict):
         tk = self.tk
         pilot = profile.get("pilot") or {}
@@ -4612,13 +4673,27 @@ class SignalBridgeGui:
         name = pilot.get("name") or "Unknown Pilot"
         opened = time.time()
         win = tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=500, height=560, minsize=(430, 360), title=f"Pilot Info - {name}")
+        self.polish_window(win, self.root, width=540, height=640, minsize=(460, 430), title=f"Pilot Info - {name}")
         header = tk.Frame(win, bg="#111821", padx=10, pady=7)
         header.pack(fill="x")
-        body = tk.Frame(win, bg="#0b0f14", padx=8, pady=6)
-        body.pack(fill="both", expand=True)
+        scroll_outer = tk.Frame(win, bg="#0b0f14")
+        scroll_outer.pack(fill="both", expand=True)
+        canvas = tk.Canvas(scroll_outer, bg="#0b0f14", highlightthickness=0)
+        vscroll = tk.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vscroll.set)
+        vscroll.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        body = tk.Frame(canvas, bg="#0b0f14", padx=8, pady=6)
+        body_window = canvas.create_window((0, 0), window=body, anchor="nw")
+        def _sync_scroll(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        def _sync_width(event):
+            try: canvas.itemconfigure(body_window, width=event.width)
+            except Exception: pass
+        body.bind("<Configure>", _sync_scroll)
+        canvas.bind("<Configure>", _sync_width)
         actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
-        actions.pack(fill="x")
+        actions.pack(fill="x", side="bottom")
 
         def clean_value(value, empty="—"):
             text = str(value or "").strip()
@@ -4630,6 +4705,73 @@ class SignalBridgeGui:
             except Exception:
                 n = 0
             return f" ×{n}" if n > 1 else ""
+
+        def is_no_visual(value) -> bool:
+            return str(value or "").strip().casefold() in {"nv", "no visual", "novisual", "no-visual"}
+
+        def normalized_ship_status(row: dict) -> tuple[str, str]:
+            raw = str((row or {}).get("ship_name") or "").strip()
+            if is_no_visual(raw):
+                return "Unknown", "No visual"
+            if not raw or raw == "-":
+                return "Unknown", ""
+            return raw, ""
+
+        def status_counts() -> dict[str, int]:
+            out: dict[str, int] = {}
+            for r0 in profile.get("recent_sightings", []) or []:
+                _ship, status = normalized_ship_status(r0)
+                if status:
+                    out[status] = out.get(status, 0) + int(r0.get("duplicate_count") or 1)
+            return out
+
+        def filtered_top_ships() -> list[dict]:
+            out = []
+            for x in profile.get("top_ships", []) or []:
+                name0 = x.get("name")
+                if is_no_visual(name0):
+                    continue
+                if not str(name0 or "").strip():
+                    continue
+                out.append(x)
+            return out
+
+        def parse_ztime(value: str):
+            import datetime as _dt
+            raw = str(value or "").replace("T", " ").replace("Z", "").strip()
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+                try:
+                    return _dt.datetime.strptime(raw[:19], fmt)
+                except Exception:
+                    pass
+            return None
+
+        def zkill_priority(zks: dict, current_ship: str) -> tuple[str, str, list[str]]:
+            import datetime as _dt
+            if zks.get("status") != "synced":
+                return "NONE", "zKill not synced", []
+            events = zks.get("recent_events") or []
+            if not events:
+                return "QUIET", "No recent zKill activity", []
+            now_dt = _dt.datetime.utcnow()
+            high, med = [], []
+            cur = str(current_ship or "").strip().casefold()
+            for ev in events:
+                ev_time = parse_ztime(ev.get("time"))
+                ship = str(ev.get("ship") or "").strip()
+                if ev_time:
+                    age_days = (now_dt.date() - ev_time.date()).days
+                    if age_days <= 0:
+                        high.append(f"{ev.get('type','event')} today")
+                    elif age_days <= 7:
+                        med.append(f"{ev.get('type','event')} this week")
+                if cur and cur != "unknown" and ship and ship.casefold() == cur:
+                    high.append(f"same ship: {ship}")
+            if high:
+                return "HIGH", high[0], sorted(set(high + med))[:4]
+            if med:
+                return "MED", med[0], sorted(set(med))[:4]
+            return "LOW", "Older zKill activity", []
 
         def fmt_isk(value):
             try:
@@ -4686,6 +4828,14 @@ class SignalBridgeGui:
                 profile = fresh
                 pilot = profile.get("pilot") or pilot
             render_summary()
+        try:
+            win.update_idletasks()
+            max_h = max(430, min(760, win.winfo_screenheight() - 80))
+            req_h = min(max_h, max(430, win.winfo_reqheight()))
+            win.geometry(f"540x{req_h}")
+            record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
+        except Exception:
+            pass
 
         def render_summary():
             clear_body(); render_header()
@@ -4706,7 +4856,8 @@ class SignalBridgeGui:
                 ("First", self.friendly_datetime(pilot.get("first_seen"))),
                 ("Last", self.friendly_datetime(pilot.get("last_seen"))),
                 ("System", clean_value(last.get("system_name"))),
-                ("Ship/Status", clean_value(last.get("ship_name"), "Unknown")),
+                ("Ship", normalized_ship_status(last)[0]),
+                ("Status", normalized_ship_status(last)[1] or "—"),
             ]
             for i, (k, v) in enumerate(items):
                 tk.Label(grid, text=f"{k}: ", bg=grid.cget("bg"), fg="#8b98a8").grid(row=i//2, column=(i%2)*2, sticky="w", padx=(0, 2))
@@ -4720,11 +4871,12 @@ class SignalBridgeGui:
                 for r0 in recent[:6]:
                     tm = self.friendly_datetime(r0.get("timestamp")).replace("Today ", "")
                     sysname = clean_value(r0.get("system_name"))
-                    ship = clean_value(r0.get("ship_name"), "Unknown")
+                    ship, status = normalized_ship_status(r0)
                     cnt = count_label(r0.get("duplicate_count", 1))
-                    label(abox, f"{tm:<10}  {sysname:<8}  {ship}{cnt}")
+                    tail = f"  {status}" if status else ""
+                    label(abox, f"{tm:<10}  {sysname:<8}  {ship}{tail}{cnt}")
 
-            tbox = section(body, "Top")
+            tbox = section(body, "Patterns")
             row1 = tk.Frame(tbox, bg=tbox.cget("bg")); row1.pack(fill="x")
             tk.Label(row1, text="Ships:", bg=row1.cget("bg"), fg="#8b98a8").pack(side="left")
             ships = (profile.get("top_ships") or [])[:5]
@@ -4741,9 +4893,13 @@ class SignalBridgeGui:
             zbox = section(body, "zKill")
             zks = self.get_zkill_summary(pilot_id)
             if zks.get("status") == "synced":
-                tags = ", ".join(zks.get("danger_tags") or []) or "none"
-                label(zbox, f"Synced: {self.friendly_datetime(zks.get('synced_at'))} | Kills 30d: {zks.get('recent_kills_30d', 0)} | Losses 30d: {zks.get('recent_losses_30d', 0)}")
-                label(zbox, f"ISK: destroyed {fmt_isk(zks.get('isk_destroyed_30d'))}, lost {fmt_isk(zks.get('isk_lost_30d'))} | Tags: {tags}", "#8b98a8")
+                pri, pri_text, pri_notes = zkill_priority(zks, normalized_ship_status(latest_row())[0])
+                tags = ", ".join(pri_notes or zks.get("danger_tags") or []) or "none"
+                label(zbox, f"{pri}: {pri_text} | Synced {self.friendly_datetime(zks.get('synced_at'))} | Kills 30d: {zks.get('recent_kills_30d', 0)} | Losses 30d: {zks.get('recent_losses_30d', 0)}", "#ffb3b3" if pri == "HIGH" else ("#ffe16a" if pri == "MED" else "#d7dde5"))
+                label(zbox, f"ISK: destroyed {fmt_isk(zks.get('isk_destroyed_30d'))}, lost {fmt_isk(zks.get('isk_lost_30d'))} | Signals: {tags}", "#8b98a8")
+                for ev in (zks.get("recent_events") or [])[:3]:
+                    tm = self.friendly_datetime(ev.get("time")).replace("Today ", "")
+                    label(zbox, f"{tm}  {str(ev.get('type') or '').upper()}  {clean_value(ev.get('ship'), 'Unknown')}  {fmt_isk(ev.get('value'))}", "#8b98a8")
             elif zks.get("status") == "syncing":
                 label(zbox, "Syncing zKill in background...", "#5ad7ff")
             elif zks.get("status") == "failed":
@@ -4758,7 +4914,9 @@ class SignalBridgeGui:
             clear_body(); render_header()
             c = section(body, "Recent Sightings")
             for r0 in profile.get("recent_sightings", [])[:25]:
-                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {clean_value(r0.get('system_name'))}  {clean_value(r0.get('ship_name'), 'Unknown')}{count_label(r0.get('duplicate_count', 1))}  [{r0.get('source','local')}]")
+                ship, status = normalized_ship_status(r0)
+                tail = f"  {status}" if status else ""
+                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {clean_value(r0.get('system_name'))}  {ship}{tail}{count_label(r0.get('duplicate_count', 1))}  [{r0.get('source','local')}]")
             if not profile.get("recent_sightings"): label(c, "No local sightings yet.", "#8b98a8")
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
 
@@ -4806,6 +4964,14 @@ class SignalBridgeGui:
         button(actions, "Open zKill", open_zkill)
         button(actions, "Close", win.destroy)
         render_summary()
+        try:
+            win.update_idletasks()
+            max_h = max(430, min(760, win.winfo_screenheight() - 80))
+            req_h = min(max_h, max(430, win.winfo_reqheight()))
+            win.geometry(f"540x{req_h}")
+            record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
+        except Exception:
+            pass
 
 
     def clicked_context(self, event, row: Row | None) -> dict:

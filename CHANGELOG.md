@@ -209,3 +209,4 @@ Initial portable Windows preview release.
 - Extracted feed display-line logic into a pure render-model helper to reduce GUI-file complexity and protect fixture-tested output.
 - Reactivated CN/EN free-text direction toggles through a safe background translation queue instead of render-thread MT calls.
 - Redesigned Pilot Info as a compact normalized local snapshot card and added manual cache-backed zKill sync.
+- Cleaned up Pilot Info tactical display so No Visual is treated as status, zKill recent events drive HIGH/MED/QUIET priority, and card body scrolls while footer buttons stay visible.
