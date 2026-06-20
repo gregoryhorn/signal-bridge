@@ -83,6 +83,28 @@ class IntelHistoryModule:
             values(?,?,?,?,?,?,?,?,?,1)
         """, (int(pilot_id), label, label, icon, "auto", "high", reason, now, expires_at))
 
+    def _row_has_cyno_signal(self, row: dict, ship: str) -> bool:
+        terms = []
+        terms.extend(row.get("assets") or [])
+        terms.extend(row.get("ships") or [])
+        terms.append(ship or "")
+        terms.append(row.get("text") or "")
+        for term in terms:
+            if "cyno" in str(term or "").casefold():
+                return True
+        return False
+
+    def _maybe_cyno_hotdrop_flag(self, con: sqlite3.Connection, pilot_id: int, system: str, timestamp: str, now: str):
+        rule = self.flag_rules.get("hot_drop_risk") or {}
+        if not rule.get("enabled", True):
+            return
+        minutes = int(rule.get("duration_minutes") or 120)
+        expires_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + minutes * 60))
+        label = str(rule.get("label") or rule.get("flag") or "Hot Drop Risk")
+        icon = str(rule.get("icon") or "HOT")
+        reason = f"Reported with cyno intel, likely hotdropper, in {system or 'unknown'} at {timestamp}."
+        self._upsert_auto_flag(con, pilot_id, label, icon, reason, now, expires_at)
+
     def _maybe_hot_drop_auto_flag(self, con: sqlite3.Connection, pilot_id: int, ship: str, system: str, timestamp: str, now: str):
         rule = self.flag_rules.get("hot_drop_risk") or {}
         if not rule.get("enabled", True):
@@ -93,7 +115,7 @@ class IntelHistoryModule:
         minutes = int(rule.get("duration_minutes") or 120)
         expires_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + minutes * 60))
         label = str(rule.get("label") or rule.get("flag") or "Hot Drop Risk")
-        icon = str(rule.get("icon") or "🔥")
+        icon = str(rule.get("icon") or "HOT")
         reason = f"Reported in {ship}, a {ship_class}, likely cyno-capable, in {system or 'unknown'} at {timestamp}."
         self._upsert_auto_flag(con, pilot_id, label, icon, reason, now, expires_at)
 
@@ -174,6 +196,8 @@ class IntelHistoryModule:
             for system in systems[:3]:
                 for ship in ships[:3]:
                     self._record_sighting(pilot_id, pilot_name, timestamp, system or "", ship or "", channel, ent.get("confidence") or "high", now, ent)
+                    if self._row_has_cyno_signal(row, ship):
+                        self._maybe_cyno_hotdrop_flag(con, pilot_id, system or "", timestamp, now)
 
     def _bucket(self, timestamp: str) -> str:
         # Cheap stable bucket: exact minute rounded down to a 3-minute group when parseable.

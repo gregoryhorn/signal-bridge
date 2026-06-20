@@ -495,6 +495,26 @@ def clean(line: str) -> str:
     return s
 
 
+
+def pilot_info_term_kind(value: str) -> str:
+    """Classify compact pilot-card terms without changing stored intel rows."""
+    key = str(value or "").strip().casefold()
+    if not key or key == "-":
+        return "empty"
+    if key in {"nv", "no visual", "novisual", "no-visual"}:
+        return "status"
+    if key in {"cyno", "beacon", "ess", "bubble"}:
+        return "signal"
+    return "ship"
+
+
+def is_pilot_status_term(value: str) -> bool:
+    return pilot_info_term_kind(value) == "status"
+
+
+def is_pilot_signal_term(value: str) -> bool:
+    return pilot_info_term_kind(value) == "signal"
+
 def normalize_feed_text(text: str) -> str:
     """Display-only cleanup for common intel shorthand/noisy punctuation.
 
@@ -4673,7 +4693,7 @@ class SignalBridgeGui:
         name = pilot.get("name") or "Unknown Pilot"
         opened = time.time()
         win = tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=540, height=640, minsize=(460, 430), title=f"Pilot Info - {name}")
+        self.polish_window(win, self.root, width=620, height=520, minsize=(520, 430), title=f"Pilot Info - {name}")
         header = tk.Frame(win, bg="#111821", padx=10, pady=7)
         header.pack(fill="x")
         scroll_outer = tk.Frame(win, bg="#0b0f14")
@@ -4681,7 +4701,6 @@ class SignalBridgeGui:
         canvas = tk.Canvas(scroll_outer, bg="#0b0f14", highlightthickness=0)
         vscroll = tk.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
         canvas.configure(yscrollcommand=vscroll.set)
-        vscroll.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
         body = tk.Frame(canvas, bg="#0b0f14", padx=8, pady=6)
         body_window = canvas.create_window((0, 0), window=body, anchor="nw")
@@ -4690,8 +4709,36 @@ class SignalBridgeGui:
         def _sync_width(event):
             try: canvas.itemconfigure(body_window, width=event.width)
             except Exception: pass
-        body.bind("<Configure>", _sync_scroll)
-        canvas.bind("<Configure>", _sync_width)
+        def _update_scrollbar(_event=None):
+            try:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                bbox = canvas.bbox("all")
+                needs = bool(bbox and (bbox[3] - bbox[1]) > canvas.winfo_height() + 2)
+                mapped = bool(vscroll.winfo_ismapped())
+                if needs and not mapped:
+                    vscroll.pack(side="right", fill="y")
+                elif not needs and mapped:
+                    vscroll.pack_forget()
+            except Exception:
+                pass
+        def _on_mousewheel(event):
+            try:
+                bbox = canvas.bbox("all")
+                if bbox and (bbox[3] - bbox[1]) > canvas.winfo_height() + 2:
+                    delta = -1 * int((event.delta / 120) if getattr(event, "delta", 0) else 0)
+                    canvas.yview_scroll(delta, "units")
+            except Exception:
+                pass
+        body.bind("<Configure>", lambda e: (_sync_scroll(e), _update_scrollbar(e)))
+        canvas.bind("<Configure>", lambda e: (_sync_width(e), _update_scrollbar(e)))
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        def _unbind_mousewheel_once(event):
+            try:
+                if event.widget is win:
+                    canvas.unbind_all("<MouseWheel>")
+            except Exception:
+                pass
+        win.bind("<Destroy>", _unbind_mousewheel_once)
         actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
         actions.pack(fill="x", side="bottom")
 
@@ -4707,13 +4754,16 @@ class SignalBridgeGui:
             return f" ×{n}" if n > 1 else ""
 
         def is_no_visual(value) -> bool:
-            return str(value or "").strip().casefold() in {"nv", "no visual", "novisual", "no-visual"}
+            return is_pilot_status_term(value)
 
         def normalized_ship_status(row: dict) -> tuple[str, str]:
             raw = str((row or {}).get("ship_name") or "").strip()
-            if is_no_visual(raw):
+            kind = pilot_info_term_kind(raw)
+            if kind == "status":
                 return "Unknown", "No visual"
-            if not raw or raw == "-":
+            if kind == "signal":
+                return "Unknown", raw.title() if raw.casefold() == "cyno" else raw
+            if kind == "empty":
                 return "Unknown", ""
             return raw, ""
 
@@ -4721,17 +4771,27 @@ class SignalBridgeGui:
             out: dict[str, int] = {}
             for r0 in profile.get("recent_sightings", []) or []:
                 _ship, status = normalized_ship_status(r0)
-                if status:
+                if status and not is_pilot_signal_term(status):
                     out[status] = out.get(status, 0) + int(r0.get("duplicate_count") or 1)
+            return out
+
+        def signal_counts() -> dict[str, int]:
+            out: dict[str, int] = {}
+            for r0 in profile.get("recent_sightings", []) or []:
+                _ship, status = normalized_ship_status(r0)
+                if status and is_pilot_signal_term(status):
+                    out[status.title() if status.casefold() == "cyno" else status] = out.get(status, 0) + int(r0.get("duplicate_count") or 1)
+            for x in profile.get("top_ships", []) or []:
+                name0 = str(x.get("name") or "").strip()
+                if is_pilot_signal_term(name0):
+                    out[name0.title() if name0.casefold() == "cyno" else name0] = max(out.get(name0, 0), int(x.get("reports") or x.get("sightings") or 1))
             return out
 
         def filtered_top_ships() -> list[dict]:
             out = []
             for x in profile.get("top_ships", []) or []:
                 name0 = x.get("name")
-                if is_no_visual(name0):
-                    continue
-                if not str(name0 or "").strip():
+                if pilot_info_term_kind(name0) != "ship":
                     continue
                 out.append(x)
             return out
@@ -4830,9 +4890,9 @@ class SignalBridgeGui:
             render_summary()
         try:
             win.update_idletasks()
-            max_h = max(430, min(760, win.winfo_screenheight() - 80))
+            max_h = max(430, min(560, win.winfo_screenheight() - 80))
             req_h = min(max_h, max(430, win.winfo_reqheight()))
-            win.geometry(f"540x{req_h}")
+            win.geometry(f"620x{req_h}")
             record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
         except Exception:
             pass
@@ -4846,7 +4906,9 @@ class SignalBridgeGui:
             else:
                 chip(strip, "No active flags", "#14202d", "#8b98a8")
             for x in (profile.get("top_systems") or [])[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#24351a", "#ffe16a")
-            for x in (profile.get("top_ships") or [])[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
+            for x in filtered_top_ships()[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
+            for sig, n in list(signal_counts().items())[:2]: chip(strip, f"{sig} ×{n}", "#3a1f14", "#ff9d5a")
+            for st, n in list(status_counts().items())[:1]: chip(strip, f"{st} ×{n}", "#162433", "#a7c7e7")
 
             last = latest_row()
             sbox = section(body, "Summary")
@@ -4868,7 +4930,7 @@ class SignalBridgeGui:
             if not recent:
                 label(abox, "No local sightings yet.", "#8b98a8")
             else:
-                for r0 in recent[:6]:
+                for r0 in recent[:4]:
                     tm = self.friendly_datetime(r0.get("timestamp")).replace("Today ", "")
                     sysname = clean_value(r0.get("system_name"))
                     ship, status = normalized_ship_status(r0)
@@ -4878,14 +4940,26 @@ class SignalBridgeGui:
 
             tbox = section(body, "Patterns")
             row1 = tk.Frame(tbox, bg=tbox.cget("bg")); row1.pack(fill="x")
-            tk.Label(row1, text="Ships:", bg=row1.cget("bg"), fg="#8b98a8").pack(side="left")
-            ships = (profile.get("top_ships") or [])[:5]
+            tk.Label(row1, text="Ships:", bg=row1.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
+            ships = filtered_top_ships()[:4]
             if ships:
                 for x in ships: chip(row1, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
-            else: chip(row1, "None", "#14202d", "#8b98a8")
+            else: chip(row1, "Unknown", "#14202d", "#8b98a8")
+            row_status = tk.Frame(tbox, bg=tbox.cget("bg")); row_status.pack(fill="x")
+            tk.Label(row_status, text="Status:", bg=row_status.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
+            statuses = status_counts()
+            if statuses:
+                for name0, n in list(statuses.items())[:4]: chip(row_status, f"{name0} ×{n}", "#162433", "#a7c7e7")
+            else: chip(row_status, "None", "#14202d", "#8b98a8")
+            row_signal = tk.Frame(tbox, bg=tbox.cget("bg")); row_signal.pack(fill="x")
+            tk.Label(row_signal, text="Signals:", bg=row_signal.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
+            signals = signal_counts()
+            if signals:
+                for name0, n in list(signals.items())[:4]: chip(row_signal, f"{name0} ×{n}", "#3a1f14", "#ff9d5a")
+            else: chip(row_signal, "None", "#14202d", "#8b98a8")
             row2 = tk.Frame(tbox, bg=tbox.cget("bg")); row2.pack(fill="x")
-            tk.Label(row2, text="Systems:", bg=row2.cget("bg"), fg="#8b98a8").pack(side="left")
-            systems = (profile.get("top_systems") or [])[:5]
+            tk.Label(row2, text="Systems:", bg=row2.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
+            systems = (profile.get("top_systems") or [])[:4]
             if systems:
                 for x in systems: chip(row2, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#24351a", "#ffe16a")
             else: chip(row2, "None", "#14202d", "#8b98a8")
@@ -4966,9 +5040,9 @@ class SignalBridgeGui:
         render_summary()
         try:
             win.update_idletasks()
-            max_h = max(430, min(760, win.winfo_screenheight() - 80))
+            max_h = max(430, min(560, win.winfo_screenheight() - 80))
             req_h = min(max_h, max(430, win.winfo_reqheight()))
-            win.geometry(f"540x{req_h}")
+            win.geometry(f"620x{req_h}")
             record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
         except Exception:
             pass
@@ -5133,7 +5207,28 @@ class SignalBridgeGui:
                 self.text.tag_bind(tag, "<Leave>", lambda e: self.status_label.configure(text="Ready"))
                 pos = last
 
-    def insert_tagged_text(self, text: str, systems: list[str], assets: list[str]):
+    def add_entity_separators(self, text: str, systems: list[str], assets: list[str], pilots: list[str] | None = None) -> str:
+        """Display-only readability: separate adjacent pilot/system/asset tokens."""
+        out = str(text or "")
+        terms = []
+        for term in list(systems or []) + list(assets or []) + list(pilots or []):
+            t = str(term or "").strip()
+            if t and not is_globally_excluded(t):
+                terms.append(re.escape(t))
+        if not terms:
+            return out
+        alt = "|".join(sorted(set(terms), key=len, reverse=True))
+        # Put a subtle middle-dot separator only between adjacent recognized entities.
+        pat = re.compile(rf"(?i)\b({alt})\b\s+(?=({alt})\b)")
+        for _ in range(3):
+            newer = pat.sub(lambda m: m.group(1) + "  ·  ", out)
+            if newer == out:
+                break
+            out = newer
+        return out
+
+    def insert_tagged_text(self, text: str, systems: list[str], assets: list[str], pilots: list[str] | None = None):
+        text = self.add_entity_separators(text, systems, assets, pilots)
         start_index = self.text.index("end-1c")
         self.text.insert("end", text)
         # Tag exact spans inside the inserted region.
@@ -5552,18 +5647,18 @@ class SignalBridgeGui:
             if idx > 0:
                 self.text.insert("end", " " * max(4, len(sender_prefix)), "muted")
             body = self.apply_pilot_flag_badges(row, line)
-            self.insert_tagged_text(body + "\n", row.systems, tag_assets)
+            self.insert_tagged_text(body + "\n", row.systems, tag_assets, self.character_names_for_row(row))
             self.tag_urls(body_start, self.text.index("end-1c"), body)
         if not bool(self.translated_only.get()) and not multiline:
             if parts["free_text"] and parts["free_text"] != parts["original_text"]:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")
-                self.insert_tagged_text(parts["free_text"] + "\n", row.systems, row.assets)
+                self.insert_tagged_text(parts["free_text"] + "\n", row.systems, row.assets, self.character_names_for_row(row))
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["free_text"])
             elif parts["display_text"] != parts["original_text"]:
                 self.text.insert("end", "    translated: ", "muted")
                 t_start = self.text.index("end-1c")
-                self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets)
+                self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets, self.character_names_for_row(row))
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["display_text"])
         row_end = self.text.index("end-1c")
         for ent in row.esi_entities:

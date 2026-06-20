@@ -1,3 +1,4 @@
+- Improved Pilot Info/feed readability: status/signal terms no longer show as ships, the card avoids default scrolling, feed entities get subtle separators, and cyno intel can temporarily flag likely hotdroppers.
 
 - Added Diagnostics & Observability Phase 1/2: structured JSONL event/error/stall logs, last-action tracking, queue/redraw timing, and a UI stall watchdog so freezes can be traced instead of guessed.
 

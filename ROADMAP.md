@@ -1,3 +1,4 @@
+- Feed/Pilot Info UX: continue refining compact tactical cards, entity separation, and status/signal classification.
 ﻿# Signal Bridge Roadmap
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN.
