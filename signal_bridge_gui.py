@@ -54,6 +54,7 @@ DEFAULT_DB_PATH = Path(r"D:\AI\Rift\signal-bridge-v2\signal-bridge-v3\src-tauri\
 POLL_SECONDS = 1.0
 MAX_CHUNK = 1024 * 1024
 MAX_ROWS = 600
+REDRAW_BATCH_SIZE = 25
 GOOGLE_TRANSLATE_TIMEOUT = 2.5
 FREE_TRANSLATION_CACHE: dict[str, str] = {}
 ARGOS_STATUS_CACHE = {"checked": False, "runtime": False, "models": set(), "error": ""}
@@ -4896,30 +4897,79 @@ class SignalBridgeGui:
         return normalize_feed_text(display)
 
     def redraw_feed(self):
+        """Cancellable, chunked feed redraw.
+
+        Redraw requests used to rebuild every visible row synchronously, which could
+        freeze Tk for several seconds.  This version clears the feed immediately,
+        snapshots visible rows, and renders them in small batches via after().
+        A newer redraw request cancels any older in-flight batch sequence.
+        """
         started = time.time()
-        rendered = 0
-        visible = 0
+        gen = int(getattr(self, "_redraw_generation", 0) or 0) + 1
+        self._redraw_generation = gen
+        try:
+            if getattr(self, "_redraw_chunk_after", None):
+                self.root.after_cancel(self._redraw_chunk_after)
+        except Exception:
+            pass
+        self._redraw_chunk_after = None
         try:
             self.text.configure(state="normal")
             self.text.delete("1.0", "end")
             self.text.configure(state="disabled")
             self.rendered_row_map.clear()
             self.link_map.clear()
-            old_rows = list(self.rows[-MAX_ROWS:])
             self.row_count = 0
-            for row in old_rows:
-                if self.row_visible(row):
-                    visible += 1
+            old_rows = list(self.rows[-MAX_ROWS:])
+            visible_rows = [row for row in old_rows if self.row_visible(row)]
+            total = len(visible_rows)
+            self.diagnostics["redraw_in_progress"] = True
+            self.diagnostics["last_visible_rows"] = total
+            self.diagnostics["redraw_batch_size"] = REDRAW_BATCH_SIZE
+            self.diagnostics["redraw_generation"] = gen
+            self.diagnostics["last_redraw_rows"] = 0
+
+            def finish(rendered: int):
+                if gen != getattr(self, "_redraw_generation", None):
+                    return
+                duration_ms = int((time.time() - started) * 1000)
+                self.diagnostics["redraw_in_progress"] = False
+                self.diagnostics["last_redraw_duration_ms"] = duration_ms
+                self.diagnostics["last_redraw_rows"] = rendered
+                self.diagnostics["last_visible_rows"] = total
+                self.diagnostics["redraw_count"] = int(self.diagnostics.get("redraw_count") or 0) + 1
+                self.diagnostics["last_redraw_cancelled"] = False
+                if duration_ms > 500:
+                    record_event("slow_redraw", duration_ms=duration_ms, rendered=rendered, visible=total, rows=len(self.rows), channel=self.visible_channel, chunked=True, batch_size=REDRAW_BATCH_SIZE)
+
+            def render_batch(index: int, rendered: int):
+                if gen != getattr(self, "_redraw_generation", None):
+                    self.diagnostics["last_redraw_cancelled"] = True
+                    return
+                batch_started = time.time()
+                end_index = min(index + REDRAW_BATCH_SIZE, total)
+                for row in visible_rows[index:end_index]:
                     self._render_row(row)
-                    rendered += 1
-        finally:
-            duration_ms = int((time.time() - started) * 1000)
-            self.diagnostics["last_redraw_duration_ms"] = duration_ms
-            self.diagnostics["last_redraw_rows"] = rendered
-            self.diagnostics["last_visible_rows"] = visible
-            self.diagnostics["redraw_count"] = int(self.diagnostics.get("redraw_count") or 0) + 1
-            if duration_ms > 500:
-                record_event("slow_redraw", duration_ms=duration_ms, rendered=rendered, visible=visible, rows=len(self.rows), channel=self.visible_channel)
+                rendered = end_index
+                batch_ms = int((time.time() - batch_started) * 1000)
+                self.diagnostics["last_redraw_batch_ms"] = batch_ms
+                self.diagnostics["last_redraw_rows"] = rendered
+                if batch_ms > 250:
+                    record_event("slow_redraw_batch", duration_ms=batch_ms, rendered=rendered, visible=total, batch_start=index, batch_end=end_index, channel=self.visible_channel)
+                if end_index < total:
+                    self._redraw_chunk_after = self.root.after(1, lambda: render_batch(end_index, rendered))
+                else:
+                    self._redraw_chunk_after = None
+                    finish(rendered)
+
+            if not visible_rows:
+                finish(0)
+            else:
+                render_batch(0, 0)
+        except Exception as exc:
+            self.diagnostics["redraw_in_progress"] = False
+            record_error("redraw_feed", exc)
+            raise
 
     def row_visible(self, row: Row) -> bool:
         if self.visible_channel == ALL_CHANNELS_TAB:

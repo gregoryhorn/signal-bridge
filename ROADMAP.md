@@ -501,3 +501,4 @@ Suggested implementation:
 - Completed first pass of the segmentation/render-safety refactor: structured row segments, separated multi-event intel display, segment diagnostics, and render path safety. Next work: chunked redraw and deeper segment/entity quality tuning.
 - Refined segmentation display to keep normal rows chat-like and reserve split rendering for multi-event rows.
 - Added LLM-friendly architecture foundation: project map, invariants, contracts, fixture checks, and maintainability-first refactor guidance.
+- Completed first pass of chunked/cancellable redraw; continue monitoring diagnostics for remaining queue/render stalls.

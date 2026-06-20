@@ -193,3 +193,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - General stability/readability refactor: added structured intel segments, separated repeated kill reports, segment diagnostics, and safer render-only feed drawing with ESI hydration moved out of the row render path.
 - Corrected the segmentation display: normal rows remain compact while repeated/back-to-back intel rows split cleanly without noisy duplicated chips.
 - Added maintainability/LLM-friendly project docs, contracts, fixture cases, and a fast offline fixture checker for safer future changes.
+- Added chunked/cancellable feed redraw to reduce UI stalls during channel switches and display-setting changes.
