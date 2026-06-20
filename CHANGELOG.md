@@ -227,3 +227,4 @@ Initial portable Windows preview release.
 - Added focused EVE intel corrections for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and Refugee hostile highlighting.
 - Added broader Chinese ship-version aliases for common Navy/Fleet Issue and live-intel machine-translation artifacts, including Scythe Fleet Issue, Apocalypse Navy Issue, and Augoror Navy Issue.
 - Improved CJK ship-token extraction so multiple Chinese ship names in one mixed intel line resolve individually; corrected Navy variant aliases to catalog-verified Omen Navy Issue and Exequror Navy Issue.
+- Added a catalog-driven CJK ship alias index so official Chinese ship aliases resolve broadly without one-off entries; added curated 海鱼/Osprey Navy Issue shorthand and ESS outside phrase cleanup.

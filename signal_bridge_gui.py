@@ -597,6 +597,11 @@ def candidate_terms(text: str) -> list[str]:
         base = re.sub(r"(?:舰队型|海军型)$", "", chunk)
         if base and base != chunk:
             terms.append(base)
+    folded_text = text.casefold()
+    if re.search(r"[\u3400-\u9fff\uf900-\ufaff]", text):
+        for alias in CJK_SHIP_ALIAS_TERMS:
+            if alias and alias.casefold() in folded_text:
+                terms.append(alias)
     words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'\-]*", text)
     for n in (4, 3, 2, 1):
         for i in range(0, max(0, len(words) - n + 1)):
@@ -763,6 +768,35 @@ def apply_user_aliases_to_catalog(catalog: EveCatalog, aliases: list[dict]) -> N
 
 ALIAS_RULE_VERSION = 0
 ALIAS_REPLACEMENT_RULES: list[tuple[str, str, re.Pattern]] = []
+CJK_SHIP_ALIAS_TERMS: list[str] = []
+
+
+def rebuild_cjk_ship_alias_terms() -> None:
+    """Precompute official/user CJK ship aliases for fast row tokenization.
+
+    The compact catalog has hundreds of thousands of aliases, so live parsing
+    must not scan it directly per row.  This list is rebuilt only after catalog
+    and alias reloads, then candidate_terms() does cheap substring checks over
+    known ship aliases only.
+    """
+    global CJK_SHIP_ALIAS_TERMS
+    terms: set[str] = set()
+    cjk_re = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+    try:
+        for alias, canonical in getattr(CATALOG, "aliases", {}).items():
+            alias_s = str(alias or "").strip()
+            if len(alias_s) < 2 or not cjk_re.search(alias_s):
+                continue
+            canon_s = str(canonical or "").strip()
+            if getattr(CATALOG, "alias_kinds", {}).get(alias_s.casefold()) == "ship" or CATALOG.is_ship(canon_s):
+                terms.add(alias_s)
+        for alias_s, canonical_s in globals().get("MANUAL_TYPE_ALIASES", {}).items():
+            alias_s = str(alias_s or "").strip()
+            if len(alias_s) >= 2 and cjk_re.search(alias_s):
+                terms.add(alias_s.casefold())
+    except Exception as exc:
+        write_log("CJK ship alias index rebuild failed", exc)
+    CJK_SHIP_ALIAS_TERMS = sorted(terms, key=len, reverse=True)
 
 
 def rebuild_alias_replacement_rules() -> None:
@@ -878,6 +912,10 @@ MANUAL_TYPE_ALIASES = {
     'Assassin Class': 'Assassin',
     'Ocato-class': 'Osprey Navy Issue',
     'Ocato Class': 'Osprey Navy Issue',
+    '海鱼': 'Osprey Navy Issue',
+    '海鱼鹰': 'Osprey Navy Issue',
+    '海鱼鹰级': 'Osprey Navy Issue',
+    'Sea fish': 'Osprey Navy Issue',
 }
 for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
     CATALOG.aliases.setdefault(_alias.casefold(), _canonical)
@@ -886,6 +924,7 @@ for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
         CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
     elif hasattr(CATALOG.ship_names, "add"):
         CATALOG.ship_names.add(_canonical.casefold())
+rebuild_cjk_ship_alias_terms()
 rebuild_alias_replacement_rules()
 
 
@@ -901,6 +940,7 @@ def reload_user_aliases() -> list[dict]:
             CATALOG.ship_names.setdefault(_canonical.casefold(), _canonical)
         elif hasattr(CATALOG.ship_names, "add"):
             CATALOG.ship_names.add(_canonical.casefold())
+    rebuild_cjk_ship_alias_terms()
     rebuild_alias_replacement_rules()
     return USER_ALIASES
 
@@ -2076,6 +2116,8 @@ def extract_intel(text: str, db: EveDb):
         for canonical in sorted(set(MANUAL_TYPE_ALIASES.values()), key=len, reverse=True):
             if canonical and re.search(word_boundary(canonical), canonical_display, re.I):
                 assets.append(canonical)
+    if re.search(r"(?<![A-Za-z0-9_-])ess(?![A-Za-z0-9_-])", text, re.I):
+        assets.append("ESS")
     if re.search(r"(?<!\w)nv(?!\w)", text, re.I):
         assets.append("No visual")
     # Prefer the longest/canonical asset when a shorthand alias also causes a shorter

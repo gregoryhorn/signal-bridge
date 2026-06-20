@@ -522,3 +522,4 @@ Suggested implementation:
 - Continue improving Chinese shorthand/entity correction coverage from live intel samples.
 - Continue expanding curated Chinese localized ship/version alias coverage from live intel samples and translation artifacts.
 - Continue improving CJK tokenization so catalog-known Chinese ship names resolve reliably inside mixed intel lines.
+- Maintain catalog-driven localized ship alias extraction with a small curated shorthand layer for player slang.

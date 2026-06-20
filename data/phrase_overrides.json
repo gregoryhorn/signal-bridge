@@ -452,6 +452,62 @@
       "direction": "zh-en",
       "enabled": true,
       "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "海鱼",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "海鱼鹰",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "海鱼鹰级",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "Sea fish",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "在ess外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "ess外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "在ESS外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "ESS外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
     }
   ]
 }

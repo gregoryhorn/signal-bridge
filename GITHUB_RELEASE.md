@@ -215,3 +215,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Fixes recent Chinese intel detection for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and treats Refugee as hostile/red instead of an asset/module.
 - Adds broader Chinese ship alias coverage for Navy/Fleet Issue variants and common literal machine translations so corrected ships detect/highlight from live intel.
 - Improves Chinese ship detection in mixed intel lines, including Eris, Thrasher Fleet Issue, Vedmak, and catalog-verified Navy/Fleet variants.
+- Adds catalog-wide Chinese ship alias extraction for official ship names plus curated shorthand such as 海鱼 -> Osprey Navy Issue, reducing reliance on Google/Argos literal translations.
