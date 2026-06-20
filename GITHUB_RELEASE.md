@@ -213,3 +213,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Translation Cache Manager MVP: dedicated settings page for cache-first behavior, manual exact translation overrides, cache-only/offline mode, fallback controls, and failure cooldowns.
 - Translation Cache Manager UI polish: split Original/Translated tables, live filters, click-to-edit, and auto-saving manual overrides.
 - Fixes recent Chinese intel detection for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and treats Refugee as hostile/red instead of an asset/module.
+- Adds broader Chinese ship alias coverage for Navy/Fleet Issue variants and common literal machine translations so corrected ships detect/highlight from live intel.

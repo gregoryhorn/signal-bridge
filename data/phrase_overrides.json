@@ -193,6 +193,265 @@
       "direction": "zh-en",
       "enabled": true,
       "note": "Reported intel correction"
+    },
+    {
+      "source": "镰刀级舰队型",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "镰刀舰队型",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Scythe-class fleet type",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Scythe class fleet type",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Scythe fleet type",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "启示级海军型",
+      "target": "Apocalypse Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "启示海军型",
+      "target": "Apocalypse Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Apocalypse-class naval type",
+      "target": "Apocalypse Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Apocalypse class naval type",
+      "target": "Apocalypse Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Apocalypse naval type",
+      "target": "Apocalypse Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "送葬者级海军型",
+      "target": "Augoror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "送葬者海军型",
+      "target": "Augoror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Undertaker-class naval type",
+      "target": "Augoror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Undertaker class naval type",
+      "target": "Augoror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Undertaker naval type",
+      "target": "Augoror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "加达里海军霍克比尔",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Caldari Navy Hawkbill Class",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Caldari Navy Hawkbill",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "娜迦级",
+      "target": "Naga",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "洛基级",
+      "target": "Loki",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Black Crow-class",
+      "target": "Blackbird",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Black Crow",
+      "target": "Blackbird",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "短剑级",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Stabber level",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Stabber级",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Enyou class",
+      "target": "Enyo",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "恩尤",
+      "target": "Enyo",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Astro Class",
+      "target": "Astero",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Heka Class",
+      "target": "Hecate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Curse level by level",
+      "target": "Curse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Widmark-class",
+      "target": "Widow",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Widmark Class",
+      "target": "Widow",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Widmark",
+      "target": "Widow",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Assassin-class",
+      "target": "Assassin",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Assassin Class",
+      "target": "Assassin",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Ocato-class",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Ocato Class",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
     }
   ]
 }

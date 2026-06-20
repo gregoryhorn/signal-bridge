@@ -520,3 +520,4 @@ Suggested implementation:
 - Completed MVP groundwork for cache-first translation management: manual exact overrides, dedicated cache page, local-first lookup, fallback controls, and failed-translation cooldowns. Phrase-level editing remains a future refinement.
 - Refined Translation Cache Manager usability with split original/translated views, live filtering, and inline auto-save editing for manual fixes.
 - Continue improving Chinese shorthand/entity correction coverage from live intel samples.
+- Continue expanding curated Chinese localized ship/version alias coverage from live intel samples and translation artifacts.

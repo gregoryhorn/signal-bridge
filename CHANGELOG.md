@@ -225,3 +225,4 @@ Initial portable Windows preview release.
 - Added a cache-first Translation Cache Manager MVP with manual exact overrides, cache-only mode, fallback controls, and failure cooldowns so repeated/corrected translations reduce reliance on Google/Argos.
 - Improved the Translation Cache Manager with side-by-side Original and Translated tables, live filtering, click-to-edit rows, and debounced auto-save manual overrides that update the feed.
 - Added focused EVE intel corrections for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and Refugee hostile highlighting.
+- Added broader Chinese ship-version aliases for common Navy/Fleet Issue and live-intel machine-translation artifacts, including Scythe Fleet Issue, Apocalypse Navy Issue, and Augoror Navy Issue.

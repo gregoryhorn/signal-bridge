@@ -821,6 +821,52 @@ MANUAL_TYPE_ALIASES = {
     '天梯级': 'Skyhook',
     '天梯': 'Skyhook',
     'sky ladder': 'Skyhook',
+    '镰刀级舰队型': 'Scythe Fleet Issue',
+    '镰刀舰队型': 'Scythe Fleet Issue',
+    'Scythe-class fleet type': 'Scythe Fleet Issue',
+    'Scythe class fleet type': 'Scythe Fleet Issue',
+    'Scythe fleet type': 'Scythe Fleet Issue',
+    '启示级海军型': 'Apocalypse Navy Issue',
+    '启示海军型': 'Apocalypse Navy Issue',
+    'Apocalypse-class naval type': 'Apocalypse Navy Issue',
+    'Apocalypse class naval type': 'Apocalypse Navy Issue',
+    'Apocalypse naval type': 'Apocalypse Navy Issue',
+    '送葬者级海军型': 'Augoror Navy Issue',
+    '送葬者海军型': 'Augoror Navy Issue',
+    'Undertaker-class naval type': 'Augoror Navy Issue',
+    'Undertaker class naval type': 'Augoror Navy Issue',
+    'Undertaker naval type': 'Augoror Navy Issue',
+    '加达里海军霍克比尔级': 'Caldari Navy Hookbill',
+    '加达里海军霍克比尔': 'Caldari Navy Hookbill',
+    'Caldari Navy Hawkbill Class': 'Caldari Navy Hookbill',
+    'Caldari Navy Hawkbill': 'Caldari Navy Hookbill',
+    '娜迦级': 'Naga',
+    '洛基级': 'Loki',
+    '黑鸦级': 'Blackbird',
+    'Black Crow-class': 'Blackbird',
+    'Black Crow': 'Blackbird',
+    '海神级': 'Poseidon',
+    '短剑级': 'Stabber',
+    'Stabber level': 'Stabber',
+    'Stabber级': 'Stabber',
+    '恩尤级': 'Enyo',
+    'Enyou class': 'Enyo',
+    '恩尤': 'Enyo',
+    '阿斯特罗级': 'Astero',
+    'Astro Class': 'Astero',
+    '赫卡特级': 'Hecate',
+    'Heka Class': 'Hecate',
+    '咒逐级': 'Curse',
+    'Curse level by level': 'Curse',
+    '偷天沟': 'Tengu',
+    '流浪': 'Vagabond',
+    'Widmark-class': 'Widow',
+    'Widmark Class': 'Widow',
+    'Widmark': 'Widow',
+    'Assassin-class': 'Assassin',
+    'Assassin Class': 'Assassin',
+    'Ocato-class': 'Osprey Navy Issue',
+    'Ocato Class': 'Osprey Navy Issue',
 }
 for _alias, _canonical in MANUAL_TYPE_ALIASES.items():
     CATALOG.aliases.setdefault(_alias.casefold(), _canonical)
@@ -2015,6 +2061,9 @@ def extract_intel(text: str, db: EveDb):
         for ent in localized or []:
             canonical = str(ent.get("canonical") or "").strip()
             if canonical and CATALOG.is_ship(canonical):
+                assets.append(canonical)
+        for canonical in sorted(set(MANUAL_TYPE_ALIASES.values()), key=len, reverse=True):
+            if canonical and re.search(word_boundary(canonical), canonical_display, re.I):
                 assets.append(canonical)
     if re.search(r"(?<!\w)nv(?!\w)", text, re.I):
         assets.append("No visual")
