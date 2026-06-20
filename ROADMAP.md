@@ -525,3 +525,6 @@ Suggested implementation:
 - Maintain catalog-driven localized ship alias extraction with a small curated shorthand layer for player slang.
 
 - Translation Cache UX: completed a focused editor usability pass so translation corrections can be made from visible Original/English edit boxes instead of a debug-style cache list.
+
+- Pilot Intelligence: completed a focused accuracy pass for ID-first Pilot Info opening and more robust zKill sync/display diagnostics.
+

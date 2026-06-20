@@ -5631,6 +5631,60 @@ class SignalBridgeGui:
         type_cache[key] = name
         return name
 
+    def zkill_api_list(self, kind: str, pilot_id: int) -> tuple[list[dict], str, str]:
+        """Fetch a zKill list, falling back when modifier URLs return an error dict."""
+        headers = {"User-Agent": f"SignalBridge/{APP_VERSION} contact=github.com/gregoryhorn/signal-bridge"}
+        urls = [
+            (f"https://zkillboard.com/api/{kind}/characterID/{int(pilot_id)}/pastSeconds/2592000/", "30d"),
+            (f"https://zkillboard.com/api/{kind}/characterID/{int(pilot_id)}/", "latest"),
+        ]
+        last_error = ""
+        for url, scope in urls:
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    payload = json.loads(resp.read().decode("utf-8", "replace"))
+                if isinstance(payload, list):
+                    return payload, scope, ""
+                if isinstance(payload, dict):
+                    last_error = str(payload.get("error") or payload.get("message") or payload)[:240]
+                    record_event("zkill_api_nonlist", pilot_id=int(pilot_id), kind=kind, scope=scope, error=last_error)
+                else:
+                    last_error = f"unexpected payload: {type(payload).__name__}"
+            except Exception as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                record_event("zkill_api_failed", pilot_id=int(pilot_id), kind=kind, scope=scope, error=last_error[:240])
+            time.sleep(1.1)
+        return [], "failed", last_error
+
+    def zkill_hydrate_killmail(self, item: dict, detail_cache: dict) -> dict:
+        """Hydrate zKill list rows with ESI killmail details when possible."""
+        if not isinstance(item, dict):
+            return {}
+        killmail_id = int(item.get("killmail_id") or 0)
+        zkb = item.get("zkb") or {}
+        km_hash = str(zkb.get("hash") or item.get("hash") or "")
+        if not killmail_id or not km_hash:
+            return item
+        key = str(killmail_id)
+        cached = detail_cache.get(key)
+        if isinstance(cached, dict) and cached.get("killmail_id"):
+            merged = dict(cached)
+            merged["zkb"] = zkb or merged.get("zkb") or {}
+            return merged
+        try:
+            url = f"https://esi.evetech.net/latest/killmails/{killmail_id}/{km_hash}/?datasource=tranquility"
+            req = urllib.request.Request(url, headers={"User-Agent": f"SignalBridge/{APP_VERSION}"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                detail = json.loads(resp.read().decode("utf-8", "replace"))
+            if isinstance(detail, dict):
+                detail["zkb"] = zkb
+                detail_cache[key] = detail
+                return detail
+        except Exception as exc:
+            record_event("zkill_killmail_hydrate_failed", killmail_id=killmail_id, error=f"{type(exc).__name__}: {exc}"[:240])
+        return item
+
     def zkill_event_from_killmail(self, item: dict, kind: str, pilot_id: int, type_cache: dict) -> dict:
         victim = item.get("victim") or {}
         attackers = item.get("attackers") or []
@@ -5665,17 +5719,20 @@ class SignalBridgeGui:
             try:
                 cache = self.load_zkill_cache()
                 type_cache = dict(cache.get("type_names") or {})
-                headers = {"User-Agent": f"SignalBridge/{APP_VERSION} contact=github.com/gregoryhorn/signal-bridge"}
-                base = f"https://zkillboard.com/api/{{kind}}/characterID/{int(pilot_id)}/pastSeconds/2592000/"
+                detail_cache = dict(cache.get("killmail_details") or {})
                 out = {}
+                scopes = {}
+                errors = {}
                 for kind in ("kills", "losses"):
-                    req = urllib.request.Request(base.format(kind=kind), headers=headers)
-                    with urllib.request.urlopen(req, timeout=8) as resp:
-                        payload = json.loads(resp.read().decode("utf-8", "replace"))
-                    out[kind] = payload if isinstance(payload, list) else []
-                    time.sleep(1.1)
+                    payload, scope, err = self.zkill_api_list(kind, int(pilot_id))
+                    out[kind] = payload
+                    scopes[kind] = scope
+                    if err:
+                        errors[kind] = err
                 kills = out.get("kills") or []
                 losses = out.get("losses") or []
+                if not kills and not losses and errors:
+                    raise RuntimeError("; ".join(f"{k}: {v}" for k, v in errors.items()))
                 all_items = kills + losses
                 latest = ""
                 try:
@@ -5686,7 +5743,9 @@ class SignalBridgeGui:
                 for kind, items in (("kills", kills), ("losses", losses)):
                     for item in items[:8]:
                         try:
-                            recent_events.append(self.zkill_event_from_killmail(item, kind, int(pilot_id), type_cache))
+                            detail = self.zkill_hydrate_killmail(item, detail_cache)
+                            recent_events.append(self.zkill_event_from_killmail(detail, kind, int(pilot_id), type_cache))
+                            time.sleep(0.25)
                         except Exception as exc:
                             write_log("zKill event parse failed", exc)
                 recent_events.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
@@ -5712,6 +5771,8 @@ class SignalBridgeGui:
                     "latest_killmail": latest,
                     "recent_kills_30d": len(kills),
                     "recent_losses_30d": len(losses),
+                    "zkill_scopes": scopes,
+                    "zkill_scope_note": "30d when available; latest-page fallback when zKill rejects time-filtered API modifiers",
                     "isk_destroyed_30d": round(isk_destroyed),
                     "isk_lost_30d": round(isk_lost),
                     "danger_tags": sorted(set(danger)),
@@ -5719,8 +5780,12 @@ class SignalBridgeGui:
                     "duration_ms": int((time.time() - started) * 1000),
                     "last_error": "",
                 }
+                # Bound the detail cache so the JSON cache remains lightweight.
+                if len(detail_cache) > 400:
+                    detail_cache = dict(list(detail_cache.items())[-400:])
                 cache[str(int(pilot_id))] = summary
                 cache["type_names"] = type_cache
+                cache["killmail_details"] = detail_cache
                 self.save_zkill_cache(cache)
                 ok = True
                 record_event("zkill_sync_completed", pilot_id=int(pilot_id), kills=len(kills), losses=len(losses), events=len(recent_events), duration_ms=summary["duration_ms"])
@@ -5924,6 +5989,7 @@ class SignalBridgeGui:
             tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(13, int(self.font_size.get()) + 3), "bold"), wraplength=650, justify="left").pack(anchor="w")
             meta = f"{corp} · {alliance}"
             tk.Label(header, text=meta, bg="#111821", fg="#8b98a8", justify="left", wraplength=650).pack(anchor="w")
+            tk.Label(header, text=f"Character ID: {pilot_id}  zKill: https://zkillboard.com/character/{pilot_id}/", bg="#111821", fg="#8b98a8", justify="left", wraplength=650).pack(anchor="w")
             last_bits = f"Last: {self.friendly_datetime(last.get('timestamp')) if last else 'unknown'} · {clean_value(last.get('system_name'))} · {profile.get('report_count', 0)} reports · zKill: {zks.get('status','not_synced').replace('_',' ')}"
             tk.Label(header, text=last_bits, bg="#111821", fg="#5ad7ff", justify="left", wraplength=650).pack(anchor="w", pady=(3, 0))
 
@@ -6018,7 +6084,9 @@ class SignalBridgeGui:
             if zks.get("status") == "synced":
                 pri, pri_text, pri_notes = zkill_priority(zks, normalized_ship_status(latest_row())[0])
                 tags = ", ".join(pri_notes or zks.get("danger_tags") or []) or "none"
-                label(zbox, f"{pri}: {pri_text} | Synced {self.friendly_datetime(zks.get('synced_at'))} | Kills 30d: {zks.get('recent_kills_30d', 0)} | Losses 30d: {zks.get('recent_losses_30d', 0)}", "#ffb3b3" if pri == "HIGH" else ("#ffe16a" if pri == "MED" else "#d7dde5"))
+                scopes = zks.get("zkill_scopes") or {}
+                scope_text = f" | source: kills={scopes.get('kills','?')} losses={scopes.get('losses','?')}" if scopes else ""
+                label(zbox, f"{pri}: {pri_text} | Synced {self.friendly_datetime(zks.get('synced_at'))} | Kills: {zks.get('recent_kills_30d', 0)} | Losses: {zks.get('recent_losses_30d', 0)}{scope_text}", "#ffb3b3" if pri == "HIGH" else ("#ffe16a" if pri == "MED" else "#d7dde5"))
                 label(zbox, f"ISK: destroyed {fmt_isk(zks.get('isk_destroyed_30d'))}, lost {fmt_isk(zks.get('isk_lost_30d'))} | Signals: {tags}", "#8b98a8")
                 for ev in (zks.get("recent_events") or [])[:3]:
                     tm = self.friendly_datetime(ev.get("time")).replace("Today ", "")
@@ -6122,25 +6190,38 @@ class SignalBridgeGui:
         if not row:
             return {"kind": "none", "text": text}
 
-        def clicked_inside(term: str) -> bool:
+        def clicked_span(term: str) -> tuple[int, int] | None:
             if clicked_col < 0 or not term or not line_text:
-                return False
+                return None
             hay = line_text.casefold()
             needle = str(term).casefold()
             pos = hay.find(needle)
             while pos >= 0:
-                if pos <= clicked_col < pos + len(str(term)):
-                    return True
+                end_pos = pos + len(str(term))
+                if pos <= clicked_col < end_pos:
+                    return (pos, end_pos)
                 pos = hay.find(needle, pos + 1)
-            return False
+            return None
+
+        def clicked_inside(term: str) -> bool:
+            return clicked_span(term) is not None
 
         self.hydrate_esi_entities_for_row(row)
+        pilot_matches = []
         for ent in row.esi_entities:
             if ent.get("entity_type") != "character" or not ent.get("entity_id"):
                 continue
             for candidate in unique([str(ent.get("name") or ""), str(ent.get("query") or "")]):
-                if candidate and clicked_inside(candidate):
-                    return {"kind": "pilot", "text": candidate, "entity": ent}
+                span = clicked_span(candidate)
+                if candidate and span:
+                    pilot_matches.append((len(candidate), span[0], candidate, ent))
+        if pilot_matches:
+            # Prefer the longest clicked pilot span so a shorter cached entity
+            # such as "Picard" cannot steal a click intended for "Picard X".
+            pilot_matches.sort(key=lambda x: (-x[0], x[1]))
+            _length, _pos, candidate, ent = pilot_matches[0]
+            record_event("pilot_click_resolved", clicked=text, selected=candidate, pilot_id=ent.get("entity_id"), row_sender=getattr(row, "sender", ""))
+            return {"kind": "pilot", "text": candidate, "entity": ent}
 
         for sysname in row.systems:
             if clicked_inside(str(sysname)):

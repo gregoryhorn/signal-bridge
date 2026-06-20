@@ -218,3 +218,6 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Adds catalog-wide Chinese ship alias extraction for official ship names plus curated shorthand such as 海鱼 -> Osprey Navy Issue, reducing reliance on Google/Argos literal translations.
 
 - Translation Cache editor usability fix: side-by-side editable Original/English boxes are now directly under the cache lists, with internal cache labels hidden unless explicitly enabled.
+
+- Pilot Info/zKill fix: more accurate clicked-pilot identity, visible character ID/zKill URL, zKill API fallback for rejected time filters, and hydrated recent kill/loss details.
+

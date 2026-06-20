@@ -230,3 +230,6 @@ Initial portable Windows preview release.
 - Added a catalog-driven CJK ship alias index so official Chinese ship aliases resolve broadly without one-off entries; added curated 海鱼/Osprey Navy Issue shorthand and ESS outside phrase cleanup.
 
 - Improved the Translation Cache editor usability: Original and English correction boxes now sit directly below their matching lists, English editing is clearly visible, cache internals are hidden by default, and manual override auto-save guidance is clearer.
+
+- Fixed Pilot Info identity and zKill accuracy: clicked pilot spans now prefer the exact longest matched character name, Pilot Info shows the character ID/zKill URL, and zKill sync falls back when time-filtered API calls are rejected while hydrating recent killmail details.
+
