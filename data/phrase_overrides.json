@@ -231,73 +231,73 @@
     },
     {
       "source": "启示级海军型",
-      "target": "Apocalypse Navy Issue",
+      "target": "Omen Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "启示海军型",
-      "target": "Apocalypse Navy Issue",
+      "target": "Omen Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "Apocalypse-class naval type",
-      "target": "Apocalypse Navy Issue",
+      "target": "Omen Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "Apocalypse class naval type",
-      "target": "Apocalypse Navy Issue",
+      "target": "Omen Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "Apocalypse naval type",
-      "target": "Apocalypse Navy Issue",
+      "target": "Omen Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "送葬者级海军型",
-      "target": "Augoror Navy Issue",
+      "target": "Exequror Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "送葬者海军型",
-      "target": "Augoror Navy Issue",
+      "target": "Exequror Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "Undertaker-class naval type",
-      "target": "Augoror Navy Issue",
+      "target": "Exequror Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "Undertaker class naval type",
-      "target": "Augoror Navy Issue",
+      "target": "Exequror Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "Undertaker naval type",
-      "target": "Augoror Navy Issue",
+      "target": "Exequror Navy Issue",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese ship/version alias correction"
+      "note": "Chinese ship/version alias correction; catalog-verified"
     },
     {
       "source": "加达里海军霍克比尔",

@@ -214,3 +214,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Translation Cache Manager UI polish: split Original/Translated tables, live filters, click-to-edit, and auto-saving manual overrides.
 - Fixes recent Chinese intel detection for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and treats Refugee as hostile/red instead of an asset/module.
 - Adds broader Chinese ship alias coverage for Navy/Fleet Issue variants and common literal machine translations so corrected ships detect/highlight from live intel.
+- Improves Chinese ship detection in mixed intel lines, including Eris, Thrasher Fleet Issue, Vedmak, and catalog-verified Navy/Fleet variants.

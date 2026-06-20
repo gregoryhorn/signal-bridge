@@ -585,13 +585,24 @@ def candidate_terms(text: str) -> list[str]:
     for m in PAREN_RE.finditer(text):
         terms.append(m.group(1))
     # Handles true Chinese and the live log's localization text representation.
-    for m in re.finditer(r"[^\s,;:()\[\]{}]+(?:çº§|åž‹|Ã§ÂºÂ§|Ã¥Å¾â€¹)\*?", text):
+    for m in re.finditer(r"[^\s,;:()\[\]{}]+(?:级|舰队型|海军型|ž‹|型|€)?\*?", text):
         terms.append(m.group(0))
+    # Chinese ship/version names often appear as several localized tokens inside
+    # one mixed intel line. Add explicit CJK ship chunks so catalog lookup can
+    # resolve each token independently instead of only testing the whole phrase.
+    cjk_ship_chunk = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]+?级(?:舰队型|海军型)?|[\u3400-\u9fff\uf900-\ufaff]+?(?:舰队型|海军型)")
+    for m in cjk_ship_chunk.finditer(text):
+        chunk = m.group(0)
+        terms.append(chunk)
+        base = re.sub(r"(?:舰队型|海军型)$", "", chunk)
+        if base and base != chunk:
+            terms.append(base)
     words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'\-]*", text)
     for n in (4, 3, 2, 1):
         for i in range(0, max(0, len(words) - n + 1)):
             terms.append(" ".join(words[i:i+n]))
-    return unique([t.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™") for t in terms])
+    return unique([t.strip().strip("* ,.;:()[]{}\"'`€œ€€˜€™") for t in terms])
+
 
 
 class EveCatalog:
@@ -826,16 +837,16 @@ MANUAL_TYPE_ALIASES = {
     'Scythe-class fleet type': 'Scythe Fleet Issue',
     'Scythe class fleet type': 'Scythe Fleet Issue',
     'Scythe fleet type': 'Scythe Fleet Issue',
-    '启示级海军型': 'Apocalypse Navy Issue',
-    '启示海军型': 'Apocalypse Navy Issue',
-    'Apocalypse-class naval type': 'Apocalypse Navy Issue',
-    'Apocalypse class naval type': 'Apocalypse Navy Issue',
-    'Apocalypse naval type': 'Apocalypse Navy Issue',
-    '送葬者级海军型': 'Augoror Navy Issue',
-    '送葬者海军型': 'Augoror Navy Issue',
-    'Undertaker-class naval type': 'Augoror Navy Issue',
-    'Undertaker class naval type': 'Augoror Navy Issue',
-    'Undertaker naval type': 'Augoror Navy Issue',
+    '启示级海军型': 'Omen Navy Issue',
+    '启示海军型': 'Omen Navy Issue',
+    'Apocalypse-class naval type': 'Omen Navy Issue',
+    'Apocalypse class naval type': 'Omen Navy Issue',
+    'Apocalypse naval type': 'Omen Navy Issue',
+    '送葬者级海军型': 'Exequror Navy Issue',
+    '送葬者海军型': 'Exequror Navy Issue',
+    'Undertaker-class naval type': 'Exequror Navy Issue',
+    'Undertaker class naval type': 'Exequror Navy Issue',
+    'Undertaker naval type': 'Exequror Navy Issue',
     '加达里海军霍克比尔级': 'Caldari Navy Hookbill',
     '加达里海军霍克比尔': 'Caldari Navy Hookbill',
     'Caldari Navy Hawkbill Class': 'Caldari Navy Hookbill',

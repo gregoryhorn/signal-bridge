@@ -521,3 +521,4 @@ Suggested implementation:
 - Refined Translation Cache Manager usability with split original/translated views, live filtering, and inline auto-save editing for manual fixes.
 - Continue improving Chinese shorthand/entity correction coverage from live intel samples.
 - Continue expanding curated Chinese localized ship/version alias coverage from live intel samples and translation artifacts.
+- Continue improving CJK tokenization so catalog-known Chinese ship names resolve reliably inside mixed intel lines.
