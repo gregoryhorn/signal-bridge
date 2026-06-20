@@ -207,3 +207,4 @@ Initial portable Windows preview release.
 - Added an LLM-friendly architecture foundation with project map, invariants, architecture/Argos plans, contract docs, feed fixtures, and a fast fixture checker.
 - Added chunked/cancellable feed redraw so large display updates yield back to Tk instead of rebuilding all rows synchronously.
 - Extracted feed display-line logic into a pure render-model helper to reduce GUI-file complexity and protect fixture-tested output.
+- Reactivated CN/EN free-text direction toggles through a safe background translation queue instead of render-thread MT calls.

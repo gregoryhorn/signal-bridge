@@ -503,3 +503,4 @@ Suggested implementation:
 - Added LLM-friendly architecture foundation: project map, invariants, contracts, fixture checks, and maintainability-first refactor guidance.
 - Completed first pass of chunked/cancellable redraw; continue monitoring diagnostics for remaining queue/render stalls.
 - Began RenderRow/render-model extraction by moving feed display-line decisions into a pure helper behind fixture checks.
+- Added safe background free-text translation queue as the first translation-job pipeline step.

@@ -2098,6 +2098,9 @@ class SignalBridgeGui:
         self.visible_channel: str | None = str(SETTINGS.get("active_tab_id") or ALL_CHANNELS_TAB)
         self.normalize_tab_state(prefer_all=True)
         self.queue: queue.Queue = queue.Queue()
+        self.translation_queue: queue.Queue = queue.Queue(maxsize=200)
+        self.translation_pending: set[tuple[int, str, str]] = set()
+        self.translation_stop_event = threading.Event()
         self.stop_event: threading.Event | None = None
         self.monitor: MonitorThread | None = None
         self.row_count = 0
@@ -2135,6 +2138,7 @@ class SignalBridgeGui:
         self.load_enabled_addons()
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
         self.root.after(150, self.drain_queue)
+        threading.Thread(target=self.translation_worker, daemon=True).start()
         self.root.after(self._heartbeat_interval_ms, self.ui_heartbeat)
 
     def note_action(self, action: str, **data):
@@ -4310,6 +4314,10 @@ class SignalBridgeGui:
         self.persist_settings()
         if self.esi_resolver:
             self.esi_resolver.stop()
+        try:
+            self.translation_stop_event.set()
+        except Exception:
+            pass
         self.stop_monitor()
         self.root.after(100, self.root.destroy)
 
@@ -5067,27 +5075,141 @@ class SignalBridgeGui:
                 names.append(ent_query)
         return unique([n for n in names if n])
 
+    def row_translation_cache(self, row: Row) -> dict:
+        cache = getattr(row, "_free_translation_by_direction", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            try:
+                if row.free_translation:
+                    cache["zh-en"] = row.free_translation
+            except Exception:
+                pass
+            try:
+                row._free_translation_by_direction = cache
+            except Exception:
+                pass
+        return cache
+
+    def schedule_translation_for_row(self, row: Row, display_text: str) -> None:
+        if not bool(self.translate_chinese_text.get()):
+            return
+        direction_var = getattr(self, "translation_direction", None)
+        direction = str(direction_var.get() if direction_var is not None else "zh-en") or "zh-en"
+        source_text = display_text if direction == "en-zh" else (display_text or row.text)
+        if not hasattr(self, "translation_queue") or not hasattr(self, "translation_pending"):
+            try:
+                row._last_translation_decision = f"skipped: no background translation queue available for {direction}"
+            except Exception:
+                pass
+            return
+        if not source_text.strip():
+            return
+        cache = self.row_translation_cache(row)
+        if cache.get(direction):
+            return
+        key = (id(row), direction, source_text)
+        if key in self.translation_pending:
+            return
+        if len(self.translation_pending) >= 24:
+            try:
+                row._last_translation_decision = "skipped: background translation queue is busy"
+            except Exception:
+                pass
+            return
+        self.translation_pending.add(key)
+        try:
+            pref_var = getattr(self, "translation_preferred_engine", None)
+            fallback_var = getattr(self, "translation_fallback_mode", None)
+            pref = pref_var.get() if pref_var is not None else "auto"
+            fallback = fallback_var.get() if fallback_var is not None else "online-only"
+            self.translation_queue.put_nowait((key, row, source_text, list(row.systems), list(row.assets), list(row.localized), list(row.counts), list(row.links), list(row.esi_candidates), direction, pref, fallback))
+            self.diagnostics["translation_pending"] = len(self.translation_pending)
+            try:
+                row._last_translation_decision = f"queued: background {direction} translation"
+            except Exception:
+                pass
+            record_event("translation_queued", direction=direction, sender=row.sender, channel=row.channel)
+        except queue.Full:
+            self.translation_pending.discard(key)
+            try:
+                row._last_translation_decision = "skipped: background translation queue full"
+            except Exception:
+                pass
+
+    def translation_worker(self):
+        while not getattr(self, "translation_stop_event", threading.Event()).is_set():
+            try:
+                item = self.translation_queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            key, row, text, systems, assets, localized, counts, links, names, direction, pref, fallback = item
+            started = time.time()
+            result = ""
+            error = ""
+            try:
+                result = translate_free_text(text, systems, assets, localized, counts, links, direction, names, pref, fallback)
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+                write_log("Background translation failed", exc)
+            duration_ms = int((time.time() - started) * 1000)
+            self.queue.put(("translation_result", key, row, direction, result or "", error, duration_ms))
+
+    def handle_translation_result(self, key, row: Row, direction: str, result: str, error: str, duration_ms: int):
+        self.translation_pending.discard(key)
+        self.diagnostics["translation_pending"] = len(self.translation_pending)
+        self.diagnostics["last_translation_ms"] = duration_ms
+        if error:
+            self.diagnostics["last_translation_error"] = error[:240]
+            record_event("translation_failed", direction=direction, duration_ms=duration_ms, error=error[:240])
+            try:
+                row._last_translation_decision = f"failed: {error[:120]}"
+            except Exception:
+                pass
+            return
+        if not result:
+            record_event("translation_empty", direction=direction, duration_ms=duration_ms)
+            try:
+                row._last_translation_decision = f"skipped: no {direction} translation result"
+            except Exception:
+                pass
+            return
+        cache = self.row_translation_cache(row)
+        cache[direction] = normalize_feed_text(result)
+        if direction == "zh-en":
+            row.free_translation = cache[direction]
+        row.translation_source = "catalog/db+background-mt" if (row.translation or row.localized) else "background-mt"
+        try:
+            row._last_translation_decision = f"used: background {direction} translation ({duration_ms}ms)"
+        except Exception:
+            pass
+        record_event("translation_completed", direction=direction, duration_ms=duration_ms, sender=row.sender, channel=row.channel)
+        if row in self.rows:
+            self.schedule_redraw(40)
+
     def display_free_translation(self, row: Row, display_text: str) -> str:
         # Rendering/redraw must never perform network, DB-heavy, or MT work.
-        # Live monitor already parses with allow_free_translation=False, so most
-        # rows have no free_translation. Show only precomputed/cached row text.
+        # Missing free-text translation is queued for a background worker instead.
         if not bool(self.translate_chinese_text.get()):
             try:
                 row._last_translation_decision = "skipped: free-text translation display disabled"
             except Exception:
                 pass
             return ""
-        if row.free_translation:
+        direction_var = getattr(self, "translation_direction", None)
+        direction = str(direction_var.get() if direction_var is not None else "zh-en") or "zh-en"
+        cache = self.row_translation_cache(row)
+        if cache.get(direction):
             try:
-                row._last_translation_decision = "used: precomputed free translation"
+                row._last_translation_decision = f"used: cached/background {direction} translation"
             except Exception:
                 pass
-            return row.free_translation
+            return cache[direction]
+        self.schedule_translation_for_row(row, display_text)
         try:
             if row.localized:
-                row._last_translation_decision = "skipped: no precomputed free translation; localized catalog replacements available"
+                row._last_translation_decision = f"queued/skipped: no cached {direction} free translation; localized catalog replacements available"
             else:
-                row._last_translation_decision = "skipped: no precomputed free translation; render path cannot run MT"
+                row._last_translation_decision = f"queued/skipped: no cached {direction} free translation yet"
         except Exception:
             pass
         return ""
@@ -5184,6 +5306,8 @@ class SignalBridgeGui:
                 elif isinstance(item, tuple) and item[0] == "update_failed":
                     self.status_label.configure(text="Update check failed; see logs")
                     self.messagebox.showwarning("Signal Bridge Updates", "Could not check for updates. This can happen if the GitHub repo is private or offline.\n\nSee logs for details.")
+                elif isinstance(item, tuple) and item[0] == "translation_result":
+                    self.handle_translation_result(item[1], item[2], item[3], item[4], item[5], item[6])
                 elif isinstance(item, tuple) and item[0] == "argos_status":
                     status = str(item[1])
                     self.argos_status_text.set(status)

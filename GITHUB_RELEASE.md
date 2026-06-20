@@ -195,3 +195,4 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Added maintainability/LLM-friendly project docs, contracts, fixture cases, and a fast offline fixture checker for safer future changes.
 - Added chunked/cancellable feed redraw to reduce UI stalls during channel switches and display-setting changes.
 - Extracted feed display-line logic into a small pure render-model helper, keeping fixture-tested output stable while improving maintainability.
+- Reactivated Auto -> EN and EN -> CN free-text translation toggles using a safe background queue; rendering still never performs blocking MT.
