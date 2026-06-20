@@ -4045,7 +4045,8 @@ class SignalBridgeGui:
             target_var = tk.StringVar(value="en")
             enabled_var = tk.BooleanVar(value=True)
             note_var = tk.StringVar()
-            status_var = tk.StringVar(value="Type in either filter box to live-filter. Select a grouped row to edit Original and English below.")
+            status_var = tk.StringVar(value="Type in either filter box to live-filter. Click a row, then edit Original or English in the boxes directly below the lists.")
+            show_internals_var = tk.BooleanVar(value=False)
 
             filter_frame = tk.Frame(c, bg="#0b0f14"); filter_frame.pack(fill="x", pady=(8, 4))
             left_filter = tk.Frame(filter_frame, bg="#0b0f14"); left_filter.pack(side="left", fill="x", expand=True, padx=(0, 6))
@@ -4055,36 +4056,48 @@ class SignalBridgeGui:
             tk.Label(right_filter, text="Filter translated", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
             tk.Entry(right_filter, textvariable=translated_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
 
-            tables = tk.Frame(c, bg="#0b0f14"); tables.pack(fill="both", expand=True, pady=6)
-            left = tk.Frame(tables, bg="#0b0f14"); left.pack(side="left", fill="both", expand=True, padx=(0, 6))
-            right = tk.Frame(tables, bg="#0b0f14"); right.pack(side="left", fill="both", expand=True, padx=(6, 0))
-            tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
-            tk.Label(right, text="English", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
-            orig_list = tk.Listbox(left, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
-            trans_list = tk.Listbox(right, height=9, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
-            orig_scroll = tk.Scrollbar(left, orient="vertical", command=orig_list.yview)
-            trans_scroll = tk.Scrollbar(right, orient="vertical", command=trans_list.yview)
-            orig_list.configure(yscrollcommand=orig_scroll.set); trans_list.configure(yscrollcommand=trans_scroll.set)
-            orig_list.pack(side="left", fill="both", expand=True); orig_scroll.pack(side="right", fill="y")
-            trans_list.pack(side="left", fill="both", expand=True); trans_scroll.pack(side="right", fill="y")
+            tables = tk.Frame(c, bg="#0b0f14")
+            tables.pack(fill="both", expand=True, pady=6)
+            left = tk.Frame(tables, bg="#0b0f14")
+            left.pack(side="left", fill="both", expand=True, padx=(0, 6))
+            right = tk.Frame(tables, bg="#0b0f14")
+            right.pack(side="left", fill="both", expand=True, padx=(6, 0))
 
-            editor = tk.LabelFrame(c, text="Edit selected correction", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
-            editor.pack(fill="x", pady=(4, 6))
-            edit_cols = tk.Frame(editor, bg="#0b0f14"); edit_cols.pack(fill="x")
-            src_col = tk.Frame(edit_cols, bg="#0b0f14"); src_col.pack(side="left", fill="both", expand=True, padx=(0, 6))
-            dst_col = tk.Frame(edit_cols, bg="#0b0f14"); dst_col.pack(side="left", fill="both", expand=True, padx=(6, 0))
-            tk.Label(src_col, text="Original / source", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
-            src_text = tk.Text(src_col, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
-            src_text.pack(fill="x")
-            tk.Label(dst_col, text="English / corrected", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
-            dst_text = tk.Text(dst_col, height=3, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat", wrap="word")
-            dst_text.pack(fill="x")
-            opts = tk.Frame(editor, bg="#0b0f14"); opts.pack(fill="x", pady=(6, 0))
+            tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            orig_list_frame = tk.Frame(left, bg="#0b0f14")
+            orig_list_frame.pack(fill="both", expand=True)
+            orig_list = tk.Listbox(orig_list_frame, height=6, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            orig_scroll = tk.Scrollbar(orig_list_frame, orient="vertical", command=orig_list.yview)
+            orig_list.configure(yscrollcommand=orig_scroll.set)
+            orig_list.pack(side="left", fill="both", expand=True)
+            orig_scroll.pack(side="right", fill="y")
+            tk.Label(left, text="Original / source phrase — editable", bg="#0b0f14", fg="#facc15", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
+            src_text = tk.Text(left, height=4, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
+            src_text.pack(fill="x", ipady=3)
+            tk.Label(left, text="Use this if the captured source segment is wrong.", bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", pady=(2, 0))
+
+            tk.Label(right, text="English", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            trans_list_frame = tk.Frame(right, bg="#0b0f14")
+            trans_list_frame.pack(fill="both", expand=True)
+            trans_list = tk.Listbox(trans_list_frame, height=6, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            trans_scroll = tk.Scrollbar(trans_list_frame, orient="vertical", command=trans_list.yview)
+            trans_list.configure(yscrollcommand=trans_scroll.set)
+            trans_list.pack(side="left", fill="both", expand=True)
+            trans_scroll.pack(side="right", fill="y")
+            tk.Label(right, text="English correction — editable", bg="#0b0f14", fg="#7ee787", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
+            dst_text = tk.Text(right, height=4, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
+            dst_text.pack(fill="x", ipady=3)
+            tk.Label(right, text="Edit this text to fix what appears in live chat.", bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", pady=(2, 0))
+
+            opts = tk.Frame(c, bg="#0b0f14")
+            opts.pack(fill="x", pady=(8, 2))
             tk.Label(opts, text="Target", bg="#0b0f14", fg="#8b98a8").pack(side="left")
             tk.OptionMenu(opts, target_var, "en", "zh-CN", command=lambda _=None: schedule_autosave()).pack(side="left", padx=6)
             tk.Checkbutton(opts, text="Enabled", variable=enabled_var, command=lambda: schedule_autosave(), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
+            tk.Checkbutton(opts, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
+            tk.Label(opts, text="Note", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(10, 2))
             tk.Entry(opts, textvariable=note_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(side="left", fill="x", expand=True, padx=6)
-            tk.Label(editor, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", fill="x", pady=(4, 0))
+            tk.Label(c, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=700).pack(anchor="w", fill="x", pady=(4, 0))
 
             def preview(text, n=96):
                 text = str(text or "").replace("\r", " ").replace("\n", " ").strip()
@@ -4112,10 +4125,14 @@ class SignalBridgeGui:
                 state["items"] = rows
                 orig_list.delete(0, "end"); trans_list.delete(0, "end")
                 for item in rows:
-                    prefix = "M" if item.get("manual_id") else "C"
-                    dup = int(item.get("duplicate_count") or 1)
-                    meta = f" d{dup}" if dup > 1 else ""
-                    orig_list.insert("end", f"[{prefix}{meta}] {preview(item.get('source_text'))}")
+                    if show_internals_var.get():
+                        prefix = "M" if item.get("manual_id") else "C"
+                        dup = int(item.get("duplicate_count") or 1)
+                        meta = f" d{dup}" if dup > 1 else ""
+                        orig_label = f"[{prefix}{meta}] {preview(item.get('source_text'))}"
+                    else:
+                        orig_label = preview(item.get('source_text'))
+                    orig_list.insert("end", orig_label)
                     trans_list.insert("end", preview(item.get("translated_text")))
                 new_idx = None
                 if keep_selection and old_src:
@@ -4142,7 +4159,7 @@ class SignalBridgeGui:
                 target_var.set(str(item.get("target_lang") or "en"))
                 enabled_var.set(bool(item.get("enabled", True)))
                 note_var.set(str(item.get("note") or ""))
-                status_var.set(f"Editing grouped row. Source: {item.get('winning_kind','cache')}; duplicates hidden: {max(0, int(item.get('duplicate_count') or 1)-1)}; engines: {item.get('engines','')}")
+                status_var.set(f"Editing selected row. Type in the English correction box to save a manual override. Source: {item.get('winning_kind','cache')}; duplicates hidden: {max(0, int(item.get('duplicate_count') or 1)-1)}; engines: {item.get('engines','')}")
 
             def on_select(event=None):
                 widget = event.widget if event is not None else orig_list
@@ -4208,7 +4225,7 @@ class SignalBridgeGui:
                 refresh_rows(False)
 
             buttons = row(c)
-            action(buttons, "New Override", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New override: enter original and translated text; it will auto-save.")))
+            action(buttons, "New Override", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New override: enter Original on the left and English on the right; it will auto-save.")))
             action(buttons, "Save Now", save_now)
             def delete_selected():
                 item = selected_item()

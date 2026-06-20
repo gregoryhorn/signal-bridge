@@ -216,3 +216,5 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Adds broader Chinese ship alias coverage for Navy/Fleet Issue variants and common literal machine translations so corrected ships detect/highlight from live intel.
 - Improves Chinese ship detection in mixed intel lines, including Eris, Thrasher Fleet Issue, Vedmak, and catalog-verified Navy/Fleet variants.
 - Adds catalog-wide Chinese ship alias extraction for official ship names plus curated shorthand such as 海鱼 -> Osprey Navy Issue, reducing reliance on Google/Argos literal translations.
+
+- Translation Cache editor usability fix: side-by-side editable Original/English boxes are now directly under the cache lists, with internal cache labels hidden unless explicitly enabled.
