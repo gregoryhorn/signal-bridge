@@ -8,6 +8,50 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
+## Open: Feed text jumps when Chinese text switches to English translation
+
+- Status: open
+- Priority: high
+- Area: feed rendering / translation display / row layout stability
+- Type: bug / UX
+
+When Chinese chat text is translated into English, the visible feed row can change size or layout after the translation arrives, causing a distracting jumping effect in the feed. This is especially noticeable in Translated Only mode or during bursts of translation completions.
+
+### Reported behavior
+
+- Chinese text appears first, then switches to English.
+- Rows shift up/down when the English translation arrives.
+- The user loses visual position while scanning live intel.
+- The effect is annoying during active chat monitoring.
+
+### Root-cause areas to review
+
+- Async translation updates changing row height after first render.
+- Translated Only mode rendering original text before translated text is ready.
+- Feed redraws not preserving scroll/anchor position during translation updates.
+- Translation line visibility toggling after a row is already visible.
+- Batch/chunked redraw behavior making translation updates more noticeable.
+
+### Desired behavior
+
+- Chinese rows should not visibly jump when English translation arrives.
+- Translated Only mode should not flash original Chinese before English if translation is pending.
+- Cached translations should render immediately with no layout shift.
+- Pending translations should use a stable placeholder or reserved layout if needed.
+- If the user has scrolled up, async translations should not yank the viewport.
+- If the user is at the bottom, auto-scroll should remain smooth.
+
+### Acceptance criteria
+
+- Visual inspection before and after the fix.
+- Reproduce the jumping behavior with live or fixture CJK rows before patching.
+- Fix the rendering/layout root cause, not individual translation strings.
+- Verify cached translations render without jumping.
+- Verify pending translations do not cause repeated row-height changes.
+- Verify translation failures fall back without repeated layout shifts.
+- Verify feed performance remains non-blocking.
+
+
 ### 1. Translation Cache Manager usability and deletion
 
 Status: improved in the current source branch.
