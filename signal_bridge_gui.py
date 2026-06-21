@@ -127,7 +127,7 @@ def load_settings() -> dict:
         "auto_switch_to_new_channel": False,
         "max_tab_rows": 3,
         "check_updates_on_start": True,
-        "addons": {INTEL_HISTORY_ADDON_ID: {"enabled": False}},
+        "addons": {INTEL_HISTORY_ADDON_ID: {"enabled": True}},
         "esi_entity_recognition": True,
         "esi_oauth_enabled": False,
         "replay_on_start": False,
@@ -432,6 +432,15 @@ SYSTEM_RE = re.compile(r"\b[A-Z0-9]{1,6}-[A-Z0-9]{1,4}\b")
 LINK_RE = re.compile(r"https?://\S+|www\.\S+|dscan\.info/\S+", re.I)
 HTTP_LINK_RE = re.compile(r"https?://[^\s<>()\[\]{}\"']+", re.I)
 COUNT_RE = re.compile(r"(?<![A-Za-z0-9-])(?:\+?\d+|\d+\+|x\d+|\d+x|\d+(?:\.\d+)?\s*(?:km|m|b|bil|mil|kk|isk))\b", re.I)
+NUMERIC_TOKEN_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?$")
+
+def is_numeric_or_decimal_token(term: str) -> bool:
+    """Return True for plain numeric/security/range tokens that must never be systems."""
+    value = str(term or "").strip().strip("* ,;:()[]{}\"\'`")
+    if not value:
+        return False
+    return bool(NUMERIC_TOKEN_RE.fullmatch(value))
+
 PAREN_RE = re.compile(r"\(([^)]+)\)")
 HEADER_KEYS = ("Channel ID:", "Channel Name:", "Listener:", "Session started:")
 
@@ -655,6 +664,8 @@ class EveCatalog:
         return self.types.get(key) or self.aliases.get(key) or self.market_groups.get(key)
 
     def lookup_system(self, term: str) -> str | None:
+        if is_numeric_or_decimal_token(term):
+            return None
         return self.systems.get(term.strip().casefold())
 
     def is_ship(self, term: str) -> bool:
@@ -757,6 +768,8 @@ def apply_user_aliases_to_catalog(catalog: EveCatalog, aliases: list[dict]) -> N
             continue
         key = alias.casefold()
         if kind == "system":
+            if is_numeric_or_decimal_token(alias) or is_numeric_or_decimal_token(canonical):
+                continue
             catalog.systems[key] = canonical
         else:
             catalog.aliases[key] = canonical
@@ -2138,10 +2151,14 @@ class EveDb:
 def extract_intel(text: str, db: EveDb):
     systems = []
     for raw_sys in SYSTEM_RE.findall(text):
+        if is_numeric_or_decimal_token(raw_sys):
+            continue
         systems.append(CATALOG.lookup_system(raw_sys) or raw_sys)
     assets: list[str] = []
     localized: list[dict] = []
     for term in sorted(candidate_terms(text), key=lambda s: -len(s)):
+        if is_numeric_or_decimal_token(term):
+            continue
         sys_hit = CATALOG.lookup_system(term)
         if sys_hit:
             systems.append(sys_hit)
@@ -2317,7 +2334,7 @@ def build_intel_segments(text: str, systems: list[str], assets: list[str], local
         seg_systems, seg_assets, seg_localized, _counts, _links, _intent = extract_intel(raw_part, db)
         # Fall back to row-level entities when the segment parser is conservative.
         if not seg_systems:
-            seg_systems = [x for x in systems if re.search(word_boundary(x), raw_part, re.I)]
+            seg_systems = [x for x in systems if not is_numeric_or_decimal_token(x) and re.search(word_boundary(x), raw_part, re.I)]
         if not seg_assets:
             seg_assets = [x for x in assets if re.search(word_boundary(x), raw_part, re.I)]
         display = part
