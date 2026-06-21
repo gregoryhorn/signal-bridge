@@ -1,4 +1,4 @@
-# Signal Bridge v0.4
+﻿# Signal Bridge v0.4
 
 Portable Windows release for EVE Online chat intel monitoring and translation.
 
@@ -32,7 +32,7 @@ Portable Windows release for EVE Online chat intel monitoring and translation.
 - Pilot Info/feed readability cleanup: No Visual/Cyno classification, compact no-scroll summary behavior, entity separators, and cyno-based temporary Hot Drop Risk flagging.
 - Intel History Manual Flags v0.1 has landed in source: compact feed badges for flagged ESI pilots, quick right-click Watchlist/High Threat/Do Not Track actions, and Do Not Track suppression for future local history recording.
 - Intel History Pilot Info Card v0.1 has landed in source: right-click `Open Pilot Info` for ESI-confirmed pilots, view compact local history summaries, drill into recent sightings/top ships/top systems, edit manual flags, and copy summaries.
-﻿# GitHub Release Checklist
+ï»¿# GitHub Release Checklist
 
 ## Before Release
 
@@ -148,7 +148,7 @@ Unsigned portable EXEs can trigger Windows SmartScreen or antivirus warnings. Th
 - Improved ESI detection for manually resolved names by splitting adjacent candidate chunks and allowing valid uppercase single-token pilots.
 - The exclusion list is now general: ignored terms suppress ESI character, ship, asset/module, ESS, and system highlighting.
 - Added Appearance / Display Options with configurable colors, bold styles, background highlights, presets, live preview, and window opacity.
-- Added shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
+- Added shorthand ship aliases: `çŸ­å‰‘` -> `Stabber` and `æµ·ç‹žç¾` -> `Caracal Navy Issue`.
 - Polished Appearance / Display Options with visible color swatches beside hex color codes.
 - Default startup window now opens in a narrow mobile-style layout instead of a wide layout.
 
@@ -189,8 +189,8 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Default high-confidence triggers: Force Recon Cruisers and Expedition Frigates.
 - Black Ops battleships such as Redeemer, Widow, Sin, and Panther no longer trigger default hot-drop caller flags; they remain useful profile/context data.
 - Feed badges reuse the existing compact flag display, while Pilot Info exposes the underlying reason.
-- Translation cache fix: `天鹤级` now resolves to `Crane` instead of the literal `Tianhe class`.
-- Translation cache fix: `短剑级` now resolves to `Stabber` instead of literal `Stabber grade` style output.
+- Translation cache fix: `å¤©é¹¤çº§` now resolves to `Crane` instead of the literal `Tianhe class`.
+- Translation cache fix: `çŸ­å‰‘çº§` now resolves to `Stabber` instead of literal `Stabber grade` style output.
 - UI polish pass: consistent Signal Bridge window icons, better child-window placement/stacking, cleaner Pilot Info header/date display, more context-aware right-click menus, clearer flag icons, and a less blocking redraw path for translation display toggles.
 
 
@@ -235,15 +235,22 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 
 - Fixed alias-related feed stalls and system-alias coloring: user aliases now render from a small cached rule set, and system aliases like 4-H -> 4-HWWF stay highlighted as systems.
 
-- Aliases now trigger when adjacent to Chinese text, e.g. YMJG星门 and 4H别过 correctly render as YMJG-4 and 4-HWWF.
+- Aliases now trigger when adjacent to Chinese text, e.g. YMJGæ˜Ÿé—¨ and 4Håˆ«è¿‡ correctly render as YMJG-4 and 4-HWWF.
 - Translation Cache Manager MVP: dedicated settings page for cache-first behavior, manual exact translation overrides, cache-only/offline mode, fallback controls, and failure cooldowns.
 - Translation Cache Manager UI polish: split Original/Translated tables, live filters, click-to-edit, and auto-saving manual overrides.
 - Fixes recent Chinese intel detection for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and treats Refugee as hostile/red instead of an asset/module.
 - Adds broader Chinese ship alias coverage for Navy/Fleet Issue variants and common literal machine translations so corrected ships detect/highlight from live intel.
 - Improves Chinese ship detection in mixed intel lines, including Eris, Thrasher Fleet Issue, Vedmak, and catalog-verified Navy/Fleet variants.
-- Adds catalog-wide Chinese ship alias extraction for official ship names plus curated shorthand such as 海鱼 -> Osprey Navy Issue, reducing reliance on Google/Argos literal translations.
+- Adds catalog-wide Chinese ship alias extraction for official ship names plus curated shorthand such as æµ·é±¼ -> Osprey Navy Issue, reducing reliance on Google/Argos literal translations.
 
 - Translation Cache editor usability fix: side-by-side editable Original/English boxes are now directly under the cache lists, with internal cache labels hidden unless explicitly enabled.
 
 - Pilot Info/zKill fix: more accurate clicked-pilot identity, visible character ID/zKill URL, zKill API fallback for rejected time filters, and hydrated recent kill/loss details.
+
+
+
+### Intel History optional-module stability
+
+- Fixed an Intel History missing-module modal loop where passive Pilot Info/feed checks could repeatedly show dialogs if the optional module was unavailable.
+- Core chat monitoring, translation, and Pilot Info now continue normally without Intel History installed/enabled.
 

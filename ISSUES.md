@@ -1,4 +1,4 @@
-## v0.4 publication note
+﻿## v0.4 publication note
 
 Signal Bridge v0.4 published the current known issue list alongside the refreshed README, screenshot, packaged alias/exclusion data, and clean translation-cache release assets. Continue using this file for concise public issue tracking.
 
@@ -29,7 +29,7 @@ Status: mitigated; cache reset performed for the current source/package data.
 Status: ongoing.
 
 - Catalog-driven CJK ship alias extraction is now used for official localized ship names.
-- Curated shorthand aliases are still needed for player slang such as `海鱼`.
+- Curated shorthand aliases are still needed for player slang such as `æµ·é±¼`.
 - Report additional bad translations or missed ship shorthand with the original line and the displayed translation.
 
 ### 4. Pilot Info and zKill accuracy
@@ -66,3 +66,11 @@ Clicked pilot name:
 Expected character ID or zKill URL:
 What Pilot Info showed instead:
 ```
+
+
+## Fixed: Intel History missing-module modal loop
+
+- Status: fixed in v0.4 source refresh.
+- Symptom: users without the optional Intel History module could see repeated dialogs when passive Pilot Info/feed code queried Intel History data.
+- Fix: passive calls are silent and record health state; explicit user actions still show one install/enable notice.
+

@@ -1,4 +1,4 @@
-## v0.4 - 2026-06-20
+﻿## v0.4 - 2026-06-20
 
 - Released Signal Bridge v0.4 with cleaned Translation Cache Manager deletion/reset behavior, empty bundled translation cache, packaged maintained alias/exclusion lists, public `ISSUES.md`, refreshed screenshot, and updated Windows portable assets.
 - Bumped app/package version from 0.3 to 0.4.
@@ -24,10 +24,10 @@
 - Added a focused UI polish pass: Signal Bridge icons now apply to the main window and key child windows, Settings/Appearance/Pilot Info dialogs are centered/stacked over their parent, Pilot Info uses the cleaner `Character, Corporation` + `Alliance` header without visible character IDs, Pilot Info dates are friendlier, right-click menus are more context-aware, flag icons are cleaned up, and translation display toggles use a coalesced redraw path to reduce UI stalls.
 
 
-- Corrected the Chinese EVE ship translation `短剑级` from literal `Stabber grade` style output to `Stabber` in the bundled starter translation cache.
+- Corrected the Chinese EVE ship translation `çŸ­å‰‘çº§` from literal `Stabber grade` style output to `Stabber` in the bundled starter translation cache.
 
 
-- Corrected the Chinese EVE ship translation `天鹤级` from literal `Tianhe class` to `Crane` in the bundled starter translation cache.
+- Corrected the Chinese EVE ship translation `å¤©é¹¤çº§` from literal `Tianhe class` to `Crane` in the bundled starter translation cache.
 
 
 - Added Intel History Auto Hot Drop Risk v0.1: likely cyno ships now create temporary auto flags that reuse the live-feed badge path.
@@ -83,7 +83,7 @@
 - Client secret and OAuth tokens are stored only in ignored local config files and are not committed or bundled.
 - Preserved live-only/no-backfill behavior.
 
-﻿# Changelog
+ï»¿# Changelog
 
 All notable Signal Bridge changes will be documented here.
 
@@ -165,7 +165,7 @@ Initial portable Windows preview release.
 - ESI detection now handles short-prefix character names such as `LT Shax`.
 - Generalized the exclusion list so ignored terms suppress red ESI, orange ship, purple asset/module, ESS, and system highlights.
 - Added Appearance / Display Options with theme presets, font/color/bold/background controls, preview, reset defaults, and window opacity.
-- Added Chinese shorthand ship aliases: `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`, preventing MT from translating them as common words.
+- Added Chinese shorthand ship aliases: `çŸ­å‰‘` -> `Stabber` and `æµ·ç‹žç¾` -> `Caracal Navy Issue`, preventing MT from translating them as common words.
 - Polished the Appearance / Display Options dialog with clearer sections and visible color swatches next to hex color codes.
 - Changed the default startup window to a narrow mobile-style layout instead of a wide desktop layout.
 
@@ -239,9 +239,10 @@ Initial portable Windows preview release.
 - Added focused EVE intel corrections for Osprey Navy Issue, Caracal Navy Issue, Skyhook, and Refugee hostile highlighting.
 - Added broader Chinese ship-version aliases for common Navy/Fleet Issue and live-intel machine-translation artifacts, including Scythe Fleet Issue, Apocalypse Navy Issue, and Augoror Navy Issue.
 - Improved CJK ship-token extraction so multiple Chinese ship names in one mixed intel line resolve individually; corrected Navy variant aliases to catalog-verified Omen Navy Issue and Exequror Navy Issue.
-- Added a catalog-driven CJK ship alias index so official Chinese ship aliases resolve broadly without one-off entries; added curated 海鱼/Osprey Navy Issue shorthand and ESS outside phrase cleanup.
+- Added a catalog-driven CJK ship alias index so official Chinese ship aliases resolve broadly without one-off entries; added curated æµ·é±¼/Osprey Navy Issue shorthand and ESS outside phrase cleanup.
 
 - Improved the Translation Cache editor usability: Original and English correction boxes now sit directly below their matching lists, English editing is clearly visible, cache internals are hidden by default, and manual override auto-save guidance is clearer.
 
 - Fixed Pilot Info identity and zKill accuracy: clicked pilot spans now prefer the exact longest matched character name, Pilot Info shows the character ID/zKill URL, and zKill sync falls back when time-filtered API calls are rejected while hydrating recent killmail details.
+
 

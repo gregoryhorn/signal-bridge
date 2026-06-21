@@ -5523,10 +5523,13 @@ class SignalBridgeGui:
         return None
 
 
-    def intel_history_call(self, method: str, *args, **kwargs):
+    def intel_history_call(self, method: str, *args, notify: bool = False, **kwargs):
         runtime = self.intel_history_runtime
         if not runtime or not runtime.enabled:
-            self.messagebox.showinfo("Intel History", "Intel History is not installed/enabled yet.\n\nInstall and enable it from Settings > Add-ons.")
+            self.intel_history_last_health = dict(self.intel_history_last_health or {})
+            self.intel_history_last_health.setdefault("last_error", "Intel History is not installed/enabled")
+            if notify:
+                self.messagebox.showinfo("Intel History", "Intel History is not installed/enabled yet.\n\nInstall and enable it from Settings > Add-ons.")
             return None
         return runtime.safe_call(method, *args, **kwargs)
 
@@ -5621,7 +5624,7 @@ class SignalBridgeGui:
                     exists = True
         if not exists:
             manual.append({"flag": label, "label": label, "icon": icon, "reason": "quick flag from feed"})
-        result = self.intel_history_call("set_manual_flags", pilot_id, manual)
+        result = self.intel_history_call("set_manual_flags", pilot_id, manual, notify=True)
         if result and result.get("ok"):
             self.set_status(f"Pilot flag set: {ent.get('name') or ent.get('query')} -> {label}")
             self.redraw_feed()
@@ -6199,7 +6202,7 @@ class SignalBridgeGui:
             notes = tk.Entry(c, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); notes.pack(fill="x", pady=(6,2))
             def save_flags():
                 selected = [{"flag": label_text, "label": label_text, "icon": icon, "reason": notes.get().strip()} for label_text, icon, var in vars if var.get()]
-                result = self.intel_history_call("set_manual_flags", pilot_id, selected)
+                result = self.intel_history_call("set_manual_flags", pilot_id, selected, notify=True)
                 if result and result.get("ok"):
                     self.set_status(f"Pilot flags saved: {name}"); refresh_profile()
                 else:
@@ -6207,7 +6210,7 @@ class SignalBridgeGui:
             r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "Save", save_flags); button(r, "< Back", render_summary)
 
         def copy_summary():
-            text = self.intel_history_call("copyable_pilot_summary", pilot_id)
+            text = self.intel_history_call("copyable_pilot_summary", pilot_id, notify=True)
             if text:
                 self.copy_to_clipboard(text); self.set_status(f"Copied pilot summary: {name}")
 
