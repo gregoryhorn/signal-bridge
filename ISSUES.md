@@ -146,3 +146,44 @@ Investigation notes:
 - Recheck initial geometry calculation, minsize/maxsize, update_idletasks timing, and content-frame requested size.
 - Verify behavior on normal, high-DPI, and narrow/mobile-style layouts.
 
+## User feedback: Channel add/open menu not showing channels correctly
+
+- Status: open
+- Priority: high
+- Reported: 2026-06-21
+- Area: channel discovery / Add/Open Channels menu / tracking startup
+
+A user reported that chat channels are not showing properly in the Add/Open Channels menu. They also had to add channels again before the app started tracking those chats properly.
+
+Reported symptoms:
+
+- Add/Open Channels menu does not list available channels correctly.
+- Previously known/selected channels may not appear as expected.
+- The app may not begin tracking some channels until the user manually adds them again.
+- Screenshot provided by user for UI context.
+
+Expected behavior:
+
+- The Add/Open Channels menu should show discovered EVE chat channels clearly and consistently.
+- Previously selected channels should persist across restarts.
+- Tracking should resume automatically for persisted/enabled channels without requiring the user to re-add them.
+- Missing/closed channels should be marked clearly rather than silently dropped.
+- The menu should distinguish discovered, active, hidden, closed, and unavailable channels.
+
+Investigation notes:
+
+- Check channel discovery from chatlog filenames vs persisted channel state.
+- Verify startup ordering between chatlog scan, settings load, channel tab restore, and monitor start.
+- Check whether persisted channels are being filtered out if no current-session log exists yet.
+- Check whether dynamic channels are only activated after manual Add/Open action.
+- Validate behavior on a clean portable profile and an upgraded profile with existing channel settings.
+- Ensure multi-client logs and channel names with punctuation/plus signs still dedupe and map correctly.
+
+Acceptance notes:
+
+- Fresh install lists channels found in the configured EVE chatlog folder.
+- Existing install restores previously selected channels after restart.
+- Tracking starts for enabled channels without manual re-add.
+- Add/Open Channels menu accurately shows channel state.
+- Diagnostics should include channel discovery count, active tracking count, and any channels skipped with reason.
+
