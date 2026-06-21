@@ -329,3 +329,89 @@ Acceptance notes:
 - ASCII-art messages can be hidden/collapsed.
 - Rate limiting does not block normal intel reports.
 - Diagnostics include suppressed/rate-limited counts.
+
+## User feedback: Translation Cache page layout hides important controls
+
+- Status: open
+- Priority: high
+- Reported: 2026-06-21
+- Area: Settings / Translation Cache UI / layout
+
+The Translation Cache Manager is still not laid out well. If the user does not expand the page/window, they may not know that more options are hidden off the page.
+
+Reported symptoms:
+
+- Important buttons/options are hidden unless the page is expanded.
+- The Original and English tables are too wide.
+- The wide tables make the editor controls harder to see and use.
+- Users may not realize there are more controls below or off-screen.
+
+Requested behavior:
+
+- Make the Translation Cache page usable at the normal Settings window size.
+- Reduce the default width of the Original and English tables so both columns fit better.
+- Keep the Original and English edit boxes visible without requiring window expansion.
+- Keep action buttons visible or move them into a fixed action bar.
+- Use clearer spacing, labels, and scroll behavior so hidden options are obvious.
+
+Acceptance notes:
+
+- At default Settings size, users can see the row lists, edit boxes, and main actions.
+- The page should not feel like a raw debug table.
+- No critical action should be hidden without a visible scroll cue or fixed action bar.
+
+## User feedback: Translation Cache still contains English in Original and English fields
+
+- Status: open
+- Priority: high
+- Reported: 2026-06-21
+- Area: translation cache / segmentation / cache hygiene / design review
+
+The Translation Cache still has bugs where English chat/content appears in both the Original and English sides. This needs an in-depth review and planning before another fix is attempted.
+
+Reported symptoms:
+
+- Some Original/source rows contain English instead of only the translatable source segment.
+- Some rows may have English duplicated into both Original and English.
+- This makes the cache editor confusing and suggests cache keys are still being polluted by already-English chat or mixed intel lines.
+
+Review goals:
+
+- Re-review the full translation-cache data model.
+- Separate machine cache, manual overrides, source segments, rendered display text, and diagnostics clearly.
+- Confirm when English-only messages should be ignored entirely.
+- Confirm when mixed EVE intel lines should cache only the non-English segment.
+- Confirm how protected EVE terms, aliases, systems, ships, pilots, URLs, and counts are removed/restored.
+- Confirm how grouped rows should decide the displayed Original and English values.
+- Design a cleanup/migration for existing polluted rows.
+
+Acceptance notes:
+
+- English-only chat should not create translation cache rows by default.
+- Mixed intel should cache the translatable non-English segment, not the whole rendered line.
+- Manual overrides must remain easy to inspect/edit.
+- Cleanup should be safe and should preserve user-created manual corrections where possible.
+- A design review should be documented before implementation.
+
+## User feedback: Intel History should be enabled by default
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: Intel History / Add-ons / default settings
+
+Intel History is now bundled in the portable ZIP by default, but users also want it enabled by default.
+
+Requested behavior:
+
+- Fresh installs should have Intel History enabled by default.
+- The bundled `modules/intel-history` add-on should load automatically if present.
+- Users should still be able to disable Intel History in Settings > Add-ons.
+- If Intel History fails to load, the app should keep the missing-module/failure guard and continue running.
+
+Acceptance notes:
+
+- Clean portable profile starts with Intel History installed and enabled.
+- Settings > Add-ons shows Intel History as installed/enabled/healthy when the module loads.
+- Existing users keep their explicit enable/disable preference where possible.
+- Startup remains safe: no modal loop and no blocking if the module is unavailable.
