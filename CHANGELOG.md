@@ -57,6 +57,7 @@
 - Excludes known solar systems, ships, modules, catalog entities, links, counts, and localized EVE aliases before ESI lookup.
 
 ## Changed - Add-ons foundation
+- Bundled the official Intel History add-on code in the portable package by default under `modules/intel-history`.
 
 - Added a native Add-ons page to the Settings Center.
 - Added Intel History / Pilot Intelligence placeholder/status controls.

@@ -46,6 +46,7 @@ F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 - Solar systems, pilots/characters, ships/assets, ESS, URLs, and tactical intel are highlighted separately.
 - Optional ESI-backed entity detection with local SQLite cache and background-only lookups.
 - Pilot Info cards with character ID, zKill link/sync, recent local history, manual flags, and optional Intel History add-on support.
+- Intel History add-on code is bundled in the portable app by default, with local data stored under the app folder.
 - Appearance controls for font, opacity, themes, highlight colors, timestamp visibility, and compact side-panel layout.
 - Diagnostics, logs, health/about status, update checks, and local-only settings.
 - Optional Argos Translate scaffolding remains safety-gated; Google remains the primary online fallback.

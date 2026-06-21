@@ -251,6 +251,11 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 
 ### Intel History optional-module stability
 
+### Intel History bundled by default
+
+- The official Intel History add-on code is now included in the portable ZIP under `modules/intel-history`, so users do not need a separate add-on ZIP just to have the module installed.
+- The missing-module guard remains in place: passive Pilot Info/feed calls stay non-blocking if the module is disabled or unavailable.
+
 - Fixed an Intel History missing-module modal loop where passive Pilot Info/feed checks could repeatedly show dialogs if the optional module was unavailable.
 - Core chat monitoring, translation, and Pilot Info now continue normally without Intel History installed/enabled.
 

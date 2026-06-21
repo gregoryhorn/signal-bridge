@@ -32,7 +32,17 @@ $excludes = @(
 
 pyinstaller --noconfirm --clean --noupx --windowed --icon .\assets\signal_bridge_icon.ico --name SignalBridge @excludes signal_bridge_gui.py
 
-New-Item -ItemType Directory -Force -Path .\dist\SignalBridge\config, .\dist\SignalBridge\cache, .\dist\SignalBridge\models\argos, .\dist\SignalBridge\logs, .\dist\SignalBridge\data | Out-Null
+New-Item -ItemType Directory -Force -Path .\dist\SignalBridge\config, .\dist\SignalBridge\cache, .\dist\SignalBridge\models\argos, .\dist\SignalBridge\logs, .\dist\SignalBridge\data, .\dist\SignalBridge\modules | Out-Null
+# Bundle the official Intel History add-on as installed-by-default module code.
+# It is copied to both the portable root and _internal so the app can find it
+# regardless of PyInstaller onedir _MEIPASS behavior.
+if (Test-Path .\addons\intel-history) {
+  Copy-Item .\addons\intel-history .\dist\SignalBridge\modules\intel-history -Recurse -Force
+  if (Test-Path .\dist\SignalBridge\_internal) {
+    New-Item -ItemType Directory -Force -Path .\dist\SignalBridge\_internal\modules | Out-Null
+    Copy-Item .\addons\intel-history .\dist\SignalBridge\_internal\modules\intel-history -Recurse -Force
+  }
+}
 Copy-Item .\README.md .\dist\SignalBridge\README.md -Force
 Copy-Item .\README_DISTRIBUTION.md .\dist\SignalBridge\README_DISTRIBUTION.md -Force
 Copy-Item .\GITHUB_RELEASE.md .\dist\SignalBridge\GITHUB_RELEASE.md -Force

@@ -73,4 +73,4 @@ What Pilot Info showed instead:
 - Status: fixed in v0.4 source refresh.
 - Symptom: users without the optional Intel History module could see repeated dialogs when passive Pilot Info/feed code queried Intel History data.
 - Fix: passive calls are silent and record health state; explicit user actions still show one install/enable notice.
-
+- Packaging follow-up: the official Intel History add-on code is now bundled in the portable ZIP by default.
