@@ -494,12 +494,9 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - Valid EVE system codes still highlight correctly.
 - The exclusion is handled in detection logic, not by adding one-off aliases.
 
-## Open: Hyperlink enable/disable setting
+## Fixed: Hyperlink enable/disable setting
 
-- Status: open
-- Priority: Medium
-- Area: Settings / feed rendering / safe URL handling
-- Type: user feedback / settings feature
+- Status: fixed in v0.4 source refresh\n- Priority: Medium\n- Area: Settings / feed rendering / safe URL handling\n- Type: user feedback / settings feature
 
 ### User feedback
 
@@ -529,3 +526,4 @@ Users should have a Settings option to enable or disable clickable hyperlinks in
 - When disabled, URLs render as plain text and are not clickable.
 - When enabled, URLs are clickable using safe URL handling.
 - The setting is documented in README/help/release notes when implemented.
+

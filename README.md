@@ -1,4 +1,4 @@
-# Signal Bridge v0.4 Alpha
+﻿# Signal Bridge v0.4 Alpha
 
 Signal Bridge is a lightweight portable Windows app for EVE Online live chat monitoring, CN/EN translation, intel/entity highlighting, ESI pilot lookups, zKill-aware Pilot Info, aliases, exclusions, and cache-first translation correction.
 
@@ -35,6 +35,8 @@ F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 
 ## Features
 
+
+- **Safe clickable hyperlinks** are enabled by default and can be disabled in Settings > General while leaving URLs visible as plain text.
 - Portable Windows app: no installer or admin rights required.
 - Live-only EVE chatlog monitoring by default; old history is not replayed on startup.
 - Dynamic EVE chat channel discovery; no channel is hard-coded.
@@ -262,7 +264,7 @@ Right-click selected text now includes `Add Selected Text as ESI Character`; res
 
 Appearance options include configurable font, colors, bold highlights, optional background rectangles, presets, preview, reset defaults, and window opacity.
 
-Signal Bridge includes curated shorthand ship aliases such as `短剑` -> `Stabber` and `海狞獾` -> `Caracal Navy Issue`.
+Signal Bridge includes curated shorthand ship aliases such as `çŸ­å‰‘` -> `Stabber` and `æµ·ç‹žç¾` -> `Caracal Navy Issue`.
 The portable build includes `data/default_exclusions.json`, which seeds the General Exclusion List on first run without overwriting user changes.
 
 The portable build also includes `data/default_esi_entities.json`, a starter cache of verified ESI characters seeded on first run without overwriting local cache entries.
@@ -322,3 +324,4 @@ The Translation Cache Manager can delete a selected grouped entry or delete all 
 Signal Bridge is a lightweight Windows EVE Online intel tool for live chatlog monitoring, Chinese-to-English EVE intel translation, EVE Online ship and system recognition, ESI pilot intelligence, zKillboard-assisted Pilot Info, cache-first translation correction, and portable no-install Windows operation.
 
 Keywords: EVE Online intel tool, EVE Online chatlog monitor, EVE Chinese translation, EVE Online CN EN translator, EVE Online ESI pilot info, zKillboard pilot intelligence, EVE Online fleet intel, EVE Online local chat monitor, Signal Bridge, Windows portable EVE tool, Tranquility chat logs, EVE ship alias detection, EVE system highlighting.
+

@@ -119,6 +119,7 @@ def load_settings() -> dict:
         "show_timestamps": True,
         "show_channel_names": False,
         "show_channel_names_in_all": True,
+        "enable_hyperlinks": True,
         "active_tab_id": ALL_CHANNELS_TAB,
         "tab_order": [ALL_CHANNELS_TAB],
         "hidden_tab_ids": [],
@@ -2916,6 +2917,7 @@ class SignalBridgeGui:
         self.show_timestamps = tk.BooleanVar(value=bool(SETTINGS.get("show_timestamps", True)))
         self.show_channel_names = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names", False)))
         self.show_channel_names_in_all = tk.BooleanVar(value=bool(SETTINGS.get("show_channel_names_in_all", True)))
+        self.enable_hyperlinks = tk.BooleanVar(value=bool(SETTINGS.get("enable_hyperlinks", True)))
         self.check_updates_on_start = tk.BooleanVar(value=bool(SETTINGS.get("check_updates_on_start", True)))
         self.esi_settings = load_esi_settings()
         self.esi_enabled = tk.BooleanVar(value=bool(self.esi_settings.get("enabled", False)))
@@ -3840,6 +3842,7 @@ class SignalBridgeGui:
             f"ESI enabled: {bool(self.esi_enabled.get())} | cache={esi_stats}\n"
             f"Last ESI check: {last_check}\n"
             f"Intel History add-on: {self.intel_history_status_label()}\n"
+            f"Clickable hyperlinks: {bool(self.enable_hyperlinks.get())}\n"
             f"Config: {CONFIG_PATH}\n"
             f"Logs: {LOG_PATH}\n"
             f"Events: {EVENT_LOG_PATH}\n"
@@ -4057,6 +4060,7 @@ class SignalBridgeGui:
             c = card(body, "App Behavior", "Common runtime options and folders.")
             check(c, "Always on top", self.always_on_top, self.apply_topmost); check(c, "Compact mode", self.compact, self.persist_settings); check(c, "Check for updates on launch", self.check_updates_on_start, self.persist_settings)
             check(c, "Show timestamps", self.show_timestamps, self.persist_and_redraw); check(c, "Show channel names in feed", self.show_channel_names, self.persist_and_redraw); check(c, "Show channel names in All", self.show_channel_names_in_all, self.persist_and_redraw)
+            check(c, "Enable clickable hyperlinks", self.enable_hyperlinks, self.persist_and_redraw)
             c2 = card(body, "Folders"); r = row(c2); action(r, "Choose Chatlog Folder...", self.choose_chatlog_folder); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); label(c2, f"Current chatlogs: {CHATLOG_DIR}", "#8b98a8")
         def render_channels():
             c = card(body, "Channels", "Add channels without replacing existing ones. Hidden channels stay hidden until restored.")
@@ -4691,6 +4695,7 @@ class SignalBridgeGui:
             "show_timestamps": bool(self.show_timestamps.get()),
             "show_channel_names": bool(self.show_channel_names.get()),
             "show_channel_names_in_all": bool(self.show_channel_names_in_all.get()),
+            "enable_hyperlinks": bool(self.enable_hyperlinks.get()),
             "active_tab_id": self.visible_channel or ALL_CHANNELS_TAB,
             "tab_order": list(self.tab_order),
             "hidden_tab_ids": sorted(self.hidden_tab_ids),
@@ -5516,6 +5521,8 @@ class SignalBridgeGui:
         return None, None
 
     def link_at_event(self, event) -> str | None:
+        if not bool(getattr(self, "enable_hyperlinks", None).get() if getattr(self, "enable_hyperlinks", None) is not None else SETTINGS.get("enable_hyperlinks", True)):
+            return None
         try:
             index = self.text.index(f"@{event.x},{event.y}")
             for tag in self.text.tag_names(index):
@@ -6399,6 +6406,8 @@ class SignalBridgeGui:
             self.set_status("Failed to open URL")
 
     def tag_urls(self, start: str, end: str, source_text: str):
+        if not bool(getattr(self, "enable_hyperlinks", None).get() if getattr(self, "enable_hyperlinks", None) is not None else SETTINGS.get("enable_hyperlinks", True)):
+            return
         for url in unique(HTTP_LINK_RE.findall(source_text)):
             clean_url = url.rstrip('.,;:)]}')
             if not clean_url.lower().startswith(("http://", "https://")):

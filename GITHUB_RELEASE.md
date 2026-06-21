@@ -265,3 +265,10 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 
 - Fixed General Exclusion List dialog stacking/top-order by making it a polished modal child of the main app.
 - Added public issue tracking for a dedicated design pass across all Settings tabs and sub-pages.
+
+
+### Hyperlink setting
+
+- Added a Settings > General option to enable or disable clickable hyperlinks in the feed.
+- Hyperlinks remain enabled by default; when disabled, URLs remain visible as plain text and copy actions still work.
+

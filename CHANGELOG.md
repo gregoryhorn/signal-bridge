@@ -247,3 +247,4 @@ Initial portable Windows preview release.
 - Fixed Pilot Info identity and zKill accuracy: clicked pilot spans now prefer the exact longest matched character name, Pilot Info shows the character ID/zKill URL, and zKill sync falls back when time-filtered API calls are rejected while hydrating recent killmail details.
 
 
+
