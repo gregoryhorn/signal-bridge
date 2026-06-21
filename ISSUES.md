@@ -8,6 +8,48 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
+## Open: ESI character names can be split into separate highlighted tokens
+
+- Status: open
+- Priority: high
+- Area: ESI detection / pilot highlighting / feed rendering / entity spans
+- Type: bug
+
+A single EVE character name can be rendered as separate highlighted pieces, for example `Matek · Bathana`, even though `Matek Bathana` is one character. Full resolved ESI character names should render as one entity span and should win over partial word-level matches.
+
+### Reported behavior
+
+- A full character name is visually split into separate highlighted tokens.
+- A separator dot can appear between parts of the same pilot name.
+- The example from the screenshot is `Matek · Bathana`.
+- The expected display is `Matek Bathana` as one pilot/entity.
+
+### Root-cause areas to review
+
+- ESI candidate generation may split a multi-word character into separate one-word candidates.
+- Cached/resolved ESI hydration may add both full-name and partial-name entities to the same row.
+- Feed entity-span rendering may insert separators between adjacent spans without checking whether they belong to the same resolved character.
+- Word-boundary/pilot-tag logic may tag each word separately instead of preferring the longest resolved ESI entity span.
+- Right-click span targeting may point to a partial token instead of the full ESI-confirmed pilot.
+
+### Desired behavior
+
+- Full resolved ESI character names should be treated as one entity span.
+- Multi-word pilot names should not be split with a separator dot.
+- If both full and partial matches exist, the full/longest resolved ESI name should win.
+- Pilot Info right-click should target the full character, not a partial word.
+- Separators should only appear between different entities, not inside one character name.
+
+### Acceptance criteria
+
+- `Matek Bathana` displays/highlights as one pilot/entity.
+- No separator dot appears between `Matek` and `Bathana`.
+- Right-click Pilot Info opens for `Matek Bathana`, not `Matek` or `Bathana` separately.
+- Full resolved ESI names override overlapping partial candidates.
+- Existing adjacent separate-pilot detection still works.
+- Add a regression fixture or targeted test for a two-word pilot name.
+
+
 ## Open: Feed text jumps when Chinese text switches to English translation
 
 - Status: open
