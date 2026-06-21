@@ -35,6 +35,8 @@ F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 
 ## Features
 
+- Intel History is bundled and enabled by default for fresh installs, with local SQLite storage and safe startup guards.
+
 
 - **Safe clickable hyperlinks** are enabled by default and can be disabled in Settings > General while leaving URLs visible as plain text.
 - Portable Windows app: no installer or admin rights required.
@@ -324,4 +326,5 @@ The Translation Cache Manager can delete a selected grouped entry or delete all 
 Signal Bridge is a lightweight Windows EVE Online intel tool for live chatlog monitoring, Chinese-to-English EVE intel translation, EVE Online ship and system recognition, ESI pilot intelligence, zKillboard-assisted Pilot Info, cache-first translation correction, and portable no-install Windows operation.
 
 Keywords: EVE Online intel tool, EVE Online chatlog monitor, EVE Chinese translation, EVE Online CN EN translator, EVE Online ESI pilot info, zKillboard pilot intelligence, EVE Online fleet intel, EVE Online local chat monitor, Signal Bridge, Windows portable EVE tool, Tranquility chat logs, EVE ship alias detection, EVE system highlighting.
+
 

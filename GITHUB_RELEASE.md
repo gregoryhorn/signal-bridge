@@ -272,3 +272,10 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Added a Settings > General option to enable or disable clickable hyperlinks in the feed.
 - Hyperlinks remain enabled by default; when disabled, URLs remain visible as plain text and copy actions still work.
 
+
+
+### Decimal/system detection guard and Intel History default
+
+- Added a numeric-token guard so values like `9.2`, `7.5`, and `10.0` are not highlighted as systems.
+- Intel History now defaults to enabled for fresh installs with the bundled add-on, while existing users keep saved preferences.
+

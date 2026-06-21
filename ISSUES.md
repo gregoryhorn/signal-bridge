@@ -391,9 +391,9 @@ After fixing:
 - For EN -> CN, allow English source only when target language/direction is explicitly Chinese.
 - Add a cleanup/dedupe path for existing polluted rows.
 
-## User feedback: Intel History should be enabled by default
+## Fixed: Intel History enabled by default
 
-- Status: open
+- Status: fixed in v0.4 source refresh
 - Priority: medium
 - Reported: 2026-06-21
 - Area: Intel History / Add-ons / default settings
@@ -461,9 +461,9 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - Help text explains impact without making pages feel like debug tools.
 
 
-## Open: False system detection for decimal/security values such as 9.2
+## Fixed: False system detection for decimal/security values such as 9.2
 
-- Status: open
+- Status: fixed in v0.4 source refresh
 - Priority: medium
 - Area: entity detection / system highlighting / aliases
 - Reported: user feedback with screenshot
@@ -553,4 +553,11 @@ After fixing:
 - Include before/after screenshots or a visual verification note in the PR/release notes.
 
 
+
+
+
+### Decimal system false positive fix notes
+
+- Added a shared numeric/decimal token guard so values like `9.2`, `7.5`, and `10.0` are never treated as systems by catalog or alias-based system matching.
+- Valid EVE system codes such as `15W-GC`, `UH-9ZG`, `4-HWWF`, and `1DQ1-A` remain valid.
 
