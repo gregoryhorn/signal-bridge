@@ -1363,6 +1363,34 @@ class TranslationCache:
             write_log("Translation polluted-cache cleanup failed", exc)
         return removed
 
+    def cleanup_invalid_auto_en_rows(self, dry_run: bool = False) -> int:
+        """Remove machine-cache rows that should never be Auto -> EN sources.
+
+        This preserves manual overrides and EN -> CN rows. It targets historical
+        pollution from the old low-level Google cache path: SBX placeholders,
+        URLs, protected-term-only rows, and English-only Auto -> EN sources.
+        """
+        removed = 0
+        try:
+            con = sqlite3.connect(self.path)
+            rows = con.execute("select key, source_text, target_lang, engine from translation_cache").fetchall()
+            doomed = []
+            for key, source_text, target_lang, engine in rows:
+                target = str(target_lang or "en")
+                if target.lower() != "en":
+                    continue
+                src = str(source_text or "")
+                if not should_cache_translation_source(src, "zh-en", target, str(engine or "")):
+                    doomed.append(str(key))
+            if doomed and not dry_run:
+                with con:
+                    con.executemany("delete from translation_cache where key=?", [(k,) for k in doomed])
+            removed = len(doomed)
+            con.close()
+        except Exception as exc:
+            write_log("Translation invalid Auto->EN cache cleanup failed", exc)
+        return removed
+
     def stats(self):
         try:
             con = sqlite3.connect(self.path)
@@ -2433,7 +2461,9 @@ def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") 
         translated = "".join(part[0] for part in data[0] if part and part[0]).strip()
         if translated:
             FREE_TRANSLATION_CACHE[key] = translated
-            TRANSLATION_CACHE.put(key, text, source, target, translated, "google")
+            # Do not persist here: callers may pass protected placeholder work
+            # such as "SBX0 clear". Persistent cache writes are gated by the
+            # higher-level segment-aware translation pipeline.
             return translated
     except Exception:
         return None
@@ -2494,6 +2524,47 @@ def translation_source_for_cache(text: str, direction: str) -> str:
     if direction == "zh-en":
         return cjk_translation_source(text)
     return normalize_feed_text(text)
+
+
+def looks_like_protected_translation_work(text: str) -> bool:
+    """Return True for placeholder/protected-term-only Google work strings.
+
+    The translation worker protects EVE systems, links, counts, ships, and pilots
+    as SBX placeholders before calling Google. Those strings are valid for one
+    network call but must not become persistent Translation Corrections rows.
+    """
+    value = normalize_feed_text(text)
+    if not value:
+        return True
+    stripped = HTTP_LINK_RE.sub(" ", value)
+    stripped = LINK_RE.sub(" ", stripped)
+    stripped = re.sub(r"\bSBX\d+\b", " ", stripped, flags=re.I)
+    stripped = COUNT_RE.sub(" ", stripped)
+    stripped = re.sub(r"\b(?:clear|clr|safe|blue only|red|neut|neutral|hostile|local|gate|jump|jumped|camp|ess|no visual|nv)\b", " ", stripped, flags=re.I)
+    stripped = re.sub(r"[\s,.;:!?'\"()\[\]{}<>|/\\_-]+", " ", stripped).strip()
+    return not stripped
+
+
+def should_cache_translation_source(source_text: str, direction: str, target_lang: str = "en", engine: str = "") -> bool:
+    """Gate persistent machine-cache writes by direction and source language.
+
+    Manual overrides are handled separately. Auto -> EN only persists genuine
+    non-English source segments; English/protected-only intel remains uncached so
+    it cannot clutter the correction UI. EN -> CN explicitly allows English.
+    """
+    direction = str(direction or "zh-en")
+    target = str(target_lang or "en")
+    source = normalize_feed_text(source_text)
+    if not source or looks_like_protected_translation_work(source):
+        return False
+    if HTTP_LINK_RE.fullmatch(source) or LINK_RE.fullmatch(source):
+        return False
+    if direction == "en-zh" or target.lower().startswith("zh"):
+        return has_english_letters(source)
+    if direction == "zh-en" or target.lower() == "en":
+        return has_non_english_signal(source)
+    return has_non_english_signal(source) or has_english_letters(source)
+
 
 def translation_langs_for_direction(direction: str) -> tuple[str, str, str, str]:
     if direction == "en-zh":
@@ -2573,8 +2644,10 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
             out=re.sub(rf"\b{re.escape(token)}\b", original, out)
         out=out.strip()
         if out:
-            TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(cache_text, source, target, engine), cache_text, source, target, out, engine)
-            return out, f"segment:{engine}-cached"
+            if should_cache_translation_source(cache_text, direction, target, engine):
+                TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(cache_text, source, target, engine), cache_text, source, target, out, engine)
+                return out, f"segment:{engine}-cached"
+            return out, f"segment:{engine}-uncached"
     return "", "fallback-failed"
 
 def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
@@ -4104,10 +4177,10 @@ class SignalBridgeGui:
             r = row(c_engine); action(r, "Refresh Argos Status", self.refresh_argos_status); action(r, "Install / Repair Argos", self.install_argos_models); action(r, "Test Translation", self.test_translation_engine)
             r2 = row(c_engine); action(r2, "Open Translation Cache...", lambda: render_page("Translation Cache")); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
         def render_translation_cache():
-            c = card(body, "Translation Cache Manager", "Grouped correction editor. One logical row per source phrase; manual edits override Google/Argos and hidden duplicates.")
+            c = card(body, "Translation Corrections", "Fix visible translations without editing raw cache internals. Manual corrections override Google/Argos; advanced cache details stay hidden by default.")
             count, hits = TRANSLATION_CACHE.stats(); overrides = TRANSLATION_CACHE.override_count()
             label(c, f"Cache: {count} entries / {hits} hits | Manual overrides: {overrides}", "#8b98a8")
-            label(c, f"File: {TRANSLATION_CACHE_PATH}", "#8b98a8")
+            # Keep the raw SQLite path out of the normal correction workflow; diagnostics/cache pages expose it when needed.
             controls = row(c)
             tk.Label(controls, text="Mode", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
             tk.OptionMenu(controls, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
@@ -4115,6 +4188,11 @@ class SignalBridgeGui:
             tk.OptionMenu(controls, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
             tk.Label(controls, text="Failure cooldown min", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
             tk.Spinbox(controls, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff").pack(side="left")
+
+            # Keep correction actions visible at the default Settings size.  The
+            # command callbacks are defined later, but packing the frame here
+            # prevents Save/Delete/Clean controls from being hidden below the fold.
+            buttons = row(c)
 
             state = {"items": [], "selected_index": None, "autosave_after": None, "loading": False, "saving": False}
             original_filter = tk.StringVar()
@@ -4128,9 +4206,9 @@ class SignalBridgeGui:
             filter_frame = tk.Frame(c, bg="#0b0f14"); filter_frame.pack(fill="x", pady=(8, 4))
             left_filter = tk.Frame(filter_frame, bg="#0b0f14"); left_filter.pack(side="left", fill="x", expand=True, padx=(0, 6))
             right_filter = tk.Frame(filter_frame, bg="#0b0f14"); right_filter.pack(side="left", fill="x", expand=True, padx=(6, 0))
-            tk.Label(left_filter, text="Filter original", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            tk.Label(left_filter, text="Find original", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
             tk.Entry(left_filter, textvariable=original_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
-            tk.Label(right_filter, text="Filter translated", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
+            tk.Label(right_filter, text="Find English", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
             tk.Entry(right_filter, textvariable=translated_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
 
             tables = tk.Frame(c, bg="#0b0f14")
@@ -4143,26 +4221,26 @@ class SignalBridgeGui:
             tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
             orig_list_frame = tk.Frame(left, bg="#0b0f14")
             orig_list_frame.pack(fill="both", expand=True)
-            orig_list = tk.Listbox(orig_list_frame, height=6, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            orig_list = tk.Listbox(orig_list_frame, height=5, width=34, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
             orig_scroll = tk.Scrollbar(orig_list_frame, orient="vertical", command=orig_list.yview)
             orig_list.configure(yscrollcommand=orig_scroll.set)
             orig_list.pack(side="left", fill="both", expand=True)
             orig_scroll.pack(side="right", fill="y")
             tk.Label(left, text="Original / source phrase — editable", bg="#0b0f14", fg="#facc15", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
-            src_text = tk.Text(left, height=4, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
+            src_text = tk.Text(left, height=3, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
             src_text.pack(fill="x", ipady=3)
             tk.Label(left, text="Use this if the captured source segment is wrong.", bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", pady=(2, 0))
 
             tk.Label(right, text="English", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
             trans_list_frame = tk.Frame(right, bg="#0b0f14")
             trans_list_frame.pack(fill="both", expand=True)
-            trans_list = tk.Listbox(trans_list_frame, height=6, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            trans_list = tk.Listbox(trans_list_frame, height=5, width=34, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
             trans_scroll = tk.Scrollbar(trans_list_frame, orient="vertical", command=trans_list.yview)
             trans_list.configure(yscrollcommand=trans_scroll.set)
             trans_list.pack(side="left", fill="both", expand=True)
             trans_scroll.pack(side="right", fill="y")
             tk.Label(right, text="English correction — editable", bg="#0b0f14", fg="#7ee787", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
-            dst_text = tk.Text(right, height=4, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
+            dst_text = tk.Text(right, height=3, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
             dst_text.pack(fill="x", ipady=3)
             tk.Label(right, text="Edit this text to fix what appears in live chat.", bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", pady=(2, 0))
 
@@ -4174,9 +4252,9 @@ class SignalBridgeGui:
             tk.Checkbutton(opts, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
             tk.Label(opts, text="Note", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(10, 2))
             tk.Entry(opts, textvariable=note_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(side="left", fill="x", expand=True, padx=6)
-            tk.Label(c, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=700).pack(anchor="w", fill="x", pady=(4, 0))
+            tk.Label(c, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=620).pack(anchor="w", fill="x", pady=(4, 0))
 
-            def preview(text, n=96):
+            def preview(text, n=64):
                 text = str(text or "").replace("\r", " ").replace("\n", " ").strip()
                 return text[:n-1] + "…" if len(text) > n else text
 
@@ -4296,12 +4374,12 @@ class SignalBridgeGui:
             translated_filter.trace_add("write", live_filter)
 
             def clean_duplicate_rows():
-                removed = TRANSLATION_CACHE.cleanup_duplicate_machine_rows(False)
-                status_var.set(f"Cleaned {removed} duplicate machine-cache record(s). Manual overrides were not deleted.")
-                self.set_status(f"Cleaned {removed} translation cache duplicates")
+                dup_removed = TRANSLATION_CACHE.cleanup_duplicate_machine_rows(False)
+                invalid_removed = TRANSLATION_CACHE.cleanup_invalid_auto_en_rows(False)
+                status_var.set(f"Cleaned {dup_removed} duplicate cache record(s) and {invalid_removed} invalid Auto -> EN source row(s). Manual overrides were not deleted.")
+                self.set_status(f"Cleaned translation cache: {dup_removed} duplicates, {invalid_removed} invalid")
                 refresh_rows(False)
 
-            buttons = row(c)
             action(buttons, "New Override", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New override: enter Original on the left and English on the right; it will auto-save.")))
             action(buttons, "Save Now", save_now)
             def delete_selected():
@@ -4329,7 +4407,7 @@ class SignalBridgeGui:
 
             action(buttons, "Delete Selected Entry", delete_selected)
             action(buttons, "Delete All Entries", clear_all_translation_entries)
-            action(buttons, "Clean Duplicates", clean_duplicate_rows)
+            action(buttons, "Clean Duplicates / Invalid", clean_duplicate_rows)
             action(buttons, "Cache Status", self.show_translation_cache)
             refresh_rows(keep_selection=False)
 
@@ -4465,7 +4543,7 @@ class SignalBridgeGui:
             r = row(c2); action(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty")); action(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
             r2 = row(c); action(r2, "About", self.show_about); action(r2, "Support / Donate ISK", self.show_support); action(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
         renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "Translation Cache": render_translation_cache, "EVE Catalog": render_catalog, "Aliases": render_aliases, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
-        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "Translation Cache":"Cache-first translation controls and manual exact overrides.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
+        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "Translation Cache":"Translation Corrections: fix visible translations and manage cache-first overrides.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
         def render_page(page):
             clear(); title.configure(text=page); subtitle.configure(text=descriptions.get(page, ""))
             for name, btn in nav_buttons.items(): style_button(btn, name == page)
