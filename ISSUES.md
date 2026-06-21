@@ -330,10 +330,10 @@ Acceptance notes:
 - Rate limiting does not block normal intel reports.
 - Diagnostics include suppressed/rate-limited counts.
 
-## User feedback: Translation Cache still contains English in Original and English fields
+## P1 Bug: Translation Cache still contains English in Original and English fields
 
-- Status: open
-- Priority: high
+- Status: open / P1
+- Priority: P1 / High - requires visual inspection before and after fix
 - Reported: 2026-06-21
 - Area: translation cache / segmentation / cache hygiene / design review
 
@@ -362,6 +362,34 @@ Acceptance notes:
 - Manual overrides must remain easy to inspect/edit.
 - Cleanup should be safe and should preserve user-created manual corrections where possible.
 - A design review should be documented before implementation.
+### Visual inspection requirement for English-original cache bug
+
+This is now a P1 bug. Any fix must include visual inspection before and after implementation.
+
+Before fixing:
+
+- Open Settings > Translation Cache at normal/default Settings size.
+- Capture or visually inspect rows where the Original/source field contains English-only or mostly-English text.
+- Record examples from the UI, including Original, English, target language, engine/source type, and duplicate count where visible.
+- Confirm whether the problem appears in Auto -> EN rows, EN -> CN rows, or both.
+- Save a before screenshot or record exact visual findings.
+
+After fixing:
+
+- Re-open Settings > Translation Cache at normal/default Settings size.
+- Confirm English-only Original rows are gone from Auto -> EN cache results.
+- Confirm valid EN -> CN rows, if any, are clearly separated or labeled by target/direction.
+- Confirm newly generated cache rows do not reintroduce English-only Original entries during live monitoring.
+- Confirm manual overrides still work and are not deleted by cleanup.
+- Include before/after screenshots or a visual verification note in PR/release notes.
+
+### Root-cause checks required
+
+- Review segmentation before cache lookup/write.
+- Add or verify a central `should_cache_translation_source(...)` gate.
+- For Auto -> EN, reject English-only, URL-only, system-only, pilot-only, and protected-term-only source text.
+- For EN -> CN, allow English source only when target language/direction is explicitly Chinese.
+- Add a cleanup/dedupe path for existing polluted rows.
 
 ## User feedback: Intel History should be enabled by default
 
@@ -523,5 +551,6 @@ After fixing:
 - Verify Original and English tables/editors fit better and remain usable.
 - Verify action buttons such as Save, Delete Selected Entry, Delete All Entries, Clean Duplicates, and Cache Status are discoverable.
 - Include before/after screenshots or a visual verification note in the PR/release notes.
+
 
 
