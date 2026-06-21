@@ -8,6 +8,13 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
+### Recently fixed: Feed Translation Stability Pass
+
+- Translated Only mode now uses a stable `Translating...` pending row for non-English text instead of flashing original text before English arrives.
+- Translation-result redraws preserve the feed scroll position and only return to bottom when the user was already at the bottom.
+- Non-translatable rows are skipped before queueing background translation work to reduce unnecessary redraw pressure.
+
+
 ### Recently fixed: ESI Name Recognition P1
 
 - Multi-word ESI character names now prefer full resolved spans over partial word matches.
@@ -100,9 +107,9 @@ A single EVE character name can be rendered as separate highlighted pieces, for 
 - Add a regression fixture or targeted test for a two-word pilot name.
 
 
-## Open: Feed text jumps when Chinese text switches to English translation
+## Fixed: Feed text jumps when Chinese text switches to English translation
 
-- Status: open
+- Status: fixed in source / v0.4 refresh
 - Priority: high
 - Area: feed rendering / translation display / row layout stability
 - Type: bug / UX

@@ -287,3 +287,10 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - `Picard X`-style suffix names are preserved.
 - `Matek Bathana`-style names no longer split with a separator dot.
 - Common chat noise is rejected earlier to reduce exclusion-list growth.
+
+
+### Feed Translation Stability Pass refresh
+
+- Translated Only now avoids flashing original non-English text before English translation arrives.
+- Translation redraws preserve scroll position and reduce visual jumping.
+- Non-translatable rows are skipped before queueing translation work.

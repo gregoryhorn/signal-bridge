@@ -54,6 +54,12 @@
 - Tightened common chat-noise gating to reduce false ESI candidates and future exclusion-list growth.
 - Hardened feed entity separators so they only separate distinct entities, not parts of the same pilot name.
 
+### Feed Translation Stability Pass
+
+- Fixed feed jumping when non-English text updates to English by using a stable pending display in Translated Only mode.
+- Preserved feed scroll position during translation-triggered redraws and only auto-scrolls when already at the bottom.
+- Skipped non-translatable rows before background translation queueing to reduce redraw pressure.
+
 ## Planned - Intel History add-on spec
 
 - Fixed Add/Open Channels so saved/tracked channels remain visible with tracking/discovered/hidden/waiting statuses and no longer require manual re-add after restart.

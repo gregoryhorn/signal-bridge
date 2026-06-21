@@ -2602,6 +2602,22 @@ def translation_source_for_cache(text: str, direction: str) -> str:
     return normalize_feed_text(text)
 
 
+def looks_like_translation_pending_source(text: str, direction: str) -> bool:
+    """Return true when Translated Only should use a stable pending row.
+
+    This is a display-only guard; it never performs translation.  It prevents a
+    non-English row from flashing first and then being replaced by English when
+    the background result arrives.
+    """
+    value = normalize_feed_text(text)
+    if not value:
+        return False
+    direction = direction or "zh-en"
+    if direction == "en-zh":
+        return bool(re.search(r"[A-Za-z]", value))
+    return has_non_english_signal(value)
+
+
 def looks_like_protected_translation_work(text: str) -> bool:
     """Return True for placeholder/protected-term-only Google work strings.
 
@@ -3818,6 +3834,22 @@ class SignalBridgeGui:
             except Exception as exc:
                 write_log(f"Scheduled redraw failed: {exc}")
         self._redraw_after = self.root.after(delay_ms, run)
+
+    def feed_at_bottom(self, threshold: float = 0.02) -> bool:
+        try:
+            _first, last = self.text.yview()
+            return last >= (1.0 - threshold)
+        except Exception:
+            return True
+
+    def restore_feed_scroll(self, was_at_bottom: bool, first_fraction: float = 1.0):
+        try:
+            if was_at_bottom:
+                self.text.see("end")
+            else:
+                self.text.yview_moveto(max(0.0, min(1.0, first_fraction)))
+        except Exception:
+            pass
 
     def persist_and_schedule_redraw(self):
         self.persist_settings()
@@ -6758,6 +6790,11 @@ class SignalBridgeGui:
         A newer redraw request cancels any older in-flight batch sequence.
         """
         started = time.time()
+        was_at_bottom = self.feed_at_bottom()
+        try:
+            old_first_fraction = float(self.text.yview()[0])
+        except Exception:
+            old_first_fraction = 1.0
         gen = int(getattr(self, "_redraw_generation", 0) or 0) + 1
         self._redraw_generation = gen
         try:
@@ -6802,7 +6839,7 @@ class SignalBridgeGui:
                 batch_started = time.time()
                 end_index = min(index + REDRAW_BATCH_SIZE, total)
                 for row in visible_rows[index:end_index]:
-                    self._render_row(row)
+                    self._render_row(row, auto_scroll=False)
                 rendered = end_index
                 batch_ms = int((time.time() - batch_started) * 1000)
                 self.diagnostics["last_redraw_batch_ms"] = batch_ms
@@ -6813,9 +6850,11 @@ class SignalBridgeGui:
                     self._redraw_chunk_after = self.root.after(1, lambda: render_batch(end_index, rendered))
                 else:
                     self._redraw_chunk_after = None
+                    self.restore_feed_scroll(was_at_bottom, old_first_fraction)
                     finish(rendered)
 
             if not visible_rows:
+                self.restore_feed_scroll(was_at_bottom, old_first_fraction)
                 finish(0)
             else:
                 render_batch(0, 0)
@@ -6880,7 +6919,8 @@ class SignalBridgeGui:
         if len(self.rows) > MAX_ROWS:
             self.rows = self.rows[-MAX_ROWS:]
         if self.row_visible(row):
-            self._render_row(row)
+            was_at_bottom = self.feed_at_bottom()
+            self._render_row(row, auto_scroll=was_at_bottom)
         else:
             self.mark_unread_for_row(row)
 
@@ -6966,6 +7006,12 @@ class SignalBridgeGui:
                 pass
             return
         if not source_text.strip():
+            return
+        if not looks_like_translation_pending_source(source_text, direction):
+            try:
+                row._last_translation_decision = f"skipped: no translatable signal for {direction}"
+            except Exception:
+                pass
             return
         cache = self.row_translation_cache(row)
         if cache.get(direction):
@@ -7090,17 +7136,32 @@ class SignalBridgeGui:
             except Exception:
                 pass
             return cache[direction]
+        before_decision = getattr(row, "_last_translation_decision", "")
         self.schedule_translation_for_row(row, display_text)
         try:
-            if row.localized:
-                row._last_translation_decision = f"queued/skipped: no cached {direction} free translation; localized catalog replacements available"
-            else:
-                row._last_translation_decision = f"queued/skipped: no cached {direction} free translation yet"
+            after_decision = getattr(row, "_last_translation_decision", "")
+            if not str(after_decision).startswith("skipped: no translatable signal"):
+                if row.localized:
+                    row._last_translation_decision = f"queued/skipped: no cached {direction} free translation; localized catalog replacements available"
+                else:
+                    row._last_translation_decision = f"queued/skipped: no cached {direction} free translation yet"
+        except Exception:
+            pass
+        # In Translated Only mode, do not flash the original non-English row and
+        # then swap it to English.  Show a stable pending state until the
+        # background/cache result arrives.  This keeps the feed calmer and makes
+        # the async state explicit without blocking rendering.
+        try:
+            if bool(self.translated_only.get()):
+                cache_source_text = translation_source_for_cache(display_text or row.text, direction)
+                source_text = display_text or row.text
+                if looks_like_translation_pending_source(source_text, direction):
+                    return "Translating..."
         except Exception:
             pass
         return ""
 
-    def _render_row(self, row: Row):
+    def _render_row(self, row: Row, auto_scroll: bool = True):
         # Render must stay fast: ESI/cache hydration is done when rows arrive or resolver events update rows.
         self.text.configure(state="normal")
         row_tag = f"row_{self.render_seq}"
@@ -7151,7 +7212,8 @@ class SignalBridgeGui:
         self.text.tag_add(row_tag, row_start, row_end)
         self.rendered_row_map[row_tag] = {"row": row, **parts, "segments": [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])]}
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
-        self.text.see("end")
+        if auto_scroll:
+            self.restore_feed_scroll(True)
         self.text.configure(state="disabled")
         self.row_count += 1
         if self.row_count > MAX_ROWS:
