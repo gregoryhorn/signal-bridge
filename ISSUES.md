@@ -493,3 +493,39 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - Similar decimal values are not highlighted as systems.
 - Valid EVE system codes still highlight correctly.
 - The exclusion is handled in detection logic, not by adding one-off aliases.
+
+## Open: Hyperlink enable/disable setting
+
+- Status: open
+- Priority: Medium
+- Area: Settings / feed rendering / safe URL handling
+- Type: user feedback / settings feature
+
+### User feedback
+
+Users should have a Settings option to enable or disable clickable hyperlinks in the chat feed.
+
+### Expected behavior
+
+- Hyperlinks should be enabled by default.
+- Users should be able to disable clickable links from Settings.
+- Disabled links should remain visible as plain text so copy/paste still works.
+- The setting should persist across restarts.
+- The setting should apply to URLs detected in live chat, translated text, copied visible text behavior where relevant, and any context-menu link actions.
+
+### Investigation notes
+
+- Check current URL/link detection and rendering paths.
+- Ensure only safe URL schemes are clickable, for example `http` and `https`.
+- Avoid auto-opening links; clicking should require explicit user action.
+- Make sure disabling hyperlinks does not affect EVE entity highlighting, ship/system highlighting, Pilot Info, or zKill buttons.
+- Add this to the dedicated Settings design pass so placement is consistent.
+
+### Acceptance criteria
+
+- Settings contains a clear `Enable clickable hyperlinks` option.
+- Fresh installs default to enabled.
+- Existing users get enabled unless they explicitly turn it off.
+- When disabled, URLs render as plain text and are not clickable.
+- When enabled, URLs are clickable using safe URL handling.
+- The setting is documented in README/help/release notes when implemented.
