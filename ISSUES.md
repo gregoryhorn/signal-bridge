@@ -8,9 +8,17 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
-## Open: ESI character detection drops short suffix tokens such as Picard X
+### Recently fixed: ESI Name Recognition P1
 
-- Status: open
+- Multi-word ESI character names now prefer full resolved spans over partial word matches.
+- Short suffix names such as `Picard X` are preserved and submitted before shorter overlapping candidates.
+- Ordinary chat noise such as `channel changed`, `thanks fc`, and `where are they` is rejected earlier by candidate gating.
+- Feed separators no longer split a full pilot name into partial terms such as `Matek · Bathana`.
+
+
+## Fixed: ESI character detection drops short suffix tokens such as Picard X
+
+- Status: fixed in source / v0.4 refresh
 - Priority: high
 - Area: ESI detection / pilot highlighting / name boundary handling / Pilot Info
 - Type: bug
@@ -50,9 +58,9 @@ A character whose full name includes a short suffix token can be detected or dis
 - Add a targeted test/fixture for a single-letter pilot suffix.
 
 
-## Open: ESI character names can be split into separate highlighted tokens
+## Fixed: ESI character names can be split into separate highlighted tokens
 
-- Status: open
+- Status: fixed in source / v0.4 refresh
 - Priority: high
 - Area: ESI detection / pilot highlighting / feed rendering / entity spans
 - Type: bug

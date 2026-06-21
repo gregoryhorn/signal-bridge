@@ -47,6 +47,13 @@
 ### v0.3 - message character detection refinement
 - Added conservative ESI character-name candidate detection inside chat message text, not only sender names.
 
+### ESI Name Recognition P1
+
+- Fixed multi-word pilot rendering so full resolved ESI character names win over partial word matches, preventing examples like `Matek · Bathana`.
+- Fixed short suffix handling so names such as `Picard X` are preserved and prioritized over `Picard`.
+- Tightened common chat-noise gating to reduce false ESI candidates and future exclusion-list growth.
+- Hardened feed entity separators so they only separate distinct entities, not parts of the same pilot name.
+
 ## Planned - Intel History add-on spec
 
 - Fixed Add/Open Channels so saved/tracked channels remain visible with tracking/discovered/hidden/waiting statuses and no longer require manual re-add after restart.

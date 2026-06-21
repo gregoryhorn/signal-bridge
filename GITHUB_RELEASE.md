@@ -279,3 +279,11 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Added a numeric-token guard so values like `9.2`, `7.5`, and `10.0` are not highlighted as systems.
 - Intel History now defaults to enabled for fresh installs with the bundled add-on, while existing users keep saved preferences.
 - Add/Open Channels now keeps saved channels visible, shows tracking/discovered/hidden/waiting statuses, and prevents manual re-adds after restart for persisted channels.
+
+
+### ESI Name Recognition P1 refresh
+
+- Full ESI pilot names now win over partial matches.
+- `Picard X`-style suffix names are preserved.
+- `Matek Bathana`-style names no longer split with a separator dot.
+- Common chat noise is rejected earlier to reduce exclusion-list growth.

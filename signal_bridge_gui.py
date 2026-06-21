@@ -1800,15 +1800,21 @@ def is_globally_excluded(term: str) -> bool:
 
 
 COMMON_ESI_NOISE = {
-    "and", "the", "link", "jump", "jumped", "fleet", "gate", "star", "isk", "ship",
-    "clear", "eyes", "no visual", "nv", "ess", "red", "enemy", "hostile", "neutral", "neut",
-    "local", "system", "corp", "alliance",
+    "and", "the", "or", "to", "of", "in", "on", "at", "by", "for", "from", "with",
+    "are", "they", "where", "which", "what", "when", "who", "why", "how",
+    "again", "almost", "always", "anything", "maybe", "someone", "thanks", "thank",
+    "link", "jump", "jumped", "fleet", "gate", "gates", "star", "isk", "ship", "ships",
+    "clear", "eyes", "no visual", "nv", "ess", "red", "enemy", "hostile", "neutral", "neut", "neuts",
+    "local", "system", "corp", "alliance", "channel", "changed", "channel changed",
+    "description", "exclusions", "multiple", "multiple items", "seconds", "status", "version",
+    "drone", "drones", "probe", "probes", "scanning probe", "combat scanning probe",
+    "dscan", "cyno", "cloak", "cloaky", "bubble", "armor", "caldari", "item exchange",
 }
 NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
     "local", "jumped", "jump", "gate", "camp", "hostile", "neut", "neutral", "red", "pilot", "scout",
 }
-NAME_CHUNK_RE = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9'`-]{1,}(?:\s+[A-Z][A-Za-z0-9'`-]{1,}){0,3})(?![A-Za-z0-9])")
+NAME_CHUNK_RE = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9'`-]{1,}(?:\s+[A-Z][A-Za-z0-9'`-]*){0,3})(?![A-Za-z0-9])")
 
 
 def _span_overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
@@ -1831,6 +1837,44 @@ def _mark_term_spans(text: str, terms: list[str]) -> list[tuple[int, int]]:
                 spans.append((start, start + len(term)))
                 start = folded.find(needle, start + len(term))
     return spans
+
+
+def _term_occurrences(text: str, term: str) -> list[tuple[int, int]]:
+    if not text or not term or len(term.strip()) < 2:
+        return []
+    pattern = re.escape(term) if not re.search(r"^[A-Za-z0-9 _.'`+-]+$", term) else word_boundary(term)
+    try:
+        return [(m.start(), m.end()) for m in re.finditer(pattern, text, re.I)]
+    except re.error:
+        out = []
+        folded = text.casefold(); needle = term.casefold(); start = folded.find(needle)
+        while start >= 0:
+            out.append((start, start + len(term)))
+            start = folded.find(needle, start + len(term))
+        return out
+
+
+def longest_non_overlapping_terms(text: str, terms: list[str]) -> list[str]:
+    """Return display terms whose spans do not overlap stronger/longer terms.
+
+    Used for ESI pilot rendering so a resolved full character like
+    ``Matek Bathana`` wins over partial cached matches ``Matek`` and ``Bathana``.
+    """
+    chosen: list[tuple[int, int, str]] = []
+    for term in sorted(unique([str(t or '').strip() for t in terms if str(t or '').strip()]), key=lambda t: (-len(t), t.casefold())):
+        if is_globally_excluded(term):
+            continue
+        spans = _term_occurrences(text, term)
+        if not spans:
+            continue
+        keep = False
+        for a, b in spans:
+            if not any(a < d and c < b for c, d, _ in chosen):
+                chosen.append((a, b, term)); keep = True
+        if keep:
+            pass
+    chosen.sort(key=lambda x: (x[0], -(x[1]-x[0]), x[2].casefold()))
+    return unique([term for _, _, term in chosen])
 
 
 def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[int, int] | None = None) -> bool:
@@ -1977,8 +2021,11 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
         cand = " ".join(parts)
         if is_probable_character_candidate(cand, text, (m.start(1), m.end(1))):
             out.append(cand)
-    # Keep the queue bounded, but allow enough candidates for split adjacent names.
-    return unique(out)[:8]
+    # Keep the queue bounded, but prefer longer/full names first so entries like
+    # "Picard X" are submitted before shorter overlapping candidates like "Picard".
+    candidates = unique(out)
+    candidates.sort(key=lambda x: (-len(x), x.casefold()))
+    return candidates[:8]
 
 
 def esi_candidates_for_row(row: Row) -> list[str]:
@@ -6590,10 +6637,16 @@ class SignalBridgeGui:
                 pos = last
 
     def add_entity_separators(self, text: str, systems: list[str], assets: list[str], pilots: list[str] | None = None) -> str:
-        """Display-only readability: separate adjacent pilot/system/asset tokens."""
+        """Display-only readability: separate adjacent distinct entity tokens.
+
+        Pilot terms are reduced to longest non-overlapping spans first so a full
+        ESI character such as ``Matek Bathana`` is never split by partial cached
+        matches like ``Matek`` and ``Bathana``.
+        """
         out = str(text or "")
+        pilot_terms = longest_non_overlapping_terms(out, list(pilots or []))
         terms = []
-        for term in list(systems or []) + list(assets or []) + list(pilots or []):
+        for term in list(systems or []) + list(assets or []) + pilot_terms:
             t = str(term or "").strip()
             if t and not is_globally_excluded(t):
                 terms.append(re.escape(t))
@@ -6866,6 +6919,7 @@ class SignalBridgeGui:
 
     def character_names_for_row(self, row: Row) -> list[str]:
         names: list[str] = []
+        text_blob = f"{row.sender} {row.text}"
         sender = re.sub(r"\s+", " ", row.sender.strip())
         if sender and sender.lower() != "eve system":
             names.append(sender)
@@ -6882,7 +6936,7 @@ class SignalBridgeGui:
                     continue
                 names.append(ent_name)
                 names.append(ent_query)
-        return unique([n for n in names if n])
+        return longest_non_overlapping_terms(text_blob, names)
 
     def row_translation_cache(self, row: Row) -> dict:
         cache = getattr(row, "_free_translation_by_direction", None)
