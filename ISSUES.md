@@ -8,6 +8,50 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
+## Open: Translation Corrections layout gives too much width to Original and squeezes English
+
+- Status: open
+- Priority: high
+- Area: Settings / Translation Cache / Translation Corrections / UI layout
+- Type: bug / UX
+
+The Translation Corrections page still lays out the Original and English lists unevenly. The Original list consumes almost all available horizontal width, while the English list is squeezed into a very narrow right-side column. This makes the English translation preview hard to read and makes the correction workflow feel like a cramped debug table instead of a user-friendly editor.
+
+### Reported behavior
+
+- The Original table/list is much wider than needed.
+- The English table/list is too narrow and cuts off most translation text.
+- The middle area appears wasted while the right-side English column is cramped.
+- Users cannot easily compare original text with the English translation.
+- The page still does not feel like a clear correction workflow.
+
+### Desired behavior
+
+- Original and English preview areas should be balanced and readable at the default Settings window size.
+- The English side should have enough width to read normal translation text without severe truncation.
+- The editable Original/source phrase box and English correction box should remain clearly visible.
+- The page should behave like a Translation Corrections editor, not a raw cache/debug browser.
+- Advanced cache internals should remain hidden unless explicitly enabled.
+
+### Design direction
+
+- Replace the current uneven split with a balanced layout, such as 50/50 Original and English columns, or a single table with Original and English preview columns plus a dedicated editor area below.
+- Keep action buttons visible near the top or in a fixed action area.
+- Ensure the English correction editor is visually primary and easy to use.
+- Avoid horizontal scrolling for normal translation text where possible.
+- Preserve the ability to show cache internals as an advanced option.
+
+### Acceptance criteria
+
+- Visual inspection before and after the fix.
+- At default Settings size, the English list is readable and no longer squeezed into a tiny column.
+- Original no longer consumes most horizontal width.
+- Users can select a row and clearly see both Original/source and English/correction text.
+- Save, delete, cleanup, and cache-status actions remain visible and usable.
+- Resizing the Settings window improves available space instead of leaving the English side cramped.
+- Manual overrides and existing cache/correction behavior continue to work.
+
+
 ### Recently fixed: Feed Translation Stability Pass
 
 - Translated Only mode now uses a stable `Translating...` pending row for non-English text instead of flashing original text before English arrives.
