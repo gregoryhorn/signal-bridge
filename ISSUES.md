@@ -8,6 +8,48 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
+## Open: ESI character detection drops short suffix tokens such as Picard X
+
+- Status: open
+- Priority: high
+- Area: ESI detection / pilot highlighting / name boundary handling / Pilot Info
+- Type: bug
+
+A character whose full name includes a short suffix token can be detected or displayed as the shorter partial name. The reported example is `Picard X`, where Signal Bridge appears to detect/display `Picard` without the `X`. The short suffix is part of the character name and must be preserved.
+
+### Reported behavior
+
+- `Picard X` is the actual character name.
+- Signal Bridge is not getting/preserving the `X` suffix.
+- Pilot-related actions may target `Picard` instead of `Picard X`.
+- Screenshot provided for context.
+
+### Root-cause areas to review
+
+- Candidate trimming may remove one-letter trailing tokens as noise.
+- Name-boundary regex may not treat single-letter suffixes as valid pilot-name parts.
+- ESI cache hydration may prefer a shorter partial match over the full resolved name.
+- Longest-match span selection may be missing or not applied before rendering/click targeting.
+- Right-click Pilot Info may map to a partial token instead of the full ESI-confirmed pilot.
+
+### Desired behavior
+
+- `Picard X` should resolve/display as `Picard X`.
+- The `X` suffix should not be dropped or treated as noise.
+- If both `Picard` and `Picard X` are candidates, the full/longest ESI-confirmed name should win.
+- Pilot Info, zKill, Intel History, flags, and right-click actions should use the correct character ID/name.
+- The fix should not create broad false positives from random one-letter words.
+
+### Acceptance criteria
+
+- `Picard X` displays/highlights as one full pilot/entity.
+- Pilot Info opens for `Picard X`, not `Picard`.
+- The short suffix token remains part of the entity span.
+- Existing multi-word pilot behavior such as `Matek Bathana` remains correct.
+- Single-letter suffix support does not make common chat text overly broad.
+- Add a targeted test/fixture for a single-letter pilot suffix.
+
+
 ## Open: ESI character names can be split into separate highlighted tokens
 
 - Status: open
