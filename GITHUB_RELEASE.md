@@ -4,6 +4,7 @@ Portable Windows release for EVE Online chat intel monitoring and translation.
 
 ## Highlights
 
+- Stabilized live feed redraws so new chat/translation updates no longer briefly expose raw or old intermediate render states.
 - Fixed Translation Cache Manager deletion: selected rows can now delete grouped manual/cache/failure entries instead of manual overrides only.
 - Added full Translation Cache reset while preserving aliases, exclusions, phrase overrides, settings, ESI cache, zKill cache, logs, and chat logs.
 - Removed bundled starter translation cache so new installs start clean instead of inheriting polluted mixed English/CJK cache rows.
@@ -120,6 +121,10 @@ Portable Windows release for EVE Online chat intel monitoring and translation.
 Download and extract `SignalBridge-v0.4-win64-portable.zip`, then run `SignalBridge.exe`.
 
 ## SHA256
+
+ZIP SHA256: `9B343457E9D5C70CB292EEE0C126FC6E1EA00205F5F6DF09C443F505D9267E5E`
+
+EXE SHA256: `3D73367B7D65859B7277529279E7163672669405B954F4CFE46658BCB63B00CB`
 
 `PASTE_HASH_HERE`
 ```

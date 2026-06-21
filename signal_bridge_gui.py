@@ -55,6 +55,7 @@ DEFAULT_DB_PATH = Path(r"D:\AI\Rift\signal-bridge-v2\signal-bridge-v3\src-tauri\
 POLL_SECONDS = 1.0
 MAX_CHUNK = 1024 * 1024
 MAX_ROWS = 600
+REDRAW_ATOMIC_ROW_LIMIT = 220  # render normal live feeds in one Tk update to avoid visible half-redraw flashes
 REDRAW_BATCH_SIZE = 25
 GOOGLE_TRANSLATE_TIMEOUT = 2.5
 FREE_TRANSLATION_CACHE: dict[str, str] = {}
@@ -6832,6 +6833,29 @@ class SignalBridgeGui:
                 if duration_ms > 500:
                     record_event("slow_redraw", duration_ms=duration_ms, rendered=rendered, visible=total, rows=len(self.rows), channel=self.visible_channel, chunked=True, batch_size=REDRAW_BATCH_SIZE)
 
+            def render_atomic() -> None:
+                """Render normal-sized redraws in one UI turn to avoid half-redraw flashes.
+
+                The chunked redraw intentionally keeps Tk responsive for very large feeds,
+                but for typical live-feed sizes the intermediate state is more annoying
+                than useful: the widget is cleared, old snapshot rows appear, and only at
+                the end does scroll restoration return the user to the expected view.
+                Rendering a bounded number of rows atomically keeps the visible feed from
+                briefly reverting when new chat/translation events trigger a redraw.
+                """
+                batch_started = time.time()
+                for row in visible_rows:
+                    self._render_row(row, auto_scroll=False)
+                batch_ms = int((time.time() - batch_started) * 1000)
+                self.diagnostics["last_redraw_batch_ms"] = batch_ms
+                self.diagnostics["last_redraw_rows"] = total
+                self.diagnostics["last_redraw_mode"] = "atomic"
+                self._redraw_chunk_after = None
+                self.restore_feed_scroll(was_at_bottom, old_first_fraction)
+                if batch_ms > 250:
+                    record_event("slow_redraw_atomic", duration_ms=batch_ms, rendered=total, visible=total, channel=self.visible_channel)
+                finish(total)
+
             def render_batch(index: int, rendered: int):
                 if gen != getattr(self, "_redraw_generation", None):
                     self.diagnostics["last_redraw_cancelled"] = True
@@ -6844,6 +6868,12 @@ class SignalBridgeGui:
                 batch_ms = int((time.time() - batch_started) * 1000)
                 self.diagnostics["last_redraw_batch_ms"] = batch_ms
                 self.diagnostics["last_redraw_rows"] = rendered
+                self.diagnostics["last_redraw_mode"] = "chunked"
+                if was_at_bottom:
+                    try:
+                        self.text.see("end")
+                    except Exception:
+                        pass
                 if batch_ms > 250:
                     record_event("slow_redraw_batch", duration_ms=batch_ms, rendered=rendered, visible=total, batch_start=index, batch_end=end_index, channel=self.visible_channel)
                 if end_index < total:
@@ -6856,6 +6886,8 @@ class SignalBridgeGui:
             if not visible_rows:
                 self.restore_feed_scroll(was_at_bottom, old_first_fraction)
                 finish(0)
+            elif total <= REDRAW_ATOMIC_ROW_LIMIT:
+                render_atomic()
             else:
                 render_batch(0, 0)
         except Exception as exc:

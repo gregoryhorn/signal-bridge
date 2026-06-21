@@ -56,6 +56,7 @@
 
 ### Feed Translation Stability Pass
 
+- Fixed a transient feed revert/flicker where new chat or translation updates could briefly expose a raw/old-looking intermediate redraw state; normal-sized redraws now render atomically while large feeds keep chunked redraws.
 - Fixed feed jumping when non-English text updates to English by using a stable pending display in Translated Only mode.
 - Preserved feed scroll position during translation-triggered redraws and only auto-scrolls when already at the bottom.
 - Skipped non-translatable rows before background translation queueing to reduce redraw pressure.

@@ -8,6 +8,24 @@ This list tracks current known issues and follow-up work for the public GitHub r
 
 ## Active issues
 
+## Fixed: Feed briefly reverts to raw/old render state when new chat arrives
+
+- Status: fixed in source / v0.4 refresh
+- Priority: high
+- Area: feed rendering / redraw stability / translation display / row model
+- Type: bug / UX
+
+A live-feed redraw could briefly show an older/raw-looking intermediate state when a new chat or translation update triggered a redraw. Normal-sized feed redraws now render atomically instead of exposing chunked half-redraw states, while very large redraws still use chunking for responsiveness.
+
+### Fix summary
+
+- Added an atomic redraw path for normal live-feed sizes.
+- Kept chunked redraws for very large visible feeds.
+- During chunked redraws, keep the bottom view pinned when the user was already at the bottom.
+- Added `last_redraw_mode` diagnostics so redraw behavior can be inspected.
+- Source GUI was restarted and visually inspected after the patch.
+
+
 ## Open: Translation Corrections layout gives too much width to Original and squeezes English
 
 - Status: open
