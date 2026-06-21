@@ -74,3 +74,75 @@ What Pilot Info showed instead:
 - Symptom: users without the optional Intel History module could see repeated dialogs when passive Pilot Info/feed code queried Intel History data.
 - Fix: passive calls are silent and record health state; explicit user actions still show one install/enable notice.
 - Packaging follow-up: the official Intel History add-on code is now bundled in the portable ZIP by default.
+
+## User feedback: Backlog chat ingest option
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: Settings / chatlog monitor startup
+
+Users need an option to ingest recent backlog chat on app load.
+
+Requested behavior:
+
+- Add a dedicated setting under Settings.
+- Default behavior remains live-only unless enabled.
+- When enabled, default backlog window should be 10 minutes.
+- Add a manual override allowing users to select several hours.
+- Must avoid replaying old private messages or overwhelming the feed.
+- Should clearly label this as startup backlog ingest / recent chat backfill.
+
+Acceptance notes:
+
+- Setting is visible in a dedicated Settings spot, not hidden in diagnostics.
+- Startup ingest respects selected minutes/hours.
+- Deduplication still prevents duplicate rows across clients/logs.
+- Live monitoring continues after initial backlog ingest.
+
+## User feedback: Ships initially highlighted purple on first load
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: entity detection / first render / catalog hydration
+
+On a user PC, some ships were highlighted as purple assets/modules when the app first loaded.
+
+Reported examples:
+
+- Retribution
+- Caracal
+
+Expected behavior:
+
+- Ships should highlight with the ship color, not purple asset/module color.
+- First render should use the same ship/category classification as subsequent renders.
+
+Investigation notes:
+
+- Likely first-load ordering issue where catalog/category hydration is not complete before initial render.
+- Could also be stale cache/classification metadata or alias-corrected asset detection running before ship-type classification.
+- Need reproduce on clean portable profile and compare first render vs redraw after catalog load.
+
+## User feedback: Pilot Info card size still incorrect on load
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: Pilot Info UI / window sizing
+
+The Pilot Info card still opens at the wrong size on load.
+
+Expected behavior:
+
+- Pilot Info should open compactly by default.
+- Footer actions should remain visible.
+- The card should not require unnecessary scrolling for normal profile content.
+- Window size should be stable and appropriate on first open, not only after manual resize/reopen.
+
+Investigation notes:
+
+- Recheck initial geometry calculation, minsize/maxsize, update_idletasks timing, and content-frame requested size.
+- Verify behavior on normal, high-DPI, and narrow/mobile-style layouts.
+
