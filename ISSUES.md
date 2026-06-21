@@ -187,3 +187,145 @@ Acceptance notes:
 - Add/Open Channels menu accurately shows channel state.
 - Diagnostics should include channel discovery count, active tracking count, and any channels skipped with reason.
 
+## User feedback: Purple asset/module highlighting should be off by default
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: Appearance / Display Options / entity highlighting
+
+Users report that purple text for non-ship assets/modules is visually distracting and should be disabled by default.
+
+Requested behavior:
+
+- Turn purple non-ship asset/module highlighting off by default for new installs.
+- Keep a Settings option to re-enable it.
+- Preserve ship, system, ESS, hostile, and ESI pilot highlighting defaults.
+- Existing users should keep their explicit display preference where possible.
+
+Acceptance notes:
+
+- Fresh portable profile starts with purple asset/module highlighting disabled.
+- Appearance/Display settings clearly expose the toggle.
+- Ships still use the ship color, not purple.
+
+## User feedback: Help menu needs a proper help system
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: Help menu / documentation UX
+
+The current Help menu is not sufficient. Users need an in-app help system rather than only scattered docs or About text.
+
+Requested behavior:
+
+- Add a proper Help menu section/window.
+- Include quick help for setup, chatlog folder selection, channel tracking, translation modes, aliases, exclusions, Pilot Info, Intel History, and diagnostics.
+- Include links to README, ISSUES.md, releases, and GitHub documentation.
+- Help should be readable offline from the portable ZIP where possible.
+
+Acceptance notes:
+
+- Help menu has clear user-facing entries, not just debug/about actions.
+- New users can find setup and troubleshooting steps without visiting GitHub first.
+
+## User feedback: About and Support need a dedicated menu
+
+- Status: open
+- Priority: medium
+- Reported: 2026-06-21
+- Area: menus / About / Support UX
+
+About and Support should have a dedicated menu or clearly separated menu section.
+
+Requested behavior:
+
+- Add a dedicated About/Support menu or top-level menu item.
+- Include version, release link, GitHub link, issue-report link, diagnostics copy action, and donation/support information.
+- Keep support information easy to find and separate from general Help documentation.
+
+Acceptance notes:
+
+- Users can quickly find the app version, support links, and donation/support details.
+- About/Support is not buried inside unrelated settings.
+
+## User feedback: Google default translation should auto-detect all non-English languages
+
+- Status: open
+- Priority: high
+- Reported: 2026-06-21
+- Area: translation engine / language detection
+
+If Google translation is the default engine, the app should automatically detect and translate any non-English language, not only Chinese.
+
+Reported expectation:
+
+- Russian and other non-English languages should translate by default when translation is enabled.
+
+Requested behavior:
+
+- Auto-detect non-English source text when Google is selected/default.
+- Translate detected non-English content to English by default.
+- Continue protecting EVE terms, systems, ship names, pilot names, URLs, and known aliases.
+- Avoid sending pure English lines unnecessarily.
+- Show translation source/status clearly in diagnostics or Translation Cache.
+
+Acceptance notes:
+
+- Russian sample text translates to English with Google/default mode enabled.
+- Chinese still translates correctly.
+- Mixed EVE intel lines preserve protected EVE terms.
+- Translation remains background/non-blocking and never freezes the UI.
+
+## User feedback: Add content and sender filter/block settings
+
+- Status: open
+- Priority: high
+- Reported: 2026-06-21
+- Area: Settings / filtering / feed hygiene
+
+Users need a filter option in Settings to block or filter messages by content keyword or by sender/user.
+
+Requested behavior:
+
+- Add a dedicated Settings page/section for filters.
+- Allow keyword/content filters.
+- Allow sender/user filters.
+- Support enable/disable per filter.
+- Support case-insensitive matching by default.
+- Optionally support exact, contains, and regex modes later.
+- Filtered messages should not clutter the main feed.
+- Diagnostics should show filtered-message counts.
+
+Acceptance notes:
+
+- User can add a keyword and matching messages are hidden or suppressed.
+- User can add a sender name and messages from that sender are hidden or suppressed.
+- Filter settings persist across restarts.
+- There is a safe way to review/edit/delete filters.
+
+## User feedback: Add local-channel spam and ASCII-art rate limiting
+
+- Status: open
+- Priority: high
+- Reported: 2026-06-21
+- Area: feed hygiene / Local channel / spam control
+
+Local chat can be spammed heavily, including ASCII-art messages. The app needs rate limiting or suppression controls so spam does not overwhelm the feed or UI.
+
+Requested behavior:
+
+- Add per-channel rate limiting, especially for Local.
+- Detect and suppress repeated messages from the same sender within a short window.
+- Detect very long ASCII-art or symbol-heavy messages.
+- Optionally collapse spam bursts into a single summary row.
+- Keep important intel messages visible.
+- Expose settings so users can tune or disable spam controls.
+
+Acceptance notes:
+
+- Repeated Local spam does not flood the feed.
+- ASCII-art messages can be hidden/collapsed.
+- Rate limiting does not block normal intel reports.
+- Diagnostics include suppressed/rate-limited counts.
