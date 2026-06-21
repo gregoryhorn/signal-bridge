@@ -552,18 +552,47 @@ def channel_from_filename(path: Path) -> str:
     return path.stem.split("_", 1)[0] or path.stem
 
 
-def discover_channels(limit_files: int = 500) -> list[str]:
+def channel_sort_key(name: str) -> str:
+    return re.sub(r"\s+", " ", str(name or "").strip()).casefold()
+
+
+def normalize_channel_name(name: str) -> str:
+    return re.sub(r"\s+", " ", str(name or "").strip())
+
+
+def discover_channel_metadata(limit_files: int = 500) -> dict[str, dict]:
+    """Return recent chatlog-backed channel metadata keyed by display channel name.
+
+    Raw discovery reports what chatlog files currently exist. Higher-level UI
+    merges this with persisted active/hidden tabs so saved channels do not
+    vanish from Add/Open Channels after restart.
+    """
     if not CHATLOG_DIR.exists():
-        return []
-    channels: dict[str, int] = {}
-    files = sorted(CHATLOG_DIR.glob("*.txt"), key=lambda p: p.stat().st_mtime_ns, reverse=True)[:limit_files]
+        return {}
+    channels: dict[str, dict] = {}
+    try:
+        files = sorted(CHATLOG_DIR.glob("*.txt"), key=lambda p: p.stat().st_mtime_ns, reverse=True)[:limit_files]
+    except Exception:
+        return {}
     for path in files:
         try:
-            channel = channel_from_filename(path)
-            channels[channel] = max(channels.get(channel, 0), path.stat().st_mtime_ns)
+            channel = normalize_channel_name(channel_from_filename(path))
+            if not channel:
+                continue
+            st = path.stat()
+            info = channels.setdefault(channel, {"channel": channel, "last_seen_ns": 0, "files": 0, "latest_file": ""})
+            info["files"] = int(info.get("files", 0)) + 1
+            if st.st_mtime_ns >= int(info.get("last_seen_ns", 0)):
+                info["last_seen_ns"] = st.st_mtime_ns
+                info["latest_file"] = path.name
         except OSError:
             continue
-    return [name for name, _ in sorted(channels.items(), key=lambda kv: kv[1], reverse=True)]
+    return channels
+
+
+def discover_channels(limit_files: int = 500) -> list[str]:
+    channels = discover_channel_metadata(limit_files)
+    return [name for name, _ in sorted(channels.items(), key=lambda kv: kv[1].get("last_seen_ns", 0), reverse=True)]
 
 
 def default_channels() -> set[str]:
@@ -3513,31 +3542,66 @@ class SignalBridgeGui:
             return "No channels selected"
         return f"{len(self.active_channels)} active channel(s), {len(self.hidden_tab_ids)} hidden tab(s)"
 
+    def channel_catalog(self) -> dict[str, dict]:
+        discovered = discover_channel_metadata()
+        catalog: dict[str, dict] = {name: dict(info) for name, info in discovered.items()}
+        persisted = set(self.active_channels) | {c for c in self.tab_order if c != ALL_CHANNELS_TAB} | set(self.hidden_tab_ids)
+        for channel in persisted:
+            channel = normalize_channel_name(channel)
+            if not channel:
+                continue
+            catalog.setdefault(channel, {"channel": channel, "last_seen_ns": 0, "files": 0, "latest_file": ""})
+        for channel, info in catalog.items():
+            active = channel in self.active_channels
+            hidden = channel in self.hidden_tab_ids
+            discovered_now = channel in discovered
+            if active and discovered_now:
+                status = "tracking"
+            elif active:
+                status = "tracking, waiting for log"
+            elif hidden:
+                status = "hidden"
+            elif discovered_now:
+                status = "discovered"
+            else:
+                status = "saved, missing log"
+            info["active"] = active
+            info["hidden"] = hidden
+            info["discovered"] = discovered_now
+            info["status"] = status
+        return catalog
+
     def refresh_channel_status(self):
-        channels = discover_channels()
-        self.set_status(f"Found {len(channels)} chat channels. Active: {len(self.active_channels)} Hidden tabs: {len(self.hidden_tab_ids)}")
+        catalog = self.channel_catalog()
+        discovered = len([c for c, info in catalog.items() if info.get("discovered")])
+        waiting = len([c for c, info in catalog.items() if info.get("active") and not info.get("discovered")])
+        self.set_status(f"Channels: {len(self.active_channels)} tracking, {discovered} discovered, {waiting} waiting for log, {len(self.hidden_tab_ids)} hidden")
 
     def choose_channels(self):
         tk = self.tk
-        channels = discover_channels()
+        catalog = self.channel_catalog()
+        order = sorted(catalog, key=lambda c: (0 if catalog[c].get("active") else 1 if catalog[c].get("discovered") else 2, -int(catalog[c].get("last_seen_ns") or 0), channel_sort_key(c)))
         win = tk.Toplevel(self.root)
-        win.title("Choose / Open Chat Channels")
-        win.geometry("460x560")
-        win.configure(bg="#0b0f14")
-        win.transient(self.root)
-        tk.Label(win, text="Select channels to add/open", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
-        tk.Label(win, text="Add Selected keeps current channels. Replace All is explicit.", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9)).pack(anchor="w", padx=10, pady=(0, 6))
+        self.polish_window(win, self.root, width=620, height=600, minsize=(520, 420), modal=True, title="Choose / Open Chat Channels")
+        tk.Label(win, text="Choose / Open Chat Channels", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
+        tk.Label(win, text="Active channels are selected. Saved channels remain listed even if no current chatlog is available, so you do not have to re-add them after restart.", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9), wraplength=580, justify="left").pack(anchor="w", padx=10, pady=(0, 6))
         lb = tk.Listbox(win, selectmode="extended", bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
         lb.pack(fill="both", expand=True, padx=10, pady=6)
-        for idx, channel in enumerate(channels):
-            marker = "âœ“ " if channel in self.active_channels else "  "
-            lb.insert("end", marker + channel)
-            if channel in self.active_channels:
+        for idx, channel in enumerate(order):
+            info = catalog[channel]
+            status = str(info.get("status") or "")
+            latest = str(info.get("latest_file") or "")
+            suffix = f" - {status}"
+            if latest:
+                suffix += f" - {latest}"
+            marker = "* " if info.get("active") else "  "
+            lb.insert("end", marker + channel + suffix)
+            if info.get("active"):
                 lb.selection_set(idx)
         btns = tk.Frame(win, bg="#0b0f14")
         btns.pack(fill="x", padx=10, pady=8)
         def selected_channels():
-            return {channels[i] for i in lb.curselection()}
+            return {order[i] for i in lb.curselection()}
         def add_selected():
             selected = selected_channels()
             if selected:
@@ -3551,14 +3615,14 @@ class SignalBridgeGui:
             lb.selection_set(0, "end")
         def select_none():
             lb.selection_clear(0, "end")
-        tk.Button(btns, text="Add Selected", command=add_selected).pack(side="left", padx=(0, 6))
-        tk.Button(btns, text="Replace All", command=replace_selection).pack(side="left", padx=6)
+        tk.Button(btns, text="Add / Keep Selected", command=add_selected).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Replace Active", command=replace_selection).pack(side="left", padx=6)
         tk.Button(btns, text="All", command=select_all).pack(side="left", padx=6)
         tk.Button(btns, text="None", command=select_none).pack(side="left", padx=6)
         tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
 
     def add_channels(self, channels: set[str], manual: bool = False):
-        channels = {str(c) for c in channels if str(c).strip()}
+        channels = {normalize_channel_name(c) for c in channels if normalize_channel_name(c)}
         if not channels:
             self.set_status("No channels selected")
             return
@@ -3566,7 +3630,7 @@ class SignalBridgeGui:
 
     def set_channels(self, channels: set[str], manual: bool = False, clear_existing: bool = False):
         old_channels = set(self.active_channels)
-        self.active_channels = set(channels)
+        self.active_channels = {normalize_channel_name(c) for c in channels if normalize_channel_name(c)}
         added = self.active_channels - old_channels
         removed = old_channels - self.active_channels
         self.hidden_tab_ids -= removed
@@ -4154,9 +4218,12 @@ class SignalBridgeGui:
             c2 = card(body, "Folders"); r = row(c2); action(r, "Choose Chatlog Folder...", self.choose_chatlog_folder); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); label(c2, f"Current chatlogs: {CHATLOG_DIR}", "#8b98a8")
         def render_channels():
             c = card(body, "Channels", "Add channels without replacing existing ones. Hidden channels stay hidden until restored.")
-            label(c, f"Active: {len(self.active_channels)} | Hidden: {len(self.hidden_tab_ids)} | Discovered: {len(discover_channels())}"); label(c, f"Visible: {self.visible_channel}", "#8b98a8")
+            catalog = self.channel_catalog()
+            discovered_count = len([x for x in catalog.values() if x.get("discovered")])
+            waiting_count = len([x for x in catalog.values() if x.get("active") and not x.get("discovered")])
+            label(c, f"Tracking: {len(self.active_channels)} | Discovered: {discovered_count} | Waiting for log: {waiting_count} | Hidden: {len(self.hidden_tab_ids)}"); label(c, f"Visible: {self.visible_channel}", "#8b98a8")
             r = row(c); action(r, "Add / Open Channels...", self.choose_channels); action(r, "Restore Hidden Tabs...", self.restore_hidden_tabs_dialog); action(r, "Refresh Status", self.refresh_channel_status); action(r, "Close All Active", self.close_selected_channels)
-            label(c, "New active chats auto-open as dropdown entries without stealing focus. Live-only/no-backfill remains enabled.", "#8b98a8")
+            label(c, "Saved channels stay listed and continue waiting for new log files after restart. Live-only/no-backfill remains enabled.", "#8b98a8")
         def render_appearance():
             c = card(body, "Appearance", "Customize fonts, colors, bold styling, highlight backgrounds, opacity, and presets.")
             label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}"); label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", "#8b98a8")

@@ -561,3 +561,10 @@ After fixing:
 - Added a shared numeric/decimal token guard so values like `9.2`, `7.5`, and `10.0` are never treated as systems by catalog or alias-based system matching.
 - Valid EVE system codes such as `15W-GC`, `UH-9ZG`, `4-HWWF`, and `1DQ1-A` remain valid.
 
+## Fixed: Channel add/open menu not showing channels correctly
+
+- Status: fixed in v0.4 source refresh
+- Priority: high
+- Area: channel discovery / Add/Open Channels menu / tracking startup
+- Fix summary: Add/Open Channels now merges recent chatlog discovery with persisted active, hidden, and saved tab state so previously tracked channels remain visible even when no current chatlog file exists. The chooser now shows tracking/discovered/hidden/waiting statuses, uses consistent modal stacking, and saved channels continue waiting for new log files after restart instead of requiring manual re-add.
+- Validation: compile passed; helper validation confirmed discovered channels, persisted missing active channels, hidden channels, and discovered-only channels are categorized correctly.

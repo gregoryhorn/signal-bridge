@@ -49,6 +49,8 @@
 
 ## Planned - Intel History add-on spec
 
+- Fixed Add/Open Channels so saved/tracked channels remain visible with tracking/discovered/hidden/waiting statuses and no longer require manual re-add after restart.
+
 - Added planning spec for the future optional Intel History / Pilot Intelligence add-on.
 - Clarified that LAN Viewer and Argos offline translation support are native/core planned features, while Intel History is the first optional add-on.
 - Captured planned local SQLite sighting history, Pilot Intelligence Cards, manual/auto flags, zKill enrichment, import/export intel packs, and a read-only Intel Query Service / LLM entry point.
