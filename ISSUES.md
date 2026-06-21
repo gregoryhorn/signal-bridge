@@ -461,3 +461,35 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - Nested dialogs are parented/transient/modal correctly and do not open behind other windows.
 - Tables and editors resize gracefully on narrow/mobile-style layouts.
 - Help text explains impact without making pages feel like debug tools.
+
+
+## Open: False system detection for decimal/security values such as 9.2
+
+- Status: open
+- Priority: medium
+- Area: entity detection / system highlighting / aliases
+- Reported: user feedback with screenshot
+
+### Feedback
+
+`9.2` is being detected/highlighted as a system even though it is not in the alias list and should not be treated as an EVE system name.
+
+### Expected behavior
+
+- Decimal values like `9.2`, `7.5`, `10.0`, and similar numeric values should not be detected as systems.
+- Security/range/count-style numbers should remain plain text unless they are part of a valid, known entity.
+- System detection should require a valid EVE system code/name from the catalog or an explicit user alias.
+
+### Investigation notes
+
+- Check whether this comes from a hardcoded system regex rather than aliases.
+- Review `SYSTEM_RE`, catalog lookup fallback, alias replacement, and render-time highlight paths.
+- Verify decimal tokens are excluded before system/entity classification.
+- Confirm the fix does not break real nullsec-style systems such as `15W-GC`, `UH-9ZG`, `4-HWWF`, or `1DQ1-A`.
+
+### Acceptance criteria
+
+- `9.2` is not highlighted as a system.
+- Similar decimal values are not highlighted as systems.
+- Valid EVE system codes still highlight correctly.
+- The exclusion is handled in detection logic, not by adding one-off aliases.
