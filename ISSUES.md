@@ -415,3 +415,49 @@ Acceptance notes:
 - Settings > Add-ons shows Intel History as installed/enabled/healthy when the module loads.
 - Existing users keep their explicit enable/disable preference where possible.
 - Startup remains safe: no modal loop and no blocking if the module is unavailable.
+
+
+## Open: Dedicated settings tab and sub-page design pass
+
+- Status: open
+- Priority: medium
+- Area: Settings / UX design / dialogs
+- Reported: user feedback
+
+### Feedback
+
+Settings has grown into many tabs and sub-pages, and each page needs a focused design pass instead of isolated control-by-control fixes.
+
+### Requested outcome
+
+- Review every Settings tab and sub-page individually.
+- Keep important controls visible at normal Settings window size.
+- Avoid hidden actions that require expanding the window to discover.
+- Use consistent spacing, section titles, help text, and action placement.
+- Make modal sub-dialogs open above Settings/main app reliably.
+- Keep destructive actions visually separated and clearly confirmed.
+- Prefer compact two-column or responsive layouts where tables/editors are currently too wide.
+
+### Candidate pages
+
+- General
+- Channels
+- Appearance
+- Translation
+- Translation Cache
+- EVE Catalog
+- Aliases
+- ESI
+- Exclusions
+- Add-ons
+- Cache & Data
+- Diagnostics
+- About / Support
+
+### Acceptance criteria
+
+- Each Settings page has a clear primary purpose.
+- Important controls are visible without resizing on the default Settings size.
+- Nested dialogs are parented/transient/modal correctly and do not open behind other windows.
+- Tables and editors resize gracefully on narrow/mobile-style layouts.
+- Help text explains impact without making pages feel like debug tools.

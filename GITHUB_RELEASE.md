@@ -259,3 +259,9 @@ The planned LAN Web Viewer should mirror the desktop app's appearance settings w
 - Fixed an Intel History missing-module modal loop where passive Pilot Info/feed checks could repeatedly show dialogs if the optional module was unavailable.
 - Core chat monitoring, translation, and Pilot Info now continue normally without Intel History installed/enabled.
 
+
+
+### UI window stacking and Settings design tracking
+
+- Fixed General Exclusion List dialog stacking/top-order by making it a polished modal child of the main app.
+- Added public issue tracking for a dedicated design pass across all Settings tabs and sub-pages.

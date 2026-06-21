@@ -5123,10 +5123,9 @@ class SignalBridgeGui:
 
     def show_esi_exclusion_list(self):
         win = self.tk.Toplevel(self.root)
-        win.title("General Exclusion List")
-        win.configure(bg="#0b0f14")
-        win.geometry("520x420")
-        self.tk.Label(win, text="Names excluded from ESI character detection", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
+        self.polish_window(win, self.root, width=560, height=460, minsize=(420, 340), modal=True, title="General Exclusion List")
+        self.tk.Label(win, text="General exclusions", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
+        self.tk.Label(win, text="Excluded terms are ignored by pilot, system, ship, module, ESS, and highlight rules.", bg="#0b0f14", fg="#8b98a8", wraplength=520, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 4))
         frame = self.tk.Frame(win, bg="#0b0f14"); frame.pack(fill="both", expand=True, padx=12, pady=6)
         lb = self.tk.Listbox(frame, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
         sb = self.tk.Scrollbar(frame, command=lb.yview); lb.configure(yscrollcommand=sb.set)
@@ -5162,6 +5161,10 @@ class SignalBridgeGui:
                 if name and ESI_CACHE.set_correction(name, "ignore", note="bulk import"):
                     count += 1
             reload_list(); self.set_status(f"Imported {count} exclusions")
+        try:
+            entry.bind("<Return>", lambda _event=None: add_name())
+        except Exception:
+            pass
         buttons = self.tk.Frame(win, bg="#0b0f14"); buttons.pack(fill="x", padx=12, pady=(0, 12))
         self.tk.Button(buttons, text="Add", command=add_name).pack(side="left", padx=(0, 6))
         self.tk.Button(buttons, text="Remove Selected", command=remove_selected).pack(side="left", padx=(0, 6))
