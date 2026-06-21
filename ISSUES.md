@@ -330,36 +330,6 @@ Acceptance notes:
 - Rate limiting does not block normal intel reports.
 - Diagnostics include suppressed/rate-limited counts.
 
-## User feedback: Translation Cache page layout hides important controls
-
-- Status: open
-- Priority: high
-- Reported: 2026-06-21
-- Area: Settings / Translation Cache UI / layout
-
-The Translation Cache Manager is still not laid out well. If the user does not expand the page/window, they may not know that more options are hidden off the page.
-
-Reported symptoms:
-
-- Important buttons/options are hidden unless the page is expanded.
-- The Original and English tables are too wide.
-- The wide tables make the editor controls harder to see and use.
-- Users may not realize there are more controls below or off-screen.
-
-Requested behavior:
-
-- Make the Translation Cache page usable at the normal Settings window size.
-- Reduce the default width of the Original and English tables so both columns fit better.
-- Keep the Original and English edit boxes visible without requiring window expansion.
-- Keep action buttons visible or move them into a fixed action bar.
-- Use clearer spacing, labels, and scroll behavior so hidden options are obvious.
-
-Acceptance notes:
-
-- At default Settings size, users can see the row lists, edit boxes, and main actions.
-- The page should not feel like a raw debug table.
-- No critical action should be hidden without a visible scroll cue or fixed action bar.
-
 ## User feedback: Translation Cache still contains English in Original and English fields
 
 - Status: open
@@ -553,4 +523,5 @@ After fixing:
 - Verify Original and English tables/editors fit better and remain usable.
 - Verify action buttons such as Save, Delete Selected Entry, Delete All Entries, Clean Duplicates, and Cache Status are discoverable.
 - Include before/after screenshots or a visual verification note in the PR/release notes.
+
 
