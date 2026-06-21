@@ -527,3 +527,30 @@ Users should have a Settings option to enable or disable clickable hyperlinks in
 - When enabled, URLs are clickable using safe URL handling.
 - The setting is documented in README/help/release notes when implemented.
 
+
+## P1 Bug: Translation Cache page layout hides controls and tables are too wide
+
+- Status: open / P1
+- Priority: P1 / High - requires visual inspection before and after fix
+- Area: Settings / Translation Cache / UI layout
+
+### Visual inspection requirement
+
+This is now a P1 UI bug. Any fix must include visual inspection before and after implementation.
+
+Before fixing:
+
+- Capture or inspect the current Translation Cache page at the normal/default Settings window size.
+- Confirm which controls are hidden below the fold or off-page.
+- Confirm the Original and English tables/editors are too wide for normal use.
+- Save the before screenshot or record the exact visual findings.
+
+After fixing:
+
+- Re-open Settings > Translation Cache at the normal/default Settings window size.
+- Capture or inspect the corrected page.
+- Verify important controls are visible without needing to expand the Settings window.
+- Verify Original and English tables/editors fit better and remain usable.
+- Verify action buttons such as Save, Delete Selected Entry, Delete All Entries, Clean Duplicates, and Cache Status are discoverable.
+- Include before/after screenshots or a visual verification note in the PR/release notes.
+
