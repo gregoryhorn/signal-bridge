@@ -66,6 +66,7 @@ CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
 PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
 USER_ALIASES_PATH = DATA_DIR / "user_aliases.json"
 DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
+DEFAULT_RECOGNITION_RULES_PATH = DATA_DIR / "default_recognition_rules.json"
 DEFAULT_ESI_ENTITIES_PATH = DATA_DIR / "default_esi_entities.json"
 TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
 ZKILL_CACHE_PATH = CACHE_DIR / "zkill_cache.json"
@@ -1542,6 +1543,21 @@ class EsiCache:
             con.execute("""create table if not exists esi_corrections(
                 text text primary key, action text not null, entity_type text, entity_id integer,
                 canonical_name text, note text, created_at real not null)""")
+            con.execute("""create table if not exists exclusion_rules(
+                id integer primary key autoincrement,
+                text text not null,
+                normalized_text text not null,
+                scope text not null,
+                target_kind text not null default 'any',
+                channel text not null default '',
+                enabled integer not null default 1,
+                note text not null default '',
+                source text not null default 'user',
+                created_at real not null,
+                updated_at real not null,
+                unique(normalized_text, scope, target_kind, channel)
+            )""")
+            con.execute("create index if not exists idx_exclusion_rules_scope on exclusion_rules(scope, enabled)")
             con.execute("""create table if not exists esi_status(key text primary key, value text, updated_at real not null)""")
             con.commit(); con.close()
         except Exception as exc:
@@ -1594,6 +1610,93 @@ class EsiCache:
             con = self._connect(); con.execute("delete from esi_corrections where text=?", (key,)); con.commit(); con.close(); return True
         except Exception as exc:
             write_log("ESI correction remove failed", exc); return False
+
+    def set_exclusion_rule(self, text: str, scope: str, target_kind: str = "any", enabled: bool = True, note: str = "", source: str = "user", channel: str = "") -> int | None:
+        raw = str(text or "").strip()
+        norm = normalize_esi_query(raw)
+        scope = str(scope or "").strip()
+        target_kind = str(target_kind or "any").strip() or "any"
+        channel = str(channel or "").strip()
+        if not raw or not norm or scope not in {"pilot_ignore", "highlight_exclude", "noise_word", "chat_filter"}:
+            return None
+        now = time.time()
+        try:
+            con = self._connect()
+            cur = con.execute("""insert into exclusion_rules(text, normalized_text, scope, target_kind, channel, enabled, note, source, created_at, updated_at)
+                values(?,?,?,?,?,?,?,?,?,?)
+                on conflict(normalized_text, scope, target_kind, channel) do update set
+                    text=excluded.text, enabled=excluded.enabled, note=excluded.note,
+                    source=excluded.source, updated_at=excluded.updated_at""",
+                (raw, norm, scope, target_kind, channel, 1 if enabled else 0, str(note or ""), str(source or "user"), now, now))
+            row = con.execute("select id from exclusion_rules where normalized_text=? and scope=? and target_kind=? and channel=?", (norm, scope, target_kind, channel)).fetchone()
+            con.commit(); con.close()
+            return int(row[0]) if row else int(cur.lastrowid or 0)
+        except Exception as exc:
+            write_log("Exclusion rule save failed", exc)
+            return None
+
+    def list_exclusion_rules(self, scope: str | None = None, include_disabled: bool = True, include_legacy: bool = True) -> list[dict]:
+        out: list[dict] = []
+        try:
+            con = self._connect()
+            where = []
+            args: list = []
+            if scope:
+                where.append("scope=?"); args.append(scope)
+            if not include_disabled:
+                where.append("enabled=1")
+            sql = "select id,text,normalized_text,scope,target_kind,channel,enabled,note,source,created_at,updated_at from exclusion_rules"
+            if where:
+                sql += " where " + " and ".join(where)
+            sql += " order by scope, text"
+            rows = con.execute(sql, args).fetchall()
+            con.close()
+            out.extend({"id": r[0], "text": r[1], "normalized_text": r[2], "scope": r[3], "target_kind": r[4], "channel": r[5], "enabled": bool(r[6]), "note": r[7], "source": r[8], "created_at": r[9], "updated_at": r[10], "legacy": False} for r in rows)
+        except Exception as exc:
+            write_log("Exclusion rule list failed", exc)
+        if include_legacy:
+            try:
+                legacy_scopes = [scope] if scope in ("pilot_ignore", "highlight_exclude") else (["pilot_ignore", "highlight_exclude"] if scope is None else [])
+                for item in self.list_corrections("ignore"):
+                    term = item.get("text") or ""
+                    for legacy_scope in legacy_scopes:
+                        if not any(normalize_esi_query(x.get("text")) == normalize_esi_query(term) and x.get("scope") == legacy_scope for x in out):
+                            out.append({"id": None, "text": term, "normalized_text": normalize_esi_query(term), "scope": legacy_scope, "target_kind": "any", "channel": "", "enabled": True, "note": item.get("note") or "legacy broad exclusion", "source": "legacy", "created_at": item.get("created_at"), "updated_at": item.get("created_at"), "legacy": True})
+            except Exception as exc:
+                write_log("Legacy exclusion list merge failed", exc)
+        return out
+
+    def remove_exclusion_rule(self, rule_id: int | None = None, text: str = "", scope: str = "", target_kind: str = "any", channel: str = "") -> bool:
+        try:
+            con = self._connect()
+            if rule_id is not None:
+                con.execute("delete from exclusion_rules where id=?", (int(rule_id),))
+            else:
+                norm = normalize_esi_query(text)
+                if not norm or not scope:
+                    con.close(); return False
+                con.execute("delete from exclusion_rules where normalized_text=? and scope=? and target_kind=? and channel=?", (norm, scope, target_kind or "any", channel or ""))
+            con.commit(); con.close(); return True
+        except Exception as exc:
+            write_log("Exclusion rule remove failed", exc)
+            return False
+
+    def rule_matches(self, text: str, scope: str, target_kind: str = "any", channel: str = "") -> bool:
+        norm = normalize_esi_query(text)
+        if not norm or not scope:
+            return False
+        try:
+            con = self._connect()
+            row = con.execute("""select 1 from exclusion_rules
+                where normalized_text=? and scope=? and enabled=1
+                  and (target_kind in ('any', ?) or ?='any')
+                  and (channel='' or channel=?)
+                limit 1""", (norm, scope, target_kind or "any", target_kind or "any", channel or "")).fetchone()
+            con.close()
+            return bool(row)
+        except Exception as exc:
+            write_log("Exclusion rule match failed", exc)
+            return False
 
     def get_status(self) -> dict:
         try:
@@ -1710,32 +1813,42 @@ ESI_CACHE = EsiCache()
 
 
 def seed_default_exclusions(path: Path = DEFAULT_EXCLUSIONS_PATH) -> int:
-    """Seed bundled general exclusions into the local cache without overwriting user edits."""
+    """Legacy no-op.
+
+    Signal Bridge used to seed bundled broad exclusions into the ESI correction
+    table. Scoped Recognition Rules replace that broad list, and users can now
+    start from a clean local rule set. Keep this function as a no-op so older
+    startup code paths do not recreate legacy exclusions.
+    """
+    return 0
+
+
+def seed_default_recognition_rules(path: Path = DEFAULT_RECOGNITION_RULES_PATH) -> int:
+    """Seed bundled scoped recognition rules without overwriting user rules."""
     try:
         if not path.exists():
             return 0
         data = json.loads(path.read_text(encoding="utf-8"))
-        items = data.get("exclusions") if isinstance(data, dict) else data
+        items = data.get("rules") if isinstance(data, dict) else data
         if not isinstance(items, list):
             return 0
         added = 0
         for item in items:
-            if isinstance(item, str):
-                text, note = item, "bundled default exclusion"
-            elif isinstance(item, dict):
-                text = str(item.get("text") or "").strip()
-                note = str(item.get("note") or "bundled default exclusion")
-            else:
+            if not isinstance(item, dict):
                 continue
-            if not text or ESI_CACHE.get_correction(text):
+            text = str(item.get("text") or "").strip()
+            scope = str(item.get("scope") or "noise_word").strip()
+            target = str(item.get("target_kind") or "any").strip() or "any"
+            note = str(item.get("note") or "bundled default recognition rule")
+            if not text:
                 continue
-            if ESI_CACHE.set_correction(text, "ignore", note=note):
+            if ESI_CACHE.set_exclusion_rule(text, scope, target, True, note, "bundled-default"):
                 added += 1
         if added:
-            write_log(f"Seeded {added} bundled default exclusion(s)")
+            write_log(f"Seeded {added} bundled scoped recognition rule(s)")
         return added
     except Exception as exc:
-        write_log("Default exclusion seed failed", exc)
+        write_log("Default recognition rule seed failed", exc)
         return 0
 
 
@@ -1776,35 +1889,49 @@ def seed_default_esi_entities(path: Path = DEFAULT_ESI_ENTITIES_PATH) -> int:
 
 
 seed_default_exclusions()
+seed_default_recognition_rules()
 seed_default_esi_entities()
 
 
 
 def is_parser_noise(term: str) -> bool:
-    """Return True for built-in words that should not become ESI candidates."""
+    """Return True for built-in or user-added words that should not become ESI candidates."""
     key = normalize_esi_query(term)
-    return bool(key and "COMMON_ESI_NOISE" in globals() and key in COMMON_ESI_NOISE)
+    if not key:
+        return False
+    if "COMMON_ESI_NOISE" in globals() and key in COMMON_ESI_NOISE:
+        return True
+    try:
+        return ESI_CACHE.rule_matches(term, "noise_word")
+    except Exception:
+        return False
 
 
 def is_esi_ignored(term: str) -> bool:
-    """Return True when the user/bundled list says not to resolve a pilot via ESI."""
+    """Return True when scoped or legacy rules say not to resolve a pilot via ESI."""
     key = normalize_esi_query(term)
     if not key:
         return False
     try:
+        if ESI_CACHE.rule_matches(term, "pilot_ignore"):
+            return True
         corr = ESI_CACHE.get_correction(term)
         return bool(corr and corr.get("action") == "ignore")
     except Exception:
         return False
 
 
-def is_highlight_excluded(term: str) -> bool:
-    """Return True when a term should not receive visual entity highlighting.
-
-    Compatibility note: existing stored ignores still hide highlights for now.
-    The separate helper makes call-site intent explicit and prepares a later
-    migration to scoped pilot/highlight/noise/filter rules.
-    """
+def is_highlight_excluded(term: str, target_kind: str = "any") -> bool:
+    """Return True when a term should not receive visual entity highlighting."""
+    key = normalize_esi_query(term)
+    if not key:
+        return False
+    try:
+        if ESI_CACHE.rule_matches(term, "highlight_exclude", target_kind):
+            return True
+    except Exception:
+        pass
+    # Compatibility: existing broad ignores continue hiding highlights until users split scopes.
     return is_parser_noise(term) or is_esi_ignored(term)
 
 
@@ -4691,11 +4818,16 @@ class SignalBridgeGui:
             r = row(c); action(r, "ESI / OAuth Settings...", self.show_esi_settings); action(r, "Manual Character Check...", self.manual_esi_check_dialog); action(r, "Diagnostics", self.show_esi_diagnostics); action(r, "Clear ESI Cache", self.clear_esi_cache)
         def render_exclusions():
             c = card(body, "Recognition & Highlight Exclusions", "Current exclusions stop pilot recognition and hide matching visual highlights. Future scoped rules will split pilot ignores, highlight exclusions, noise words, and chat filters.")
-            try: exclusions = ESI_CACHE.list_corrections("ignore")
-            except Exception: exclusions = []
-            label(c, f"Local exclusions: {len(exclusions)}"); sample = ", ".join((x.get("text") or "") for x in exclusions[:12])
-            if sample: label(c, sample + ("..." if len(exclusions) > 12 else ""), "#8b98a8")
-            r = row(c); action(r, "Open Exclusion List...", self.show_esi_exclusion_list)
+            try:
+                pilot_rules = ESI_CACHE.list_exclusion_rules("pilot_ignore")
+                highlight_rules = ESI_CACHE.list_exclusion_rules("highlight_exclude")
+                noise_rules = ESI_CACHE.list_exclusion_rules("noise_word")
+            except Exception:
+                pilot_rules, highlight_rules, noise_rules = [], [], []
+            label(c, f"Ignored pilots: {len(pilot_rules)} | Highlight exclusions: {len(highlight_rules)} | Noise words: {len(noise_rules)}")
+            sample = ", ".join((x.get("text") or "") for x in (pilot_rules + highlight_rules + noise_rules)[:12])
+            if sample: label(c, sample + ("..." if len(pilot_rules) + len(highlight_rules) + len(noise_rules) > 12 else ""), "#8b98a8")
+            r = row(c); action(r, "Open Scoped Rules...", self.show_esi_exclusion_list)
         def render_addons():
             c = card(body, "Add-ons", "Optional add-ons keep Signal Bridge lightweight. LAN Viewer and Argos remain native/core features; Intel History is the first planned optional add-on.")
             label(c, f"Modules folder: {MODULES_DIR}", "#8b98a8")
@@ -4727,7 +4859,7 @@ class SignalBridgeGui:
         def render_cache_data():
             c = card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
             count, hits = TRANSLATION_CACHE.stats()
-            label(c, f"Starter exclusions: {DEFAULT_EXCLUSIONS_PATH.exists()} | {DEFAULT_EXCLUSIONS_PATH.name}"); label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}"); default_translation_cache_path = DATA_DIR / "default_translation_cache.json"; label(c, f"Starter translation cache: {default_translation_cache_path.exists()} | {default_translation_cache_path.name}")
+            label(c, f"Legacy starter exclusions disabled: {DEFAULT_EXCLUSIONS_PATH.name}"); label(c, f"Starter recognition rules: {DEFAULT_RECOGNITION_RULES_PATH.exists()} | {DEFAULT_RECOGNITION_RULES_PATH.name}"); label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}"); default_translation_cache_path = DATA_DIR / "default_translation_cache.json"; label(c, f"Starter translation cache: {default_translation_cache_path.exists()} | {default_translation_cache_path.name}")
             label(c, f"Local translation cache: {count} entries, {hits} hits", "#8b98a8"); label(c, f"Local ESI cache: {ESI_CACHE.stats()}", "#8b98a8")
             r = row(c); action(r, "Open App Folder", self.open_app_folder); action(r, "Open Logs Folder", self.open_logs_folder); action(r, "Clear Translation Cache", self.clear_translation_cache); action(r, "Clear ESI Cache", self.clear_esi_cache)
         def render_diagnostics():
@@ -5422,52 +5554,170 @@ class SignalBridgeGui:
 
     def show_esi_exclusion_list(self):
         win = self.tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=600, height=480, minsize=(460, 360), modal=True, title="Recognition & Highlight Exclusions")
-        self.tk.Label(win, text="Recognition & highlight exclusions", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
-        self.tk.Label(win, text="Current behavior: entries are ignored by pilot recognition and hidden from entity highlights. This page is being prepared for separate pilot/highlight/noise/filter scopes.", bg="#0b0f14", fg="#8b98a8", wraplength=560, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 4))
+        self.polish_window(win, self.root, width=760, height=560, minsize=(620, 420), modal=True, title="Recognition Rules")
+        self.tk.Label(win, text="Recognition rules", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
+        self.tk.Label(win, text="Use scoped rules when Signal Bridge recognizes, highlights, or checks the wrong text. Each scope changes a different part of the parser/rendering pipeline.", bg="#0b0f14", fg="#8b98a8", wraplength=720, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 6))
+
+        scope_labels = {
+            "pilot_ignore": "Ignored pilots",
+            "highlight_exclude": "Highlight exclusions",
+            "noise_word": "Noise words",
+        }
+        scope_help = {
+            "pilot_ignore": "Stops a term from being sent to ESI or shown as a pilot. Use for false pilot names or bad partial names.",
+            "highlight_exclude": "Keeps the text visible but removes colors/tags for matching highlights. Use when a real word is being colored as a ship, system, module, ESS, or pilot.",
+            "noise_word": "Prevents common chat words/phrases from becoming pilot candidates. Use for phrases like 'thanks fc', 'ship on gate', or 'channel changed'.",
+        }
+        scope_examples = {
+            "pilot_ignore": "Example: a random word keeps resolving as a pilot -> add it here.",
+            "highlight_exclude": "Example: correct chat text gets the wrong color -> add it here, target 'any' unless you know the highlight type.",
+            "noise_word": "Example: repeated non-name phrases clutter candidate checks -> add the phrase here.",
+        }
+        label_to_scope = {v: k for k, v in scope_labels.items()}
+        scope_var = self.tk.StringVar(value="Ignored pilots")
+        target_var = self.tk.StringVar(value="any")
+        note_var = self.tk.StringVar()
+        status_var = self.tk.StringVar(value="Choose the rule type first, then enter the term or phrase to control.")
+        help_var = self.tk.StringVar()
+        example_var = self.tk.StringVar()
+        target_help_var = self.tk.StringVar()
+
+        help_box = self.tk.Frame(win, bg="#111821", highlightthickness=1, highlightbackground="#1f2f42")
+        help_box.pack(fill="x", padx=12, pady=(0, 8))
+        self.tk.Label(help_box, text="What should this rule do?", bg="#111821", fg="#d7dde5", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
+        self.tk.Label(help_box, textvariable=help_var, bg="#111821", fg="#cfd8e3", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8)
+        self.tk.Label(help_box, textvariable=example_var, bg="#111821", fg="#8b98a8", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8, pady=(2, 2))
+        self.tk.Label(help_box, text="Quick guide: bad pilot match -> Ignored pilots | wrong color -> Highlight exclusions | common phrase -> Noise words | unsure -> use Test term", bg="#111821", fg="#7ee787", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8, pady=(0, 6))
+
+        top = self.tk.Frame(win, bg="#0b0f14"); top.pack(fill="x", padx=12, pady=(0, 6))
+        self.tk.Label(top, text="Scope", bg="#0b0f14", fg="#8b98a8").pack(side="left")
+        scope_menu = self.tk.OptionMenu(top, scope_var, *scope_labels.values())
+        scope_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat")
+        scope_menu.pack(side="left", padx=(6, 14))
+        self.tk.Label(top, text="Target", bg="#0b0f14", fg="#8b98a8").pack(side="left")
+        target_menu = self.tk.OptionMenu(top, target_var, "any", "pilot", "ship", "system", "module", "ess")
+        target_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat")
+        target_menu.pack(side="left", padx=(6, 14))
+        self.tk.Label(top, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w").pack(side="left", fill="x", expand=True)
+        self.tk.Label(win, textvariable=target_help_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=720).pack(anchor="w", fill="x", padx=12, pady=(0, 4))
+
         frame = self.tk.Frame(win, bg="#0b0f14"); frame.pack(fill="both", expand=True, padx=12, pady=6)
-        lb = self.tk.Listbox(frame, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
+        lb = self.tk.Listbox(frame, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", font=("Consolas", 9))
         sb = self.tk.Scrollbar(frame, command=lb.yview); lb.configure(yscrollcommand=sb.set)
         lb.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
-        entry = self.tk.Entry(win, bg="#111821", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
-        entry.pack(fill="x", padx=12, pady=(4, 8))
-        def reload_list():
+
+        form = self.tk.Frame(win, bg="#0b0f14"); form.pack(fill="x", padx=12, pady=(4, 4))
+        self.tk.Label(form, text="Term", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w")
+        entry = self.tk.Entry(form, bg="#111821", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+        entry.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        self.tk.Label(form, text="Note", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=1, sticky="w")
+        note_entry = self.tk.Entry(form, textvariable=note_var, bg="#111821", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+        note_entry.grid(row=1, column=1, sticky="ew")
+        form.grid_columnconfigure(0, weight=2); form.grid_columnconfigure(1, weight=1)
+
+        state = {"rules": []}
+        def current_scope():
+            return label_to_scope.get(scope_var.get(), "pilot_ignore")
+        def update_scope_help(*_args):
+            scope = current_scope()
+            help_var.set(scope_help.get(scope, ""))
+            example_var.set(scope_examples.get(scope, ""))
+            if scope == "highlight_exclude":
+                target_help_var.set("Target applies only to Highlight exclusions. Use 'any' unless you only want to suppress one type, such as ship, system, module, ESS, or pilot.")
+                try: target_menu.configure(state="normal")
+                except Exception: pass
+            else:
+                target_var.set("any")
+                target_help_var.set("Target is fixed to 'any' for this rule type.")
+                try: target_menu.configure(state="disabled")
+                except Exception: pass
+        def rule_label(rule: dict) -> str:
+            legacy = " legacy" if rule.get("legacy") else ""
+            enabled = "" if rule.get("enabled", True) else " disabled"
+            target = rule.get("target_kind") or "any"
+            source = rule.get("source") or "user"
+            return f"{rule.get('text',''):<34} | {scope_labels.get(rule.get('scope'), rule.get('scope')):<22} | {target:<8} | {source}{legacy}{enabled}"
+        def reload_list(*_args):
+            update_scope_help()
+            scope = current_scope()
+            rules = ESI_CACHE.list_exclusion_rules(scope)
+            state["rules"] = rules
             lb.delete(0, "end")
-            for item in ESI_CACHE.list_corrections("ignore"):
-                lb.insert("end", item.get("text") or "")
-        def add_name():
+            for rule in rules:
+                lb.insert("end", rule_label(rule))
+            status_var.set(f"Showing {len(rules)} {scope_labels.get(scope, scope).lower()} rule(s).")
+        def add_rule():
             raw = entry.get().strip()
             if not raw:
                 return
-            if ESI_CACHE.set_correction(raw, "ignore", note="user exclusion list"):
-                self.esi_entities.pop(normalize_esi_query(raw), None)
-                entry.delete(0, "end"); reload_list(); self.set_status(f"Excluded from recognition/highlights: {raw}")
+            scope = current_scope()
+            target = target_var.get() if scope == "highlight_exclude" else "any"
+            rid = ESI_CACHE.set_exclusion_rule(raw, scope, target, True, note_var.get(), "user")
+            if rid:
+                if scope == "pilot_ignore":
+                    self.esi_entities.pop(normalize_esi_query(raw), None)
+                entry.delete(0, "end"); note_var.set(""); reload_list(); self.set_status(f"Added recognition rule: {raw}")
         def remove_selected():
             sel = list(lb.curselection())
             if not sel:
                 return
+            removed = 0
             for idx in reversed(sel):
-                val = lb.get(idx)
-                ESI_CACHE.remove_correction(val)
-            reload_list(); self.set_status("Exclusion removed")
-        def import_names():
-            raw = self.simpledialog.askstring("Import exclusions", "Paste one name per line:", parent=win)
+                if idx < 0 or idx >= len(state["rules"]):
+                    continue
+                rule = state["rules"][idx]
+                if rule.get("legacy"):
+                    # Remove the old broad ignore only when the selected row is legacy.
+                    if ESI_CACHE.remove_correction(rule.get("text") or ""):
+                        removed += 1
+                else:
+                    if ESI_CACHE.remove_exclusion_rule(rule.get("id")):
+                        removed += 1
+            reload_list(); self.set_status(f"Removed {removed} recognition rule(s)")
+        def import_rules():
+            raw = self.simpledialog.askstring("Import recognition rules", "Paste one term per line:", parent=win)
             if not raw:
                 return
-            count = 0
+            scope = current_scope(); target = target_var.get() if scope == "highlight_exclude" else "any"; count = 0
             for line in raw.splitlines():
-                name = line.strip()
-                if name and ESI_CACHE.set_correction(name, "ignore", note="bulk import"):
+                term = line.strip()
+                if term and ESI_CACHE.set_exclusion_rule(term, scope, target, True, "bulk import", "user"):
                     count += 1
-            reload_list(); self.set_status(f"Imported {count} exclusions")
+            reload_list(); self.set_status(f"Imported {count} recognition rule(s)")
+        def test_term():
+            raw = entry.get().strip()
+            if not raw:
+                return
+            pilot_blocked = is_esi_ignored(raw)
+            highlight_hidden = is_highlight_excluded(raw)
+            noise_blocked = is_parser_noise(raw)
+            meaning = []
+            if pilot_blocked:
+                meaning.append("- will not be resolved through ESI as a pilot")
+            if highlight_hidden:
+                meaning.append("- will not receive entity highlight colors")
+            if noise_blocked:
+                meaning.append("- will not be considered as a parser/name candidate")
+            if not meaning:
+                meaning.append("- no scoped rule currently affects this term")
+            msg = (
+                f"Term: {raw}\n\n"
+                f"Pilot recognition: {'blocked' if pilot_blocked else 'allowed'}\n"
+                f"Highlighting: {'hidden' if highlight_hidden else 'allowed'}\n"
+                f"Parser candidate: {'blocked' if noise_blocked else 'allowed'}\n\n"
+                "Meaning:\n" + "\n".join(meaning)
+            )
+            self.messagebox.showinfo("Recognition Rule Test", msg)
         try:
-            entry.bind("<Return>", lambda _event=None: add_name())
+            entry.bind("<Return>", lambda _event=None: add_rule())
+            scope_var.trace_add("write", reload_list)
         except Exception:
             pass
         buttons = self.tk.Frame(win, bg="#0b0f14"); buttons.pack(fill="x", padx=12, pady=(0, 12))
-        self.tk.Button(buttons, text="Add", command=add_name).pack(side="left", padx=(0, 6))
-        self.tk.Button(buttons, text="Remove Selected", command=remove_selected).pack(side="left", padx=(0, 6))
-        self.tk.Button(buttons, text="Import...", command=import_names).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Add rule", command=add_rule).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Remove selected", command=remove_selected).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Import...", command=import_rules).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Test term", command=test_term).pack(side="left", padx=(0, 6))
         self.tk.Button(buttons, text="Close", command=win.destroy).pack(side="right")
         reload_list()
 
@@ -5561,9 +5811,9 @@ class SignalBridgeGui:
         self.direct_esi_check(query, force=True, show_dialog=True, add_to_feed=True)
 
     def ignore_esi_entity(self, query: str):
-        if query and ESI_CACHE.set_correction(query, "ignore", note="user ignored"):
+        if query and ESI_CACHE.set_exclusion_rule(query, "pilot_ignore", note="user ignored", source="context menu"):
             self.esi_entities.pop(normalize_esi_query(query), None)
-            self.set_status(f"Excluded: {query}")
+            self.set_status(f"Ignored as pilot: {query}")
 
     def set_status(self, msg: str):
         self.queue.put(("status", msg))

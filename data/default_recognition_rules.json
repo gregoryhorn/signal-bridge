@@ -1,0 +1,1524 @@
+{
+  "version": 1,
+  "description": "Bundled scoped recognition rules. These replace the old broad legacy exclusions and primarily seed parser noise words/phrases so common chat text is not treated as pilot candidates.",
+  "rules": [
+    {
+      "text": "a",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "an",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "and",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "are",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "as",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "at",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "be",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "by",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "for",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "from",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "has",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "have",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "he",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "her",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "here",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "him",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "his",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "how",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "i",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "if",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "in",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "is",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "it",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "its",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "me",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "my",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "no",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "not",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "of",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "on",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "or",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "our",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "she",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "so",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "that",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "the",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "their",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "them",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "then",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "there",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "they",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "this",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "to",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "us",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "was",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "we",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "what",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "when",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "where",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "which",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "who",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "why",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "with",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "you",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "your",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "again",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "almost",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "already",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "also",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "always",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "anyone",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "anything",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "back",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "bad",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "better",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "big",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "clear",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "close",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "cool",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "did",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "didnt",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "didn't",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "does",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "done",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "dont",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "don't",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "eyes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "fine",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "good",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "got",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "great",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "guess",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "help",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "hold",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "lol",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "maybe",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "more",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "need",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "nice",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "nothing",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "now",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "okay",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "please",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "probably",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "ready",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "really",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "same",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "someone",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "still",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "sure",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "thanks",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "thank",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "thing",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "things",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "today",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "tomorrow",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wait",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "want",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "way",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "well",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wish",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "yeah",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "yes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "channel changed",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "changed channel",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "thanks fc",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "thank you",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "where are they",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "where is he",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "where is she",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "where is it",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "where did they go",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "ship on gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "ships on gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "on gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "at gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "in local",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "local spike",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "no visual",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "nv",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "no eyes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "eyes on",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "clear local",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "local clear",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "dscan clear",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "nothing on dscan",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "combat probes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "scanning probes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "warp to gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "jump gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "jumped gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "hold cloak",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "take gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "burn back",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "align out",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "dock up",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "undock",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "safe up",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "stand down",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "fleet up",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "fleet warp",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "broadcast reps",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "need reps",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "need cap",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "check check",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "status check",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "intel only",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wrong channel",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "item exchange",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "channel",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "channels",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "description",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "exclusions",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "multiple",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "multiple items",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "seconds",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "status",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "version",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "message",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "messages",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "motd",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "member",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "members",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "corp",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "corporation",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "alliance",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "fleet",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "local",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "system",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "region",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "constellation",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "overview",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "bookmark",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "destination",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "route",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "standing",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "standings",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "contacts",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "watchlist",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "chat",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "window",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "tab",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "tabs",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "history",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "settings",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "cache",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "reload",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "update",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "updated",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "error",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "warning",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "debug",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "diagnostic",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "diagnostics",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "armor",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "bubble",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "bubbles",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "camp",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "camped",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "cloak",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "cloaky",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "cyno",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "dscan",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "drone",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "drones",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "enemy",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "ess",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "gate",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "gates",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "hostile",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "hostiles",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "isk",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "jump",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "jumped",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "link",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "links",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "module",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "modules",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "neutral",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "neutrals",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "neut",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "neuts",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "probe",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "probes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "red",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "reds",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "ship",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "ships",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "star",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "tackle",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "tackled",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "target",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "targets",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "timer",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "timers",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wormhole",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wormholes",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wreck",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "wrecks",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "banner",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "dinky",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "dinky banner",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    },
+    {
+      "text": "deathglow",
+      "scope": "noise_word",
+      "target_kind": "any",
+      "note": "bundled default parser noise"
+    }
+  ]
+}
