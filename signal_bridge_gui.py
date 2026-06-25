@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import argparse
 import base64
 import json
@@ -4324,22 +4324,9 @@ class SignalBridgeGui:
             r = row(c_engine); action(r, "Refresh Argos Status", self.refresh_argos_status); action(r, "Install / Repair Argos", self.install_argos_models); action(r, "Test Translation", self.test_translation_engine)
             r2 = row(c_engine); action(r2, "Open Translation Cache...", lambda: render_page("Translation Cache")); action(r2, "Cache Status", self.show_translation_cache); action(r2, "Clear Cache", self.clear_translation_cache); action(r2, "Open Phrase Overrides", self.open_phrase_overrides)
         def render_translation_cache():
-            c = card(body, "Translation Corrections", "Fix visible translations without editing raw cache internals. Manual corrections override Google/Argos; advanced cache details stay hidden by default.")
+            c = card(body, "Translation Corrections", "Fix what appears in chat. Manual corrections override automatic translation.")
             count, hits = TRANSLATION_CACHE.stats(); overrides = TRANSLATION_CACHE.override_count()
-            label(c, f"Cache: {count} entries / {hits} hits | Manual overrides: {overrides}", "#8b98a8")
             # Keep the raw SQLite path out of the normal correction workflow; diagnostics/cache pages expose it when needed.
-            controls = row(c)
-            tk.Label(controls, text="Mode", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
-            tk.OptionMenu(controls, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
-            tk.Label(controls, text="Fallback", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
-            tk.OptionMenu(controls, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
-            tk.Label(controls, text="Failure cooldown min", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
-            tk.Spinbox(controls, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff").pack(side="left")
-
-            # Keep correction actions visible at the default Settings size.  The
-            # command callbacks are defined later, but packing the frame here
-            # prevents Save/Delete/Clean controls from being hidden below the fold.
-            buttons = row(c)
 
             state = {"items": [], "selected_index": None, "autosave_after": None, "loading": False, "saving": False}
             original_filter = tk.StringVar()
@@ -4347,59 +4334,107 @@ class SignalBridgeGui:
             target_var = tk.StringVar(value="en")
             enabled_var = tk.BooleanVar(value=True)
             note_var = tk.StringVar()
-            status_var = tk.StringVar(value="Type in either filter box to live-filter. Click a row, then edit Original or English in the boxes directly below the lists.")
+            status_var = tk.StringVar(value="Select a row, edit the English correction, and it auto-saves.")
             show_internals_var = tk.BooleanVar(value=False)
+            advanced_visible_var = tk.BooleanVar(value=False)
 
-            filter_frame = tk.Frame(c, bg="#0b0f14"); filter_frame.pack(fill="x", pady=(8, 4))
-            left_filter = tk.Frame(filter_frame, bg="#0b0f14"); left_filter.pack(side="left", fill="x", expand=True, padx=(0, 6))
-            right_filter = tk.Frame(filter_frame, bg="#0b0f14"); right_filter.pack(side="left", fill="x", expand=True, padx=(6, 0))
-            tk.Label(left_filter, text="Find original", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
-            tk.Entry(left_filter, textvariable=original_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
-            tk.Label(right_filter, text="Find English", bg="#0b0f14", fg="#8b98a8").pack(anchor="w")
-            tk.Entry(right_filter, textvariable=translated_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(fill="x")
+            meta = tk.Frame(c, bg="#0b0f14")
+            meta.pack(fill="x", pady=(0, 8))
+            for pill in (f"Cache {count}", f"Hits {hits}", f"Manual {overrides}", f"Mode {self.translation_cache_mode.get()}"):
+                tk.Label(meta, text=pill, bg="#111821", fg="#8b98a8", padx=8, pady=2).pack(side="left", padx=(0, 6))
 
-            tables = tk.Frame(c, bg="#0b0f14")
-            tables.pack(fill="both", expand=True, pady=6)
+            toolbar = tk.Frame(c, bg="#0b0f14")
+            toolbar.pack(fill="x", pady=(0, 8))
+            primary_buttons = tk.Frame(toolbar, bg="#0b0f14")
+            primary_buttons.pack(side="left", anchor="w")
+            maintenance_buttons = tk.Frame(toolbar, bg="#0b0f14")
+            maintenance_buttons.pack(side="right", anchor="e")
+
+            instruction = tk.Label(
+                c,
+                text="Workflow: choose a grouped translation, correct the English text, and let auto-save update the live feed.",
+                bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=680,
+            )
+            instruction.pack(anchor="w", fill="x", pady=(0, 6))
+
+            advanced_settings = tk.Frame(c, bg="#0b0f14")
+            advanced_actions = tk.Frame(c, bg="#0b0f14")
+            def toggle_advanced_settings():
+                if advanced_visible_var.get():
+                    advanced_settings.pack(fill="x", pady=(0, 6), before=instruction)
+                    advanced_actions.pack(fill="x", pady=(0, 8), before=instruction)
+                else:
+                    advanced_settings.pack_forget()
+                    advanced_actions.pack_forget()
+            tk.Checkbutton(
+                maintenance_buttons,
+                text="Advanced settings",
+                variable=advanced_visible_var,
+                command=toggle_advanced_settings,
+                bg="#0b0f14", fg="#d7dde5", selectcolor="#111821",
+                activebackground="#0b0f14", activeforeground="#ffffff",
+            ).pack(side="left", padx=(0, 6))
+
+            tk.Label(advanced_settings, text="Mode", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
+            tk.OptionMenu(advanced_settings, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
+            tk.Label(advanced_settings, text="Fallback", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
+            tk.OptionMenu(advanced_settings, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
+            tk.Label(advanced_settings, text="Failure cooldown min", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(0,4))
+            tk.Spinbox(advanced_settings, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff").pack(side="left", padx=(0,8))
+            tk.Checkbutton(advanced_settings, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
+
+            tables = tk.PanedWindow(c, orient="horizontal", bg="#0b0f14", sashwidth=8, sashrelief="flat", bd=0, showhandle=False)
+            tables.pack(fill="both", expand=True, pady=(2, 8))
             left = tk.Frame(tables, bg="#0b0f14")
-            left.pack(side="left", fill="both", expand=True, padx=(0, 6))
             right = tk.Frame(tables, bg="#0b0f14")
-            right.pack(side="left", fill="both", expand=True, padx=(6, 0))
+            # Translation corrections are primarily edited on the English side,
+            # so give it a slightly larger default share while keeping Original readable.
+            tables.add(left, minsize=260, stretch="always", padx=0, pady=0)
+            tables.add(right, minsize=320, stretch="always", padx=0, pady=0)
+            tables.after_idle(lambda: tables.sash_place(0, max(260, int(tables.winfo_width() * 0.43)), 0))
 
-            tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            for pane in (left, right):
+                pane.grid_columnconfigure(0, weight=1)
+                pane.grid_rowconfigure(3, weight=1)
+
+            tk.Label(left, text="Original", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 6))
+            tk.Label(left, text="Find original", bg="#0b0f14", fg="#8b98a8").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=(6, 0))
+            tk.Entry(left, textvariable=original_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(2, 6))
             orig_list_frame = tk.Frame(left, bg="#0b0f14")
-            orig_list_frame.pack(fill="both", expand=True)
-            orig_list = tk.Listbox(orig_list_frame, height=5, width=34, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            orig_list_frame.grid(row=3, column=0, sticky="nsew", padx=(0, 6))
+            orig_list_frame.grid_columnconfigure(0, weight=1); orig_list_frame.grid_rowconfigure(0, weight=1)
+            orig_list = tk.Listbox(orig_list_frame, height=5, width=24, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
             orig_scroll = tk.Scrollbar(orig_list_frame, orient="vertical", command=orig_list.yview)
             orig_list.configure(yscrollcommand=orig_scroll.set)
-            orig_list.pack(side="left", fill="both", expand=True)
-            orig_scroll.pack(side="right", fill="y")
-            tk.Label(left, text="Original / source phrase — editable", bg="#0b0f14", fg="#facc15", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
+            orig_list.grid(row=0, column=0, sticky="nsew"); orig_scroll.grid(row=0, column=1, sticky="ns")
+            tk.Label(left, text="Original / source phrase", bg="#0b0f14", fg="#facc15", font=("Segoe UI", 9, "bold")).grid(row=4, column=0, sticky="w", padx=(0, 6), pady=(8, 2))
             src_text = tk.Text(left, height=3, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
-            src_text.pack(fill="x", ipady=3)
-            tk.Label(left, text="Use this if the captured source segment is wrong.", bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", pady=(2, 0))
+            src_text.grid(row=5, column=0, sticky="ew", padx=(0, 6), ipady=3)
+            tk.Label(left, text="Use only if the captured source segment is wrong.", bg="#0b0f14", fg="#8b98a8", anchor="w").grid(row=6, column=0, sticky="w", padx=(0, 6), pady=(2, 0))
 
-            tk.Label(right, text="English", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            tk.Label(right, text="English", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w", padx=(6, 0))
+            tk.Label(right, text="Find English", bg="#0b0f14", fg="#8b98a8").grid(row=1, column=0, sticky="w", padx=(6, 0), pady=(6, 0))
+            tk.Entry(right, textvariable=translated_filter, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").grid(row=2, column=0, sticky="ew", padx=(6, 0), pady=(2, 6))
             trans_list_frame = tk.Frame(right, bg="#0b0f14")
-            trans_list_frame.pack(fill="both", expand=True)
-            trans_list = tk.Listbox(trans_list_frame, height=5, width=34, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
+            trans_list_frame.grid(row=3, column=0, sticky="nsew", padx=(6, 0))
+            trans_list_frame.grid_columnconfigure(0, weight=1); trans_list_frame.grid_rowconfigure(0, weight=1)
+            trans_list = tk.Listbox(trans_list_frame, height=5, width=38, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", exportselection=False)
             trans_scroll = tk.Scrollbar(trans_list_frame, orient="vertical", command=trans_list.yview)
             trans_list.configure(yscrollcommand=trans_scroll.set)
-            trans_list.pack(side="left", fill="both", expand=True)
-            trans_scroll.pack(side="right", fill="y")
-            tk.Label(right, text="English correction — editable", bg="#0b0f14", fg="#7ee787", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
-            dst_text = tk.Text(right, height=3, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
-            dst_text.pack(fill="x", ipady=3)
-            tk.Label(right, text="Edit this text to fix what appears in live chat.", bg="#0b0f14", fg="#8b98a8", anchor="w").pack(anchor="w", pady=(2, 0))
+            trans_list.grid(row=0, column=0, sticky="nsew"); trans_scroll.grid(row=0, column=1, sticky="ns")
+            tk.Label(right, text="English correction", bg="#0b0f14", fg="#7ee787", font=("Segoe UI", 9, "bold")).grid(row=4, column=0, sticky="w", padx=(6, 0), pady=(8, 2))
+            dst_text = tk.Text(right, height=4, bg="#07111d", fg="#e6edf3", insertbackground="#ffffff", relief="flat", wrap="word", undo=True)
+            dst_text.grid(row=5, column=0, sticky="ew", padx=(6, 0), ipady=3)
+            tk.Label(right, text="Edit this text to fix what appears in live chat.", bg="#0b0f14", fg="#8b98a8", anchor="w").grid(row=6, column=0, sticky="w", padx=(6, 0), pady=(2, 0))
 
             opts = tk.Frame(c, bg="#0b0f14")
-            opts.pack(fill="x", pady=(8, 2))
+            opts.pack(fill="x", pady=(0, 6))
             tk.Label(opts, text="Target", bg="#0b0f14", fg="#8b98a8").pack(side="left")
             tk.OptionMenu(opts, target_var, "en", "zh-CN", command=lambda _=None: schedule_autosave()).pack(side="left", padx=6)
             tk.Checkbutton(opts, text="Enabled", variable=enabled_var, command=lambda: schedule_autosave(), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
-            tk.Checkbutton(opts, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
             tk.Label(opts, text="Note", bg="#0b0f14", fg="#8b98a8").pack(side="left", padx=(10, 2))
             tk.Entry(opts, textvariable=note_var, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff", relief="flat").pack(side="left", fill="x", expand=True, padx=6)
-            tk.Label(c, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=620).pack(anchor="w", fill="x", pady=(4, 0))
+            tk.Label(c, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=680).pack(anchor="w", fill="x", pady=(2, 0))
 
             def preview(text, n=64):
                 text = str(text or "").replace("\r", " ").replace("\n", " ").strip()
@@ -4505,7 +4540,7 @@ class SignalBridgeGui:
                     try: c.after_cancel(state["autosave_after"])
                     except Exception: pass
                 state["autosave_after"] = c.after(700, save_now)
-                status_var.set("Editing… auto-save pending")
+                status_var.set("Editing... auto-save pending")
 
             def live_filter(*_args):
                 if state.get("autosave_after"):
@@ -4527,8 +4562,8 @@ class SignalBridgeGui:
                 self.set_status(f"Cleaned translation cache: {dup_removed} duplicates, {invalid_removed} invalid")
                 refresh_rows(False)
 
-            action(buttons, "New Override", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New override: enter Original on the left and English on the right; it will auto-save.")))
-            action(buttons, "Save Now", save_now)
+            action(primary_buttons, "New correction", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New correction: enter Original on the left and English on the right; it will auto-save.")))
+            action(primary_buttons, "Save now", save_now)
             def delete_selected():
                 item = selected_item()
                 if not item:
@@ -4552,10 +4587,10 @@ class SignalBridgeGui:
                     status_var.set(f"Deleted all translation entries: {result.get('cache',0)} cache, {result.get('overrides',0)} overrides, {result.get('failures',0)} cooldowns.")
                     self.set_status("Translation cache manager entries cleared")
 
-            action(buttons, "Delete Selected Entry", delete_selected)
-            action(buttons, "Delete All Entries", clear_all_translation_entries)
-            action(buttons, "Clean Duplicates / Invalid", clean_duplicate_rows)
-            action(buttons, "Cache Status", self.show_translation_cache)
+            action(maintenance_buttons, "Delete selected", delete_selected)
+            action(advanced_actions, "Clean cache issues", clean_duplicate_rows)
+            action(advanced_actions, "Cache status", self.show_translation_cache)
+            action(advanced_actions, "Delete all entries", clear_all_translation_entries)
             refresh_rows(keep_selection=False)
 
         def render_catalog():
@@ -7474,12 +7509,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-
-
-
-
-
-
-
