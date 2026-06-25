@@ -1780,24 +1780,41 @@ seed_default_esi_entities()
 
 
 
-def is_globally_excluded(term: str) -> bool:
-    """Return True when a user exclusion should suppress all recognition/highlights.
+def is_parser_noise(term: str) -> bool:
+    """Return True for built-in words that should not become ESI candidates."""
+    key = normalize_esi_query(term)
+    return bool(key and "COMMON_ESI_NOISE" in globals() and key in COMMON_ESI_NOISE)
 
-    The exclusion list started as an ESI character ignore list, but users expect
-    anything in it to be neutral everywhere: no red ESI character, no orange ship,
-    no purple asset/module, no ESS special color, and no system highlight.
-    """
+
+def is_esi_ignored(term: str) -> bool:
+    """Return True when the user/bundled list says not to resolve a pilot via ESI."""
     key = normalize_esi_query(term)
     if not key:
         return False
-    # Built-in noise words are also global visual exclusions.
-    if "COMMON_ESI_NOISE" in globals() and key in COMMON_ESI_NOISE:
-        return True
     try:
         corr = ESI_CACHE.get_correction(term)
         return bool(corr and corr.get("action") == "ignore")
     except Exception:
         return False
+
+
+def is_highlight_excluded(term: str) -> bool:
+    """Return True when a term should not receive visual entity highlighting.
+
+    Compatibility note: existing stored ignores still hide highlights for now.
+    The separate helper makes call-site intent explicit and prepares a later
+    migration to scoped pilot/highlight/noise/filter rules.
+    """
+    return is_parser_noise(term) or is_esi_ignored(term)
+
+
+def is_globally_excluded(term: str) -> bool:
+    """Backward-compatible broad exclusion check for legacy call sites.
+
+    New code should prefer is_esi_ignored(), is_highlight_excluded(), or
+    is_parser_noise() so recognition, rendering, and filtering can diverge.
+    """
+    return is_highlight_excluded(term)
 
 
 COMMON_ESI_NOISE = {
@@ -1863,7 +1880,7 @@ def longest_non_overlapping_terms(text: str, terms: list[str]) -> list[str]:
     """
     chosen: list[tuple[int, int, str]] = []
     for term in sorted(unique([str(t or '').strip() for t in terms if str(t or '').strip()]), key=lambda t: (-len(t), t.casefold())):
-        if is_globally_excluded(term):
+        if is_esi_ignored(term):
             continue
         spans = _term_occurrences(text, term)
         if not spans:
@@ -2057,7 +2074,7 @@ class EsiResolver(threading.Thread):
         key = normalize_esi_query(query)
         if not key or len(key) < 3 or key in COMMON_ESI_NOISE:
             return
-        if is_globally_excluded(query) and not force:
+        if is_esi_ignored(query) and not force:
             ESI_CACHE.set_status("last_check", f"ignored: {query}")
             write_log(f"ESI ignored by exclusion list: {query!r}")
             return
@@ -4673,7 +4690,7 @@ class SignalBridgeGui:
             label(c, f"Last ESI check: {status.get('last_check') or 'none'}", "#8b98a8")
             r = row(c); action(r, "ESI / OAuth Settings...", self.show_esi_settings); action(r, "Manual Character Check...", self.manual_esi_check_dialog); action(r, "Diagnostics", self.show_esi_diagnostics); action(r, "Clear ESI Cache", self.clear_esi_cache)
         def render_exclusions():
-            c = card(body, "General Exclusion List", "Excluded terms are ignored by ESI, system, ship, module, ESS, and highlight rules.")
+            c = card(body, "Recognition & Highlight Exclusions", "Current exclusions stop pilot recognition and hide matching visual highlights. Future scoped rules will split pilot ignores, highlight exclusions, noise words, and chat filters.")
             try: exclusions = ESI_CACHE.list_corrections("ignore")
             except Exception: exclusions = []
             label(c, f"Local exclusions: {len(exclusions)}"); sample = ", ".join((x.get("text") or "") for x in exclusions[:12])
@@ -5372,7 +5389,7 @@ class SignalBridgeGui:
         self.status_label.configure(text=f"Checking ESI: {query}")
         def worker():
             try:
-                if is_globally_excluded(query) and not force:
+                if is_esi_ignored(query) and not force:
                     ESI_CACHE.set_status("last_check", f"ignored: {query}")
                     self.queue.put(("esi_direct_result", query, {"ignored": True, "query": query, "source": "manual-ignore"}, None, show_dialog, add_to_feed, action_label))
                     return
@@ -5405,9 +5422,9 @@ class SignalBridgeGui:
 
     def show_esi_exclusion_list(self):
         win = self.tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=560, height=460, minsize=(420, 340), modal=True, title="General Exclusion List")
-        self.tk.Label(win, text="General exclusions", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
-        self.tk.Label(win, text="Excluded terms are ignored by pilot, system, ship, module, ESS, and highlight rules.", bg="#0b0f14", fg="#8b98a8", wraplength=520, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 4))
+        self.polish_window(win, self.root, width=600, height=480, minsize=(460, 360), modal=True, title="Recognition & Highlight Exclusions")
+        self.tk.Label(win, text="Recognition & highlight exclusions", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
+        self.tk.Label(win, text="Current behavior: entries are ignored by pilot recognition and hidden from entity highlights. This page is being prepared for separate pilot/highlight/noise/filter scopes.", bg="#0b0f14", fg="#8b98a8", wraplength=560, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 4))
         frame = self.tk.Frame(win, bg="#0b0f14"); frame.pack(fill="both", expand=True, padx=12, pady=6)
         lb = self.tk.Listbox(frame, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat")
         sb = self.tk.Scrollbar(frame, command=lb.yview); lb.configure(yscrollcommand=sb.set)
@@ -5424,7 +5441,7 @@ class SignalBridgeGui:
                 return
             if ESI_CACHE.set_correction(raw, "ignore", note="user exclusion list"):
                 self.esi_entities.pop(normalize_esi_query(raw), None)
-                entry.delete(0, "end"); reload_list(); self.set_status(f"Excluded from ESI: {raw}")
+                entry.delete(0, "end"); reload_list(); self.set_status(f"Excluded from recognition/highlights: {raw}")
         def remove_selected():
             sel = list(lb.curselection())
             if not sel:
@@ -6716,7 +6733,7 @@ class SignalBridgeGui:
         terms = []
         for term in list(systems or []) + list(assets or []) + pilot_terms:
             t = str(term or "").strip()
-            if t and not is_globally_excluded(t):
+            if t and not is_highlight_excluded(t):
                 terms.append(re.escape(t))
         if not terms:
             return out
@@ -6742,7 +6759,7 @@ class SignalBridgeGui:
         system_terms = set(str(x).casefold() for x in unique(systems))
         for term in sorted(unique(assets), key=len, reverse=True):
             term_key = normalize_esi_query(term)
-            if term_key in COMMON_ESI_NOISE or is_globally_excluded(term):
+            if is_parser_noise(term) or is_highlight_excluded(term):
                 continue
             # System aliases/canonicals must stay yellow.  If extraction produced
             # a duplicate module/asset hit for the same visible text, skip it so
@@ -6757,11 +6774,11 @@ class SignalBridgeGui:
                 self.tag_term(term, "module", region_start, region_end)
         # Apply systems after assets/modules so system yellow wins any overlap.
         for term in sorted(unique(systems), key=len, reverse=True):
-            if is_globally_excluded(term):
+            if is_highlight_excluded(term):
                 continue
             self.tag_term(term, "system", region_start, region_end)
         # Defensive: highlight standalone literal ESS unless excluded by the user.
-        if not is_globally_excluded("ESS"):
+        if not is_highlight_excluded("ESS"):
             self.tag_term_whole_word("ESS", "ess", region_start, region_end)
 
     def tag_term_whole_word(self, term: str, tag: str, start: str, end: str):
@@ -7004,7 +7021,7 @@ class SignalBridgeGui:
         text_blob = f"{row.sender} {row.text}"
         for cand in esi_candidates_for_row(row):
             cached = self.esi_entities.get(normalize_esi_query(cand)) or ESI_CACHE.get_entity(cand)
-            if cached and not cached.get("ignored") and not is_globally_excluded(cand) and cached.get("entity_type") == "character":
+            if cached and not cached.get("ignored") and not is_esi_ignored(cand) and cached.get("entity_type") == "character":
                 key = normalize_esi_query(cached.get("query") or cached.get("name") or cand)
                 if key and key not in existing:
                     row.esi_entities.append(cached); existing.add(key); changed = True
@@ -7015,7 +7032,7 @@ class SignalBridgeGui:
             if ent.get("ignored"):
                 continue
             names = unique([str(ent.get("name") or ""), str(ent.get("query") or "")])
-            if any(is_globally_excluded(n) for n in names if n):
+            if any(is_esi_ignored(n) for n in names if n):
                 continue
             if not any(n and re.search(word_boundary(n), text_blob, re.I) for n in names):
                 continue
@@ -7032,14 +7049,14 @@ class SignalBridgeGui:
             names.append(sender)
         for cand in getattr(row, "esi_candidates", []) or []:
             cached = self.esi_entities.get(normalize_esi_query(cand)) or ESI_CACHE.get_entity(cand)
-            if cached and not cached.get("ignored") and not is_globally_excluded(cand) and cached.get("entity_type") == "character":
+            if cached and not cached.get("ignored") and not is_esi_ignored(cand) and cached.get("entity_type") == "character":
                 names.append(str(cached.get("name") or cand))
                 names.append(cand)
         for ent in row.esi_entities:
             if ent.get("entity_type") == "character":
                 ent_name = str(ent.get("name") or ent.get("query") or "")
                 ent_query = str(ent.get("query") or "")
-                if is_globally_excluded(ent_name) or is_globally_excluded(ent_query):
+                if is_esi_ignored(ent_name) or is_esi_ignored(ent_query):
                     continue
                 names.append(ent_name)
                 names.append(ent_query)
@@ -7271,10 +7288,10 @@ class SignalBridgeGui:
         row_end = self.text.index("end-1c")
         for ent in row.esi_entities:
             name = str(ent.get("name") or ent.get("query") or "")
-            if name and normalize_esi_query(name) not in COMMON_ESI_NOISE and not is_globally_excluded(name):
+            if name and not is_parser_noise(name) and not is_esi_ignored(name):
                 self.tag_term(name, "esi", body_start, row_end)
         for name in self.character_names_for_row(row):
-            if normalize_esi_query(name) not in COMMON_ESI_NOISE and not is_globally_excluded(name):
+            if not is_parser_noise(name) and not is_esi_ignored(name):
                 self.tag_term(name, "esi", body_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
         self.rendered_row_map[row_tag] = {"row": row, **parts, "segments": [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])]}
@@ -7378,7 +7395,7 @@ class SignalBridgeGui:
             self.root.after(150, self.drain_queue)
 
     def handle_esi_resolved(self, query: str, data: dict):
-        if is_globally_excluded(query) or is_globally_excluded(str(data.get("name") or "")):
+        if is_esi_ignored(query) or is_esi_ignored(str(data.get("name") or "")):
             self.status_label.configure(text=f"Excluded: {data.get('name') or query}")
             return
         key = normalize_esi_query(query)
