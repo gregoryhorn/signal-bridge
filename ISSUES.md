@@ -779,3 +779,62 @@ After fixing:
 - Resolved Translation Corrections layout/design issue with aligned panes, clearer button hierarchy, and advanced controls hidden behind a toggle.
 - Resolved broad legacy exclusion cleanup by replacing it with scoped Recognition Rules and bundled parser-noise defaults.
 - Added inline Recognition Rules help as the first local help pattern; broader Help Center remains future work.
+
+## P1 UX/Data Issue: Pilot Info card layout and zKill usefulness
+
+- Status: open / needs design
+- Priority: P1 / High
+- Area: Pilot Info / zKill integration / UI layout
+- Type: user feedback / UX and data-quality improvement
+
+### User feedback
+
+The Pilot Info card is badly laid out and wastes too much space. Some buttons are hidden at the bottom because the window is not auto-sized, forcing the user to resize the window every time it opens.
+
+The zKill section also does not show the most useful information. It should show recent kills and recent losses in a way that helps quickly judge a pilot.
+
+### Problems to solve
+
+- Pilot Info window does not auto-size well for its content.
+- Important buttons can be hidden below the fold at the default/opening size.
+- Layout wastes space and does not prioritize the most useful pilot information.
+- zKill data is not currently presented as a useful recent activity view.
+- The card should not require manual resizing every time it opens.
+
+### Desired behavior
+
+- Pilot Info should open at a useful default size, or auto-size to its current content within sane screen bounds.
+- Primary actions should always be visible without resizing.
+- The layout should reduce wasted space and make high-value sections easier to scan.
+- zKill should show separate recent activity lists:
+  - recent kills
+  - recent losses
+- Each listed kill/loss should link to the relevant zKill page.
+- The recent-kill list should prioritize more meaningful/smaller engagements over huge killmails.
+
+### zKill prioritization notes
+
+For recent kills, killmails with many participants are often lower-value for judging the pilot. If a killmail has many involved characters, for example more than 10, it should be lower priority than killmails with only a few participants.
+
+The app cannot show every killmail, so the design needs a ranking/filtering strategy.
+
+Potential strategy to evaluate:
+
+- Always show recent losses separately because they are usually highly informative.
+- For kills, prefer recent killmails with fewer involved parties.
+- De-prioritize very large fleet killmails unless there are too few smaller engagements.
+- Show a compact capped list, for example 5 recent kills and 5 recent losses.
+- Include a link to open the full zKill profile for deeper review.
+- Consider labels such as `solo/small gang`, `fleet`, or `large fleet` based on participant count.
+
+### Acceptance criteria
+
+- Pilot Info opens at a usable size with important buttons visible.
+- User does not need to resize the Pilot Info window every time.
+- Layout visibly wastes less space.
+- Recent kills and recent losses are shown as separate sections.
+- Each listed kill/loss has a clickable zKill link.
+- Recent kills are ranked so smaller/more informative engagements are favored over very large killmails.
+- If not enough small kills exist, the card can still show larger killmails as fallback.
+- Visual review is performed before marking fixed.
+
