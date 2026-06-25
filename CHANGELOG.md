@@ -1,4 +1,14 @@
-﻿## v0.4 - 2026-06-20
+## v0.5 - 2026-06-25
+
+- Bumped app/package version from 0.4 to 0.5.
+- Replaced broad legacy ESI exclusions with scoped Recognition Rules for ignored pilots, highlight exclusions, and parser noise words.
+- Added inline help and test-term diagnostics for Recognition Rules so new users can choose the right rule type.
+- Added bundled `data/default_recognition_rules.json` starter noise rules so new installs avoid common false ESI pilot candidates without shipping dirty local cache data.
+- Disabled legacy broad exclusion reseeding and backed up/removed the local legacy list during development; packaged builds start with clean scoped defaults.
+- Improved the Translation Corrections page layout with aligned panes, clearer buttons, and advanced controls hidden behind a toggle.
+- Release hygiene: portable builds copy only curated starter data and empty runtime folders, not local cache/log/runtime state, temporary backups, legacy broad exclusions, or starter ESI cache rows.
+
+## v0.4 - 2026-06-20
 
 - Released Signal Bridge v0.4 with cleaned Translation Cache Manager deletion/reset behavior, empty bundled translation cache, packaged maintained alias/exclusion lists, public `ISSUES.md`, refreshed screenshot, and updated Windows portable assets.
 - Bumped app/package version from 0.3 to 0.4.

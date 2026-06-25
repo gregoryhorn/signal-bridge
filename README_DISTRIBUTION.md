@@ -25,9 +25,8 @@ Signal Bridge opens in a narrow mobile-style side-panel layout by default. Resiz
 Use `View > Appearance / Display Options...` to change fonts, colors, bold styles, opacity, highlight backgrounds, and presets. The dialog shows color swatches next to editable hex codes.
 Bundled default exclusions are included in `data/default_exclusions.json` and are imported into the local General Exclusion List on first run.
 
-Bundled starter ESI characters are included in `data/default_esi_entities.json` and imported into the local ESI cache on first run.
 
-- The portable package includes starter exclusions, verified ESI characters, and starter translation-cache data. These are seeded locally on first run without overwriting user changes.
+- The portable package includes starter scoped recognition rules, catalog data, phrase overrides, default aliases, and starter translation-cache data. ESI/translation runtime caches start clean and are created locally on first run.
 ## Settings Center
 
 Use **Settings > Settings...** for the main configuration UI. The Settings Center groups channels, appearance, translation, EVE catalog, ESI, exclusions, cache/data, diagnostics, and support into one window with a sidebar and fixed bottom action bar.
@@ -45,4 +44,8 @@ Open **Settings > Settings...** after extracting the portable ZIP. The Settings 
 
 ## v0.4 package note
 
-The v0.4 portable package includes `ISSUES.md`, `docs/images/signal-bridge-v0.4-screenshot.png`, the maintained `data/user_aliases.json`, normalized `data/default_exclusions.json`, and an empty `data/default_translation_cache.json` so new installs start with a clean translation cache.
+The v0.4 portable package includes `ISSUES.md`, `docs/images/signal-bridge-v0.4-screenshot.png`, the maintained `data/user_aliases.json`, scoped `data/default_recognition_rules.json`, and an empty `data/default_translation_cache.json` so new installs start with a clean translation cache.
+
+## v0.5 clean-data package note
+
+The v0.5 portable package must start with clean local runtime state. Include curated starter files such as `data/default_recognition_rules.json`, `data/default_translation_cache.json`, catalog data, phrase overrides, and committed default aliases. Do not include local cache files, runtime folders, logs, ESI tokens, zKill cache, translation runtime cache, temporary legacy-exclusion backups, or local testing state.

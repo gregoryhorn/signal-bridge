@@ -26,9 +26,8 @@ The portable ZIP should include the current README, distribution notes, changelo
 The default packaged app opens in a mobile-style side-panel layout and includes Appearance / Display Options documentation in the bundled README files.
 Include `data/default_exclusions.json` in every portable build so default General Exclusion List entries are seeded for new installs.
 
-Include `data/default_esi_entities.json` and its checksum in portable builds so new installs start with verified ESI character cache entries.
 
-- Include `data/default_translation_cache.json` and `.sha256` with catalog, default exclusions, and starter ESI entities.
+- Include `data/default_translation_cache.json` and `.sha256` with catalog and scoped default recognition rules.
 ## Settings Center Packaging Check
 
 Release builds should include the dedicated Settings Center and keep bundled starter data files in `data/` so the Cache & Data page can report them correctly.
@@ -43,4 +42,8 @@ Release builds should include the dedicated Settings Center and keep bundled sta
 
 ## v0.4 package note
 
-The v0.4 portable package includes `ISSUES.md`, `docs/images/signal-bridge-v0.4-screenshot.png`, the maintained `data/user_aliases.json`, normalized `data/default_exclusions.json`, and an empty `data/default_translation_cache.json` so new installs start with a clean translation cache.
+The v0.4 portable package includes `ISSUES.md`, `docs/images/signal-bridge-v0.4-screenshot.png`, the maintained `data/user_aliases.json`, scoped `data/default_recognition_rules.json`, and an empty `data/default_translation_cache.json` so new installs start with a clean translation cache.
+
+## v0.5 clean-data package note
+
+The v0.5 portable package must start with clean local runtime state. Include curated starter files such as `data/default_recognition_rules.json`, `data/default_translation_cache.json`, catalog data, phrase overrides, and committed default aliases. Do not include local cache files, runtime folders, logs, ESI tokens, zKill cache, translation runtime cache, temporary legacy-exclusion backups, or local testing state.

@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = '0.4'
+$Version = '0.5'
 Set-Location $Root
 
 # Lean portable build:
@@ -51,7 +51,7 @@ Copy-Item .\CHANGELOG.md .\dist\SignalBridge\CHANGELOG.md -Force
 Copy-Item .\ROADMAP.md .\dist\SignalBridge\ROADMAP.md -Force
 Copy-Item .\ISSUES.md .\dist\SignalBridge\ISSUES.md -Force
 Copy-Item .\docs .\dist\SignalBridge\docs -Recurse -Force
-Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\user_aliases.json,.\data\default_exclusions.json,.\data\default_exclusions.json.sha256,.\data\default_recognition_rules.json,.\data\default_recognition_rules.json.sha256,.\data\default_esi_entities.json,.\data\default_esi_entities.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
+Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\user_aliases.json,.\data\default_recognition_rules.json,.\data\default_recognition_rules.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
 
 Compress-Archive -Path .\dist\SignalBridge\* -DestinationPath $Zip -Force
 Get-FileHash $Zip -Algorithm SHA256 | Tee-Object -FilePath "$Zip.sha256"

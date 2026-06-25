@@ -1,23 +1,23 @@
-﻿# Signal Bridge v0.4 Alpha
+# Signal Bridge v0.5 Alpha
 
 Signal Bridge is a lightweight portable Windows app for EVE Online live chat monitoring, CN/EN translation, intel/entity highlighting, ESI pilot lookups, zKill-aware Pilot Info, aliases, exclusions, and cache-first translation correction.
 
 It is designed for players who want a compact side-panel tool beside EVE: no installer, no admin requirement, live-only chat monitoring by default, and a clean local-first workflow.
 
-Current version: **0.4**
+Current version: **0.5**
 
 ## Screenshot
 
-![Signal Bridge v0.4 screenshot](docs/images/signal-bridge-v0.4-screenshot.png)
+![Signal Bridge screenshot](docs/images/signal-bridge-v0.4-screenshot.png)
 
-Signal Bridge v0.4 showing the live EVE intel feed, translation workflow, ESI/Pilot Info support, configurable cache tools, aliases, exclusions, and compact Windows desktop layout.
+Signal Bridge screenshot showing the live EVE intel feed, translation workflow, ESI/Pilot Info support, configurable cache tools, aliases, Recognition Rules, and compact Windows desktop layout.
 
 ## Download
 
 Get the Windows portable app from the GitHub release:
 
-- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.4](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.4)
-- **Direct download:** [SignalBridge-v0.4-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.4/SignalBridge-v0.4-win64-portable.zip)
+- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.5](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.5)
+- **Direct download:** [SignalBridge-v0.5-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.5/SignalBridge-v0.5-win64-portable.zip)
 
 Extract the ZIP, then run:
 
@@ -32,6 +32,11 @@ SHA256:
 ```text
 F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 ```
+
+
+## v0.5 Recognition and clean-data update
+
+Signal Bridge v0.5 starts new portable installs from clean runtime/cache data while preserving curated starter assets. Broad legacy exclusions were replaced with scoped **Recognition Rules** for ignored pilots, highlight exclusions, and parser noise words. The package includes `data/default_recognition_rules.json` as bundled defaults and does not ship local caches, runtime state, logs, ESI tokens, or temporary backup files.
 
 ## Features
 
@@ -48,7 +53,7 @@ F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 - Compact EVE catalog with catalog-driven Chinese/localized ship-name detection and curated slang aliases.
 - User-managed aliases and general exclusion list packaged with the portable app.
 - Solar systems, pilots/characters, ships/assets, ESS, URLs, and tactical intel are highlighted separately.
-- Optional ESI-backed entity detection with local SQLite cache and background-only lookups.
+- Optional ESI-backed entity detection with local SQLite cache and background-only lookups; new portable installs start with an empty ESI cache.
 - Pilot Info cards with character ID, zKill link/sync, recent local history, manual flags, and optional Intel History add-on support.
 - Intel History add-on code is bundled in the portable app by default, with local data stored under the app folder.
 - Appearance controls for font, opacity, themes, highlight colors, timestamp visibility, and compact side-panel layout.
@@ -61,7 +66,7 @@ F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
 - Use `View > Appearance / Display Options...` to tune fonts, colors, opacity, and highlight categories.
 - Use `Settings > Translation Cache` to edit translation corrections.
 - Use `Settings > Aliases` to manage ship/system aliases.
-- Use `Tools > General Exclusion List...` for words or names that should stay visually neutral.
+- Use `Tools > Recognition Rules...` for words or names that should stay visually neutral.
 - Use `Help > Check for Updates` to manually check the latest GitHub release.
 - See [ROADMAP.md](ROADMAP.md) for planned work including LAN viewer, UI polish, automation, signing, and Intel History improvements.
 
@@ -267,9 +272,8 @@ Right-click selected text now includes `Add Selected Text as ESI Character`; res
 Appearance options include configurable font, colors, bold highlights, optional background rectangles, presets, preview, reset defaults, and window opacity.
 
 Signal Bridge includes curated shorthand ship aliases such as `çŸ­å‰‘` -> `Stabber` and `æµ·ç‹žç¾` -> `Caracal Navy Issue`.
-The portable build includes `data/default_exclusions.json`, which seeds the General Exclusion List on first run without overwriting user changes.
+The portable build includes `data/default_exclusions.json`, which seeds the Recognition Rules on first run without overwriting user changes.
 
-The portable build also includes `data/default_esi_entities.json`, a starter cache of verified ESI characters seeded on first run without overwriting local cache entries.
 
 - Bundled starter translation cache seeds known free-text translations into new installs without overwriting local cache rows.
 - Starter translation-cache entries include curated EVE terminology fixes for common ship/item/intel phrases.
@@ -288,7 +292,7 @@ The Settings Center uses a sidebar with pages for:
 - Translation mode, phrase overrides, Argos fallback, and translation cache
 - EVE catalog status and update actions
 - ESI recognition, OAuth, diagnostics, and cache actions
-- General Exclusion List management
+- Recognition Rules management
 - Cache & Data starter bundles
 - Diagnostics with a copyable health summary
 - About / Support
@@ -312,14 +316,14 @@ Planned behavior:
 This is tracked in `ROADMAP.md` as a must-have future feature.
 ### Planned LAN Viewer Appearance
 
-The planned LAN Web Viewer should use the same look as the desktop app where practical. It should reuse the current Appearance settings, including font, feed background, text color, category colors, bold settings, background highlights, sender-neutral styling, and General Exclusion List behavior.
+The planned LAN Web Viewer should use the same look as the desktop app where practical. It should reuse the current Appearance settings, including font, feed background, text color, category colors, bold settings, background highlights, sender-neutral styling, and Recognition Rules behavior.
 
 The web viewer should remain mobile-friendly and use fallback fonts when a phone does not have the selected desktop font.
 
 
 ## Translation Cache reset note
 
-The Translation Cache Manager can delete a selected grouped entry or delete all translation entries. These actions affect translation-cache rows, manual translation overrides, and translation failure cooldowns only. They do not delete aliases, the General Exclusion List, phrase overrides, settings, ESI cache, zKill cache, logs, or chat logs.
+The Translation Cache Manager can delete a selected grouped entry or delete all translation entries. These actions affect translation-cache rows, manual translation overrides, and translation failure cooldowns only. They do not delete aliases, the Recognition Rules, phrase overrides, settings, ESI cache, zKill cache, logs, or chat logs.
 
 ## SEO / discovery details
 

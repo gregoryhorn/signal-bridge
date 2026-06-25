@@ -1,3 +1,7 @@
+## v0.5 release note
+
+Signal Bridge v0.5 focuses on scoped recognition rules, cleaner first-run defaults, and package hygiene. Broad legacy exclusions are replaced by scoped ignored-pilot, highlight-exclusion, and noise-word rules. New portable builds should include curated starter data only and exclude local cache/runtime/log state, legacy broad exclusions, and starter ESI cache rows.
+
 ## v0.4 release note
 
 Signal Bridge v0.4 focuses on release hygiene and correction workflows: Translation Cache deletion/reset, empty bundled translation cache, packaged maintained aliases/exclusions, public issue list, refreshed screenshot, and SEO-ready GitHub docs. Future work continues with translation editor polish, CJK shorthand coverage, Pilot Info/zKill verification, LAN viewer planning, and release automation.
@@ -12,7 +16,7 @@ Signal Bridge v0.4 focuses on release hygiene and correction workflows: Translat
 - Translation quality: continue collecting live bad translations and promote stable corrections into aliases, phrase overrides, and cache/manual override workflows.
 - Translation cache cleanup: segment-based cache keys now reduce duplicated/polluted Google/Argos rows while keeping manual overrides as the highest-priority correction layer.
 - Feed/Pilot Info UX: continue refining compact tactical cards, entity separation, and status/signal classification.
-﻿# Signal Bridge Roadmap
+# Signal Bridge Roadmap
 
 Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN.
 

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import argparse
 import base64
 import json
@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 APP_NAME = "Signal Bridge"
-APP_VERSION = "0.4"
+APP_VERSION = "0.5"
 UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
 UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
@@ -4874,7 +4874,7 @@ class SignalBridgeGui:
             r = row(c2); action(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty")); action(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
             r2 = row(c); action(r2, "About", self.show_about); action(r2, "Support / Donate ISK", self.show_support); action(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
         renderers = {"General": render_general, "Channels": render_channels, "Appearance": render_appearance, "Translation": render_translation, "Translation Cache": render_translation_cache, "EVE Catalog": render_catalog, "Aliases": render_aliases, "ESI": render_esi, "Exclusions": render_exclusions, "Add-ons": render_addons, "Cache & Data": render_cache_data, "Diagnostics": render_diagnostics, "About / Support": render_about}
-        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "Translation Cache":"Translation Corrections: fix visible translations and manage cache-first overrides.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Global terms that should not be highlighted or resolved.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
+        descriptions = {"General":"Core app behavior and folders.", "Channels":"Manage active, hidden, and discovered EVE chat channels.", "Appearance":"Fonts, colors, highlight styling, and transparency.", "Translation":"Translation direction, free text, phrase overrides, and cache.", "Translation Cache":"Translation Corrections: fix visible translations and manage cache-first overrides.", "EVE Catalog":"Compact catalog status and updates.", "Aliases":"View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI":"Optional background character/entity recognition and OAuth.", "Exclusions":"Scoped Recognition Rules for ignored pilots, highlight exclusions, and noise words.", "Add-ons":"Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data":"Bundled starter data and local cache actions.", "Diagnostics":"Health information for troubleshooting.", "About / Support":"Version, update, and support information."}
         def render_page(page):
             clear(); title.configure(text=page); subtitle.configure(text=descriptions.get(page, ""))
             for name, btn in nav_buttons.items(): style_button(btn, name == page)

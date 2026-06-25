@@ -1,4 +1,4 @@
-﻿## v0.4 publication note
+## v0.4 publication note
 
 Signal Bridge v0.4 published the current known issue list alongside the refreshed README, screenshot, packaged alias/exclusion data, and clean translation-cache release assets. Continue using this file for concise public issue tracking.
 
@@ -773,3 +773,9 @@ After fixing:
 - Area: channel discovery / Add/Open Channels menu / tracking startup
 - Fix summary: Add/Open Channels now merges recent chatlog discovery with persisted active, hidden, and saved tab state so previously tracked channels remain visible even when no current chatlog file exists. The chooser now shows tracking/discovered/hidden/waiting statuses, uses consistent modal stacking, and saved channels continue waiting for new log files after restart instead of requiring manual re-add.
 - Validation: compile passed; helper validation confirmed discovered channels, persisted missing active channels, hidden channels, and discovered-only channels are categorized correctly.
+
+## Recently resolved in v0.5
+
+- Resolved Translation Corrections layout/design issue with aligned panes, clearer button hierarchy, and advanced controls hidden behind a toggle.
+- Resolved broad legacy exclusion cleanup by replacing it with scoped Recognition Rules and bundled parser-noise defaults.
+- Added inline Recognition Rules help as the first local help pattern; broader Help Center remains future work.
