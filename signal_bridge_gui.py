@@ -2775,13 +2775,8 @@ def looks_like_translation_pending_source(text: str, direction: str) -> bool:
     return has_non_english_signal(value)
 
 
-def looks_like_protected_translation_work(text: str) -> bool:
-    """Return True for placeholder/protected-term-only Google work strings.
-
-    The translation worker protects EVE systems, links, counts, ships, and pilots
-    as SBX placeholders before calling Google. Those strings are valid for one
-    network call but must not become persistent Translation Corrections rows.
-    """
+def looks_like_protected_translation_work(text: str, protected_terms: list[str] | None = None) -> bool:
+    """Return True for placeholder/protected-term-only Google work strings."""
     value = normalize_feed_text(text)
     if not value:
         return True
@@ -2789,22 +2784,21 @@ def looks_like_protected_translation_work(text: str) -> bool:
     stripped = LINK_RE.sub(" ", stripped)
     stripped = re.sub(r"\bSBX\d+\b", " ", stripped, flags=re.I)
     stripped = COUNT_RE.sub(" ", stripped)
+    for term in sorted(unique(protected_terms or []), key=len, reverse=True):
+        term_value = normalize_feed_text(term)
+        if term_value:
+            stripped = re.sub(rf"(?<!\w){re.escape(term_value)}(?!\w)", " ", stripped, flags=re.I)
     stripped = re.sub(r"\b(?:clear|clr|safe|blue only|red|neut|neutral|hostile|local|gate|jump|jumped|camp|ess|no visual|nv)\b", " ", stripped, flags=re.I)
     stripped = re.sub(r"[\s,.;:!?'\"()\[\]{}<>|/\\_-]+", " ", stripped).strip()
     return not stripped
 
 
-def should_cache_translation_source(source_text: str, direction: str, target_lang: str = "en", engine: str = "") -> bool:
-    """Gate persistent machine-cache writes by direction and source language.
-
-    Manual overrides are handled separately. Auto -> EN only persists genuine
-    non-English source segments; English/protected-only intel remains uncached so
-    it cannot clutter the correction UI. EN -> CN explicitly allows English.
-    """
+def should_cache_translation_source(source_text: str, direction: str, target_lang: str = "en", engine: str = "", protected_terms: list[str] | None = None) -> bool:
+    """Gate persistent machine-cache writes by direction and source language."""
     direction = str(direction or "zh-en")
     target = str(target_lang or "en")
     source = normalize_feed_text(source_text)
-    if not source or looks_like_protected_translation_work(source):
+    if not source or looks_like_protected_translation_work(source, protected_terms):
         return False
     if HTTP_LINK_RE.fullmatch(source) or LINK_RE.fullmatch(source):
         return False
@@ -2893,7 +2887,7 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
             out=re.sub(rf"\b{re.escape(token)}\b", original, out)
         out=out.strip()
         if out:
-            if should_cache_translation_source(cache_text, direction, target, engine):
+            if should_cache_translation_source(cache_text, direction, target, engine, protected_terms=[original for _token, original in protected]):
                 TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(cache_text, source, target, engine), cache_text, source, target, out, engine)
                 return out, f"segment:{engine}-cached"
             return out, f"segment:{engine}-uncached"
