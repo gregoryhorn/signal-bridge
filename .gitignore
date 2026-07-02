@@ -40,3 +40,9 @@ Thumbs.db
 
 # Local source-GUI smoke-test logs
 source-gui-*.log
+
+# local runtime add-on copies and dev/session artifacts
+modules/
+runtime/
+data/*_backup_*.json
+build_portable_*.log
