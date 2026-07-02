@@ -17,14 +17,14 @@ Executing a phased UI overhaul of the Tkinter monolith `signal_bridge_gui.py` pe
 | 2.1 — Settings Center shell rebuild (SettingsShell, 13 pages → `_render_settings_*` methods, save failures surfaced) | ✅ complete | `2026-07-03-phase2.1-settings-shell.md` | `5361df6` |
 | 2.2 — Translation Corrections single-table redesign | ✅ complete | `2026-07-03-phase2.2-translation-corrections.md` | `ec3f724` |
 | 2.3 — Pilot Info card + zKill usefulness (last open P1) | ✅ complete (final review: ready to merge) | `2026-07-03-phase2.3-pilot-info-zkill.md` | `40a8a5b`, `35a6048`, `f34fb48`, `d59a89a` |
-| 2.4 — Help menu + About/Support | not planned yet | write via superpowers:writing-plans | — |
+| 2.4 — Help menu + About/Support | 📋 spec + plan committed (`986aee0`, `7e85201`), execution not started | `2026-07-03-phase2.4-help-about.md` (spec: `specs/2026-07-03-help-about-design.md`) | — |
 | 2.5 — Remaining dialogs (Appearance, ESI exclusion list, channel picker, alias editor) onto foundation | not planned yet | — | — |
 | 3.x — Functional issues (cache data model P1, language auto-detect, filters, spam limiting, backlog ingest, highlight fixes) | scoped in roadmap only | — | — |
 
 ## Immediate next steps (in order)
 
-1. **Write the 2.4 plan (Help/About)** via superpowers:writing-plans, consuming `SettingsShell`/`sb_ui` patterns. Brainstorm scope with the owner first (Help menu content and About/Support text are owner decisions).
-2. Then execute 2.4, then plan 2.5.
+1. **Execute Phase 2.4** per `docs/superpowers/plans/2026-07-03-phase2.4-help-about.md` (owner-approved spec + plan; execution assignment in the plan: Tasks 1-3, 6 → Haiku, Tasks 4-5 → Sonnet, subagent-driven with per-task review). Owner chose to pause before execution — confirm before dispatching.
+2. Then plan 2.5 (remaining dialogs onto the foundation).
 
 Phase 2.3 notes: executed 2026-07-03 via subagent-driven development (ledger: `.superpowers/sdd/progress.md`, git-ignored). One approved deviation from the plan's Task 3 snippet: `canvas.configure(height=body.winfo_reqheight())` before `fit_to_content`, because a Canvas never propagates its child's requested height — without it the card always clamped to the 520 min. Deferred cosmetic minors (final review triage): bare `list` type hints in `sb_zkill.py`; duplicate `int()` cast in `zkill_event_row` (optional cleanup: expose `sb_zkill.participants()` and reuse); unused `width` unpack in the autosize block; loss rows' gang label shows the killing fleet's size, which reads ambiguously ("[large fleet]" on a loss = died to a blob) — possible future wording polish.
 
