@@ -20,6 +20,8 @@ COLORS = {
     "border": "#1f2f42",
     "warning": "#facc15",
     "success": "#7ee787",
+    "error": "#ff8f8f",
+    "gold": "#f0c36a",
 }
 
 

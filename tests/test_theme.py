@@ -36,3 +36,8 @@ def test_kwarg_helpers_return_fresh_dicts():
     assert theme.listbox_kw()["selectbackground"] == "#1f6feb"
     assert theme.text_kw()["bg"] == "#07111d"
     assert theme.optionmenu_kw()["bg"] == "#111821"
+
+
+def test_extended_colors():
+    assert theme.COLORS["error"] == "#ff8f8f"
+    assert theme.COLORS["gold"] == "#f0c36a"

@@ -40,9 +40,13 @@ def check(parent, text: str, var, command=None) -> tk.Checkbutton:
     return cb
 
 
-def info_label(parent, text: str, muted: bool = False, wraplength: int = 600) -> tk.Label:
+def info_label(parent, text: str, muted: bool = False, wraplength: int = 600,
+               fg: str | None = None) -> tk.Label:
+    kw = theme.label_kw(muted=muted)
+    if fg:
+        kw["fg"] = fg
     lbl = tk.Label(parent, text=text, justify="left", anchor="w",
-                   wraplength=wraplength, **theme.label_kw(muted=muted))
+                   wraplength=wraplength, **kw)
     lbl.pack(anchor="w", fill="x", pady=2)
     return lbl
 

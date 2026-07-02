@@ -32,6 +32,11 @@ def test_check_and_info_label_pack_west(tk_root):
     assert lbl.cget("fg") == theme.COLORS["fg_muted"]
 
 
+def test_info_label_fg_override(tk_root):
+    lbl = components.info_label(tk_root, "boom", fg=theme.COLORS["error"])
+    assert lbl.cget("fg") == "#ff8f8f"
+
+
 def test_balanced_paned_places_sash_at_fraction(tk_root):
     paned, left, right = components.balanced_paned(tk_root, left_min=100, right_min=100, fraction=0.5)
     paned.pack(fill="both", expand=True)
