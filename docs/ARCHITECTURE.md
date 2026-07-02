@@ -6,6 +6,18 @@ The current live app is a Python/Tk Windows app centered around `signal_bridge_g
 
 The app has grown feature-rich, so the architectural goal is now separation of concerns and UI safety rather than adding more features directly into the GUI path.
 
+## UI foundation (Phase 1, 2026-07)
+
+New shared UI infrastructure that all dialog/page work must build on:
+
+- `sb_ui/theme.py`: every color/font constant. No hex literals in new widget code.
+- `sb_ui/components.py`: `card`, `action_row`, `action_button`, `primary_button`, `check`, `info_label`, `balanced_paned`. New pages compose these instead of hand-rolling per-dialog closures.
+- `sb_ui/windows.py`: `polish_window` (chrome/stacking) and `fit_to_content` (content-driven sizing clamped to min/max/screen). New dialogs must not hardcode a fixed width/height without a reason.
+- `sb_settings.py`: `SettingsStore` — typed schema, validation warnings, atomic non-silent saves. Main settings use it; ESI settings/tokens migrate in Phase 2.
+- `tests/`: pytest suite covering the above with real Tk widgets. Run `pytest tests/ -v`.
+
+Overhaul roadmap: `docs/superpowers/plans/2026-07-02-ui-overhaul-roadmap.md`.
+
 ## Target architecture direction
 
 ```text

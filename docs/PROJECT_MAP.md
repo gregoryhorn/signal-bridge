@@ -5,7 +5,7 @@ Signal Bridge is currently shipped from the Python/Tk source tree in this reposi
 ## Current live app
 
 - Main app: `signal_bridge_gui.py`
-- Current release line: `v0.3`
+- Current release line: `v0.5`
 - Portable packaging: PyInstaller-based Windows ZIP scripts/docs in this repo
 - Runtime logs: `logs/`
 - Local runtime add-ons: `modules/` (not committed)
@@ -46,12 +46,18 @@ EVE chatlog file
 | Translation | Translation cache, Google safe paths, Argos disabled | Render path must not run MT/network |
 | Intel History | `addons/intel-history` | Optional add-on loaded in-process with guarded API |
 | Packaging | packaging docs/scripts | Portable Windows ZIP, no admin/dev tools |
+| UI theme | `sb_ui/theme.py` | Central colors/fonts; no hex literals in new widget code |
+| UI components | `sb_ui/components.py` | `card`/`action_button`/`check`/`balanced_paned` etc.; compose these in new pages |
+| Window helpers | `sb_ui/windows.py` | `polish_window` chrome/stacking, `fit_to_content` sizing |
+| Settings store | `sb_settings.py` | Typed `SettingsStore`; validation warnings, non-silent saves |
+| UI/unit tests | `tests/` | pytest suite (real Tk widgets); run `pytest tests/ -v` |
 
 ## Standard validation commands
 
 ```powershell
 python -X utf8 -m py_compile signal_bridge_gui.py addons/intel-history/intel_history.py
 python -X utf8 scripts/check-fixtures.py
+python -m pytest tests/ -v
 ```
 
 These commands should stay fast, offline, and deterministic.

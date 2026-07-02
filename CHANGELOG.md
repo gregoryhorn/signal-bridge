@@ -1,3 +1,9 @@
+## Unreleased
+
+- Added shared UI foundation (`sb_ui` theme/components/window helpers) and typed settings store with validation warnings and non-silent save failures.
+- Fixed Translation Corrections Original/English split: balanced 50/50 layout that self-corrects on resize (was P1).
+- Added pytest test suite for UI components and settings store.
+
 ## v0.5 - 2026-06-25
 
 - Bumped app/package version from 0.4 to 0.5.
