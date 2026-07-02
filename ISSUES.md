@@ -408,9 +408,9 @@ Acceptance notes:
 - Appearance/Display settings clearly expose the toggle.
 - Ships still use the ship color, not purple.
 
-## User feedback: Help menu needs a proper help system
+## Fixed: Help menu needs a proper help system
 
-- Status: open
+- Status: fixed in source (Phase 2.4)
 - Priority: medium
 - Reported: 2026-06-21
 - Area: Help menu / documentation UX
@@ -429,9 +429,13 @@ Acceptance notes:
 - Help menu has clear user-facing entries, not just debug/about actions.
 - New users can find setup and troubleshooting steps without visiting GitHub first.
 
-## User feedback: About and Support need a dedicated menu
+### Fix summary
 
-- Status: open
+In-app Help Center (Help menu, Help Topics...) with nine offline markdown topics (`docs/help/`) rendered in a themed left-nav viewer; topics cover setup, chatlog folder, channels, translation, aliases, recognition rules, Pilot Info, Intel History, and diagnostics with GitHub/README/ISSUES links; Recognition Rules dialog gained a "?" deep link; content ships in the portable ZIP and renders offline.
+
+## Fixed: About and Support need a dedicated menu
+
+- Status: fixed in source (Phase 2.4)
 - Priority: medium
 - Reported: 2026-06-21
 - Area: menus / About / Support UX
@@ -448,6 +452,10 @@ Acceptance notes:
 
 - Users can quickly find the app version, support links, and donation/support details.
 - About/Support is not buried inside unrelated settings.
+
+### Fix summary
+
+Dedicated About Signal Bridge window (version, GitHub/release/issue links, Copy Diagnostics, update check, donation info) reachable from the restructured Help menu; old About/Support messageboxes re-pointed; settings About page kept as a thin pointer.
 
 ## User feedback: Google default translation should auto-detect all non-English languages
 

@@ -40,6 +40,8 @@ The portable `data/` folder should include:
 - `default_translation_cache.json`
 - `default_translation_cache.json.sha256`
 
+The portable package must also include the `docs/help/` folder (offline in-app help topics).
+
 ## Verification commands
 
 ```powershell
