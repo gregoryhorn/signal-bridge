@@ -3414,7 +3414,7 @@ class SignalBridgeGui:
         help_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(manual=True))
         help_menu.add_command(label="Report an Issue...", command=lambda: webbrowser.open(ISSUE_REPORT_URL))
         help_menu.add_separator()
-        help_menu.add_command(label="About Signal Bridge...", command=lambda: self.show_settings_center("About / Support"))
+        help_menu.add_command(label="About Signal Bridge...", command=self.show_about_window)
         menubar.add_cascade(label="Help", menu=help_menu)
         self.root.config(menu=menubar)
 
@@ -4467,17 +4467,12 @@ class SignalBridgeGui:
     def _render_settings_about(self, body, shell):
         c = sb_components.card(body, "About / Support")
         sb_components.info_label(c, f"Signal Bridge v{APP_VERSION}")
-        sb_components.info_label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", muted=True)
-        c2 = sb_components.card(body, "Support Development", "If you like this app and want further development, you can donate some ISK in game.")
-        sb_components.info_label(c2, "Donate ISK to: Mizz Betty", fg=sb_theme.COLORS["gold"])
-        sb_components.info_label(c2, DONATION_TEXT, muted=True)
-        r = sb_components.action_row(c2)
-        sb_components.action_button(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty"))
-        sb_components.action_button(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
-        r2 = sb_components.action_row(c)
-        sb_components.action_button(r2, "About", self.show_about)
-        sb_components.action_button(r2, "Support / Donate ISK", self.show_support)
-        sb_components.action_button(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
+        sb_components.info_label(
+            c, "Version details, links, update check, and donation info "
+               "live in the About window.", muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "About & Support...", self.show_about_window)
+        sb_components.action_button(r, "Help Topics...", self.show_help_center)
 
     def _render_settings_translation(self, body, shell):
         tk = self.tk
@@ -5972,31 +5967,54 @@ class SignalBridgeGui:
         shell.open()
         record_event("help_center_opened", topic=topic or titles[0])
 
+    def show_about_window(self):
+        tk = self.tk
+        win = tk.Toplevel(self.root)
+        self.polish_window(win, self.root, width=540, height=500, minsize=(500, 440),
+                           title="About Signal Bridge")
+        footer = tk.Frame(win, bg=sb_theme.COLORS["bg_panel"])
+        footer.pack(fill="x", side="bottom")
+        tk.Button(footer, text="Close", command=win.destroy, padx=16,
+                  **sb_theme.btn_primary_kw()).pack(side="right", padx=12, pady=8)
+        body = tk.Frame(win, bg=sb_theme.COLORS["bg"], padx=14, pady=10)
+        body.pack(fill="both", expand=True)
+
+        def link(parent, text, url):
+            lbl = tk.Label(parent, text=text, bg=parent.cget("bg"), fg="#5ad7ff",
+                           cursor="hand2", anchor="w")
+            lbl.pack(anchor="w", pady=1)
+            lbl.bind("<Button-1>", lambda _e, u=url: webbrowser.open(u))
+
+        c = sb_components.card(body, f"Signal Bridge v{APP_VERSION}")
+        sb_components.info_label(
+            c, "Lightweight Windows app for live EVE chat monitoring, "
+               "CN <-> EN translation, and intel highlighting.", muted=True)
+        link(c, "GitHub: github.com/gregoryhorn/signal-bridge", GITHUB_REPO_URL)
+        link(c, "Latest release", UPDATE_RELEASE_URL)
+        link(c, "Report an issue", ISSUE_REPORT_URL)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Copy Diagnostics", self.copy_diagnostics)
+        sb_components.action_button(r, "Check for Updates",
+                                    lambda: self.check_for_updates(manual=True))
+
+        c2 = sb_components.card(body, "Support Development",
+                                "If you like this app and want further development, "
+                                "you can donate some ISK in game.")
+        sb_components.info_label(c2, "Donate ISK to: Mizz Betty",
+                                 fg=sb_theme.COLORS["gold"])
+        sb_components.info_label(c2, DONATION_TEXT, muted=True)
+        r2 = sb_components.action_row(c2)
+        sb_components.action_button(r2, "Copy Character Name",
+                                    lambda: self.copy_to_clipboard("Mizz Betty"))
+        sb_components.action_button(r2, "Copy Donation Message",
+                                    lambda: self.copy_to_clipboard(DONATION_TEXT))
+        record_event("about_window_opened")
+
     def show_about(self):
-        self.messagebox.showinfo(
-            "About Signal Bridge",
-            f"Signal Bridge v{APP_VERSION}\n"
-            "EVE Online live chat intel translator\n\n"
-            "Highlights:\n"
-            "- Systems: yellow\n"
-            "- Ships: red\n"
-            "- Non-ship assets/modules: purple\n"
-            "- ESS: light blue\n"
-            "- Active chats appear as hideable/reorderable tabs\n"
-            "- All tab shows combined chat view\n"
-            "- Unread indicators appear on inactive tabs\n"
-            "- Right-click feed copy actions and HTTP/HTTPS links\n"
-            "- Configurable feed font and timestamp display\n\n"
-            "Translation:\n"
-            f"- Compact EVE catalog: {CATALOG.version}\n"
-            "- Google free auto-detect to English\n"
-            "- Argos fallback when available\n"
-            "- Simple nonblocking GitHub update check on launch\n"
-            "- Optional cache-first ESI entity recognition/OAuth foundation"
-        )
+        self.show_about_window()
 
     def show_support(self):
-        self.messagebox.showinfo("Support Signal Bridge", DONATION_TEXT)
+        self.show_about_window()
 
     def show_health(self):
         active = ', '.join(sorted(self.active_channels)) or 'none'
