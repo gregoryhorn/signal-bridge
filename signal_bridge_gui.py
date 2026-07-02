@@ -4547,44 +4547,33 @@ class SignalBridgeGui:
         tk.Spinbox(advanced_settings, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg_bright"]).pack(side="left", padx=(0,8))
         tk.Checkbutton(advanced_settings, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), **sb_theme.check_kw()).pack(side="left", padx=6)
 
-        # Balanced 50/50 Original/English split that self-corrects on resize
-        # instead of reading winfo_width() once before layout settles.
-        tables, left, right = sb_components.balanced_paned(c, left_min=260, right_min=320, fraction=0.5)
-        tables.pack(fill="both", expand=True, pady=(2, 8))
+        filters = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        filters.pack(fill="x", pady=(0, 4))
+        tk.Label(filters, text="Find original", **sb_theme.label_kw(muted=True)).pack(side="left", padx=(0, 4))
+        tk.Entry(filters, textvariable=original_filter, width=24, **sb_theme.entry_kw()).pack(side="left", padx=(0, 12))
+        tk.Label(filters, text="Find English", **sb_theme.label_kw(muted=True)).pack(side="left", padx=(0, 4))
+        tk.Entry(filters, textvariable=translated_filter, width=24, **sb_theme.entry_kw()).pack(side="left")
 
-        for pane in (left, right):
-            pane.grid_columnconfigure(0, weight=1)
-            pane.grid_rowconfigure(3, weight=1)
+        table_frame, tree = sb_components.preview_table(
+            c, [("original", "Original"), ("english", "English")], height=9)
+        table_frame.pack(fill="both", expand=True, pady=(2, 8))
 
-        tk.Label(left, text="Original", font=sb_theme.font(10, bold=True), **sb_theme.label_kw()).grid(row=0, column=0, sticky="w", padx=(0, 6))
-        tk.Label(left, text="Find original", **sb_theme.label_kw(muted=True)).grid(row=1, column=0, sticky="w", padx=(0, 6), pady=(6, 0))
-        tk.Entry(left, textvariable=original_filter, **sb_theme.entry_kw()).grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(2, 6))
-        orig_list_frame = tk.Frame(left, bg=sb_theme.COLORS["bg"])
-        orig_list_frame.grid(row=3, column=0, sticky="nsew", padx=(0, 6))
-        orig_list_frame.grid_columnconfigure(0, weight=1); orig_list_frame.grid_rowconfigure(0, weight=1)
-        orig_list = tk.Listbox(orig_list_frame, height=5, width=24, **sb_theme.listbox_kw())
-        orig_scroll = tk.Scrollbar(orig_list_frame, orient="vertical", command=orig_list.yview)
-        orig_list.configure(yscrollcommand=orig_scroll.set)
-        orig_list.grid(row=0, column=0, sticky="nsew"); orig_scroll.grid(row=0, column=1, sticky="ns")
-        tk.Label(left, text="Original / source phrase", font=sb_theme.font(9, bold=True), bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["warning"]).grid(row=4, column=0, sticky="w", padx=(0, 6), pady=(8, 2))
-        src_text = tk.Text(left, height=3, **sb_theme.text_kw())
-        src_text.grid(row=5, column=0, sticky="ew", padx=(0, 6), ipady=3)
-        tk.Label(left, text="Use only if the captured source segment is wrong.", anchor="w", **sb_theme.label_kw(muted=True)).grid(row=6, column=0, sticky="w", padx=(0, 6), pady=(2, 0))
-
-        tk.Label(right, text="English", font=sb_theme.font(10, bold=True), **sb_theme.label_kw()).grid(row=0, column=0, sticky="w", padx=(6, 0))
-        tk.Label(right, text="Find English", **sb_theme.label_kw(muted=True)).grid(row=1, column=0, sticky="w", padx=(6, 0), pady=(6, 0))
-        tk.Entry(right, textvariable=translated_filter, **sb_theme.entry_kw()).grid(row=2, column=0, sticky="ew", padx=(6, 0), pady=(2, 6))
-        trans_list_frame = tk.Frame(right, bg=sb_theme.COLORS["bg"])
-        trans_list_frame.grid(row=3, column=0, sticky="nsew", padx=(6, 0))
-        trans_list_frame.grid_columnconfigure(0, weight=1); trans_list_frame.grid_rowconfigure(0, weight=1)
-        trans_list = tk.Listbox(trans_list_frame, height=5, width=38, **sb_theme.listbox_kw())
-        trans_scroll = tk.Scrollbar(trans_list_frame, orient="vertical", command=trans_list.yview)
-        trans_list.configure(yscrollcommand=trans_scroll.set)
-        trans_list.grid(row=0, column=0, sticky="nsew"); trans_scroll.grid(row=0, column=1, sticky="ns")
-        tk.Label(right, text="English correction", font=sb_theme.font(9, bold=True), bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["success"]).grid(row=4, column=0, sticky="w", padx=(6, 0), pady=(8, 2))
-        dst_text = tk.Text(right, height=4, **sb_theme.text_kw())
-        dst_text.grid(row=5, column=0, sticky="ew", padx=(6, 0), ipady=3)
-        tk.Label(right, text="Edit this text to fix what appears in live chat.", anchor="w", **sb_theme.label_kw(muted=True)).grid(row=6, column=0, sticky="w", padx=(6, 0), pady=(2, 0))
+        editor = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        editor.pack(fill="x", pady=(0, 6))
+        editor.grid_columnconfigure(0, weight=2)
+        editor.grid_columnconfigure(1, weight=3)
+        tk.Label(editor, text="Original / source phrase", font=sb_theme.font(9, bold=True),
+                 bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["warning"]).grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(4, 2))
+        tk.Label(editor, text="English correction (primary)", font=sb_theme.font(10, bold=True),
+                 bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["success"]).grid(row=0, column=1, sticky="w", padx=(6, 0), pady=(4, 2))
+        src_text = tk.Text(editor, height=4, **sb_theme.text_kw())
+        src_text.grid(row=1, column=0, sticky="nsew", padx=(0, 6), ipady=3)
+        dst_text = tk.Text(editor, height=4, **sb_theme.text_kw())
+        dst_text.grid(row=1, column=1, sticky="nsew", padx=(6, 0), ipady=3)
+        tk.Label(editor, text="Use only if the captured source segment is wrong.",
+                 anchor="w", **sb_theme.label_kw(muted=True)).grid(row=2, column=0, sticky="w", padx=(0, 6), pady=(2, 0))
+        tk.Label(editor, text="Edit this text to fix what appears in live chat.",
+                 anchor="w", **sb_theme.label_kw(muted=True)).grid(row=2, column=1, sticky="w", padx=(6, 0), pady=(2, 0))
 
         opts = tk.Frame(c, bg=sb_theme.COLORS["bg"])
         opts.pack(fill="x", pady=(0, 6))
@@ -4619,17 +4608,17 @@ class SignalBridgeGui:
             dst_filter = translated_filter.get().strip().casefold()
             rows = TRANSLATION_CACHE.grouped_entries(src_filter, dst_filter, 250)
             state["items"] = rows
-            orig_list.delete(0, "end"); trans_list.delete(0, "end")
-            for item in rows:
+            tree.delete(*tree.get_children())
+            for i, item in enumerate(rows):
                 if show_internals_var.get():
                     prefix = "M" if item.get("manual_id") else "C"
                     dup = int(item.get("duplicate_count") or 1)
-                    meta = f" d{dup}" if dup > 1 else ""
-                    orig_label = f"[{prefix}{meta}] {preview(item.get('source_text'))}"
+                    meta_tag = f" d{dup}" if dup > 1 else ""
+                    orig_label = f"[{prefix}{meta_tag}] {preview(item.get('source_text'))}"
                 else:
                     orig_label = preview(item.get('source_text'))
-                orig_list.insert("end", orig_label)
-                trans_list.insert("end", preview(item.get("translated_text")))
+                tree.insert("", "end", iid=str(i),
+                            values=(orig_label, preview(item.get("translated_text"))))
             new_idx = None
             if keep_selection and old_src:
                 for i, item in enumerate(rows):
@@ -4637,8 +4626,7 @@ class SignalBridgeGui:
                         new_idx = i; break
             state["selected_index"] = new_idx
             if new_idx is not None:
-                orig_list.selection_set(new_idx); trans_list.selection_set(new_idx)
-                orig_list.see(new_idx); trans_list.see(new_idx)
+                tree.selection_set(str(new_idx)); tree.see(str(new_idx))
             hidden = sum(max(0, int(r.get("duplicate_count") or 1) - 1) for r in rows)
             status_var.set(f"Showing {len(rows)} grouped row(s). Hidden duplicate records: {hidden}. Manual edits auto-save as overrides.")
 
@@ -4646,9 +4634,7 @@ class SignalBridgeGui:
             if idx is None or idx < 0 or idx >= len(state["items"]):
                 return
             state["selected_index"] = idx
-            orig_list.selection_clear(0, "end"); trans_list.selection_clear(0, "end")
-            orig_list.selection_set(idx); trans_list.selection_set(idx)
-            orig_list.see(idx); trans_list.see(idx)
+            tree.selection_set(str(idx)); tree.see(str(idx))
             item = state["items"][idx]
             set_text(src_text, item.get("source_text") or "")
             set_text(dst_text, item.get("translated_text") or "")
@@ -4657,18 +4643,15 @@ class SignalBridgeGui:
             note_var.set(str(item.get("note") or ""))
             status_var.set(f"Editing selected row. Type in the English correction box to save a manual override. Source: {item.get('winning_kind','cache')}; duplicates hidden: {max(0, int(item.get('duplicate_count') or 1)-1)}; engines: {item.get('engines','')}")
 
-        def on_select(event=None):
-            widget = event.widget if event is not None else orig_list
-            sel = widget.curselection()
+        def on_select(_event=None):
+            sel = tree.selection()
             if sel:
-                select_index(int(sel[0]))
+                try:
+                    select_index(int(sel[0]))
+                except (ValueError, tk.TclError):
+                    pass
 
-        def sync_scroll_from_orig(*args):
-            trans_list.yview_moveto(args[0]) if args and args[0] else None
-        def sync_scroll_from_trans(*args):
-            orig_list.yview_moveto(args[0]) if args and args[0] else None
-        # Keep selection synchronized; scrollbars remain independent enough for normal use.
-        orig_list.bind("<<ListboxSelect>>", on_select); trans_list.bind("<<ListboxSelect>>", on_select)
+        tree.bind("<<TreeviewSelect>>", on_select)
 
         def save_now():
             state["autosave_after"] = None
@@ -4721,7 +4704,7 @@ class SignalBridgeGui:
             self.set_status(f"Cleaned translation cache: {dup_removed} duplicates, {invalid_removed} invalid")
             refresh_rows(False)
 
-        sb_components.action_button(primary_buttons, "New correction", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New correction: enter Original on the left and English on the right; it will auto-save.")))
+        sb_components.action_button(primary_buttons, "New correction", lambda: (state.update({"selected_index": None}), tree.selection_remove(tree.selection()), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New correction: enter Original on the left and English on the right; it will auto-save.")))
         sb_components.action_button(primary_buttons, "Save now", save_now)
         def delete_selected():
             item = selected_item()
