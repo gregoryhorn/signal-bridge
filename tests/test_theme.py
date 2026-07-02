@@ -41,3 +41,13 @@ def test_kwarg_helpers_return_fresh_dicts():
 def test_extended_colors():
     assert theme.COLORS["error"] == "#ff8f8f"
     assert theme.COLORS["gold"] == "#f0c36a"
+
+
+def test_apply_ttk_styles_configures_dark_treeview(tk_root):
+    from tkinter import ttk
+    theme.apply_ttk_styles(tk_root)
+    style = ttk.Style(tk_root)
+    assert style.configure("SB.Treeview")["background"] == theme.COLORS["bg_input"]
+    assert style.configure("SB.Treeview.Heading")["background"] == theme.COLORS["bg_panel"]
+    # idempotent second call must not raise
+    theme.apply_ttk_styles(tk_root)

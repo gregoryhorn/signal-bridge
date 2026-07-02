@@ -73,3 +73,24 @@ def optionmenu_kw() -> dict:
     return dict(bg=COLORS["bg_panel"], fg=COLORS["fg"],
                 activebackground=COLORS["accent_active"],
                 activeforeground=COLORS["fg_bright"], relief="flat")
+
+
+def apply_ttk_styles(root) -> None:
+    """Configure dark SB.* ttk styles. Safe to call repeatedly."""
+    from tkinter import ttk
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except Exception:
+        pass
+    style.configure("SB.Treeview",
+                    background=COLORS["bg_input"],
+                    fieldbackground=COLORS["bg_input"],
+                    foreground=COLORS["fg"],
+                    borderwidth=0, rowheight=22)
+    style.configure("SB.Treeview.Heading",
+                    background=COLORS["bg_panel"],
+                    foreground=COLORS["fg"], relief="flat")
+    style.map("SB.Treeview",
+              background=[("selected", COLORS["accent"])],
+              foreground=[("selected", COLORS["fg_bright"])])
