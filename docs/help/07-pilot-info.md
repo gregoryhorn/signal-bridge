@@ -15,5 +15,5 @@ pilot card.
 - **Copy**: copyable text summary of the pilot.
 - **Flags**: manual flags (Watchlist, FC, Scout, Hot Dropper, threat levels...) with a note.
 - **Activity**: full recent sightings list.
-- **Sync zKill**: fetch a fresh zKillboard summary in the background. The card never blocks on network â€” it renders cached data only.
+- **Sync zKill**: fetch a fresh zKillboard summary in the background. The card never blocks on network — it renders cached data only.
 - **Open zKill**: the pilot's zKillboard page in your browser.

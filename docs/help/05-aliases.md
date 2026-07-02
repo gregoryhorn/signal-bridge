@@ -10,5 +10,5 @@ system or ship they mean, so recognition and highlighting still work.
 - Bundled starter aliases ship with the app; your additions are stored locally and survive updates.
 
 If a term is being recognized as the WRONG thing (rather than not at
-all), see the Recognition Rules topic instead â€” rules exclude text,
+all), see the Recognition Rules topic instead — rules exclude text,
 aliases add mappings.

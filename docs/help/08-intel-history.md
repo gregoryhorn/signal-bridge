@@ -11,7 +11,7 @@ channels you track. This history powers the Pilot Info card.
 
 ## Where it lives
 
-All history is stored locally in the app's data folder â€” nothing is
+All history is stored locally in the app's data folder — nothing is
 uploaded anywhere. Clearing or resetting local data (Settings, page
 **Cache & Data**) removes it.
 

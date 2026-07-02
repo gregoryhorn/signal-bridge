@@ -5988,7 +5988,8 @@ class SignalBridgeGui:
         c = sb_components.card(body, f"Signal Bridge v{APP_VERSION}")
         sb_components.info_label(
             c, "Lightweight Windows app for live EVE chat monitoring, "
-               "CN <-> EN translation, and intel highlighting.", muted=True)
+               "CN <-> EN translation, and intel highlighting.", muted=True,
+            wraplength=440)
         link(c, "GitHub: github.com/gregoryhorn/signal-bridge", GITHUB_REPO_URL)
         link(c, "Latest release", UPDATE_RELEASE_URL)
         link(c, "Report an issue", ISSUE_REPORT_URL)
@@ -6002,7 +6003,7 @@ class SignalBridgeGui:
                                 "you can donate some ISK in game.")
         sb_components.info_label(c2, "Donate ISK to: Mizz Betty",
                                  fg=sb_theme.COLORS["gold"])
-        sb_components.info_label(c2, DONATION_TEXT, muted=True)
+        sb_components.info_label(c2, DONATION_TEXT, muted=True, wraplength=440)
         r2 = sb_components.action_row(c2)
         sb_components.action_button(r2, "Copy Character Name",
                                     lambda: self.copy_to_clipboard("Mizz Betty"))

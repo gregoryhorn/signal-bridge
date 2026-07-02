@@ -15,5 +15,5 @@ Signal Bridge tracks the EVE chat channels you choose and shows each as a tab.
 - **Channels** then **Restore Hidden Tabs...** brings back tabs you closed.
 - **Close All Active Channels** stops tracking everything at once.
 
-Closing a tab only hides it in Signal Bridge â€” it does not close the
+Closing a tab only hides it in Signal Bridge — it does not close the
 channel in EVE or delete any log files.

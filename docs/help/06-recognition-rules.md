@@ -16,6 +16,6 @@ parser/rendering pipeline.
 - Rules can be added one at a time or imported as a pasted list, one term per line.
 - Bundled starter rules cover common parser noise; your own rules are stored locally.
 
-Prefer the narrowest scope that fixes the problem â€” a noise word is
+Prefer the narrowest scope that fixes the problem — a noise word is
 invisible to the whole pipeline, while a highlight exclusion still lets
 the text be read as chat.

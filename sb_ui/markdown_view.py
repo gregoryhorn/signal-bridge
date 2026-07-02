@@ -2,7 +2,7 @@
 
 parse_markdown is pure (no Tk) and unit-tested. Supported subset:
 #/##/### headings, **bold**, "- " bullets, `inline code`, bare https URLs.
-Anything else renders as plain body text â€” deliberately not a full engine.
+Anything else renders as plain body text — deliberately not a full engine.
 """
 
 import re
@@ -24,7 +24,7 @@ def parse_markdown(text: str) -> list[tuple[str, str]]:
         elif line.startswith("# "):
             segments.append((line[2:] + "\n", "h1"))
         elif line.startswith("- "):
-            segments.append(("  â€¢ ", "bullet"))
+            segments.append(("  • ", "bullet"))
             _parse_inline(segments, line[2:])
             segments.append(("\n", "body"))
         elif not line:

@@ -4,7 +4,7 @@ When something looks wrong, Signal Bridge can tell you what state it is in.
 
 ## Quick actions
 
-- **Tools** then **Copy Diagnostics** puts a settings/state summary on the clipboard â€” paste this into an issue report.
+- **Tools** then **Copy Diagnostics** puts a settings/state summary on the clipboard — paste this into an issue report.
 - **Tools** then **Open Logs Folder** opens the app's log files.
 - **Settings**, page **Diagnostics**, shows live counters and recent events.
 

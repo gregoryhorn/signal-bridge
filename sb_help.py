@@ -1,7 +1,7 @@
 """Help topic manifest and loader for the in-app Help viewer.
 
 The fixed manifest (not directory scanning) drives the nav: ordering and
-titles stay stable, and a stray file cannot appear in the UI. Pure module â€”
+titles stay stable, and a stray file cannot appear in the UI. Pure module —
 no Tk, no network.
 """
 

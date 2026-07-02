@@ -21,3 +21,10 @@ def test_load_topic_missing_file_returns_fallback():
     text = sb_help.load_topic(REPO_ROOT, "no-such-topic.md")
     assert text == sb_help.FALLBACK_TEXT
     assert "github.com" in text
+
+
+def test_docs_contain_no_mojibake():
+    for _title, filename in sb_help.HELP_TOPICS:
+        text = sb_help.load_topic(REPO_ROOT, filename)
+        assert "â" not in text and "Ã" not in text, \
+            f"{filename} contains double-encoded UTF-8"

@@ -48,3 +48,8 @@ def test_blank_line_kept():
 def test_unsupported_markdown_passes_through_as_text():
     segs = parse_markdown("| col1 | col2 |")
     assert segs[0] == ("| col1 | col2 |", "body")
+
+
+def test_bullet_glyph_is_single_bullet_char():
+    segs = parse_markdown("- x")
+    assert segs[0][0] == "  • ", "bullet glyph must be U+2022, not mojibake"
