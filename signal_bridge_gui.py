@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 import signal_bridge_render_model as render_model
 from sb_settings import SettingsStore
 from sb_ui import components as sb_components
+from sb_ui import theme as sb_theme
 from sb_ui import windows as sb_windows
 from pathlib import Path
 from typing import Callable
@@ -4341,6 +4342,132 @@ class SignalBridgeGui:
 
     def show_alias_editor(self):
         self.show_settings_center("Aliases")
+
+    def _render_settings_general(self, body, shell):
+        c = sb_components.card(body, "App Behavior", "Common runtime options and folders.")
+        sb_components.check(c, "Always on top", self.always_on_top, self.apply_topmost)
+        sb_components.check(c, "Compact mode", self.compact, self.persist_settings)
+        sb_components.check(c, "Check for updates on launch", self.check_updates_on_start, self.persist_settings)
+        sb_components.check(c, "Show timestamps", self.show_timestamps, self.persist_and_redraw)
+        sb_components.check(c, "Show channel names in feed", self.show_channel_names, self.persist_and_redraw)
+        sb_components.check(c, "Show channel names in All", self.show_channel_names_in_all, self.persist_and_redraw)
+        sb_components.check(c, "Enable clickable hyperlinks", self.enable_hyperlinks, self.persist_and_redraw)
+        c2 = sb_components.card(body, "Folders")
+        r = sb_components.action_row(c2)
+        sb_components.action_button(r, "Choose Chatlog Folder...", self.choose_chatlog_folder)
+        sb_components.action_button(r, "Open App Folder", self.open_app_folder)
+        sb_components.action_button(r, "Open Logs Folder", self.open_logs_folder)
+        sb_components.info_label(c2, f"Current chatlogs: {CHATLOG_DIR}", muted=True)
+
+    def _render_settings_channels(self, body, shell):
+        c = sb_components.card(body, "Channels", "Add channels without replacing existing ones. Hidden channels stay hidden until restored.")
+        catalog = self.channel_catalog()
+        discovered_count = len([x for x in catalog.values() if x.get("discovered")])
+        waiting_count = len([x for x in catalog.values() if x.get("active") and not x.get("discovered")])
+        sb_components.info_label(c, f"Tracking: {len(self.active_channels)} | Discovered: {discovered_count} | Waiting for log: {waiting_count} | Hidden: {len(self.hidden_tab_ids)}")
+        sb_components.info_label(c, f"Visible: {self.visible_channel}", muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Add / Open Channels...", self.choose_channels)
+        sb_components.action_button(r, "Restore Hidden Tabs...", self.restore_hidden_tabs_dialog)
+        sb_components.action_button(r, "Refresh Status", self.refresh_channel_status)
+        sb_components.action_button(r, "Close All Active", self.close_selected_channels)
+        sb_components.info_label(c, "Saved channels stay listed and continue waiting for new log files after restart. Live-only/no-backfill remains enabled.", muted=True)
+
+    def _render_settings_appearance(self, body, shell):
+        c = sb_components.card(body, "Appearance", "Customize fonts, colors, bold styling, highlight backgrounds, opacity, and presets.")
+        sb_components.info_label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}")
+        sb_components.info_label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Open Appearance Editor...", self.show_appearance_dialog)
+        sb_components.action_button(r, "Increase Font", lambda: self.adjust_font_size(1))
+        sb_components.action_button(r, "Decrease Font", lambda: self.adjust_font_size(-1))
+
+    def _render_settings_catalog(self, body, shell):
+        c = sb_components.card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
+        sb_components.info_label(c, f"Catalog loaded: {CATALOG.loaded}")
+        sb_components.info_label(c, f"Version: {CATALOG.version}")
+        sb_components.info_label(c, f"Counts: {CATALOG.counts()}", muted=True)
+        sb_components.info_label(c, f"Path: {CATALOG_PATH}", muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Aliases...", self.show_alias_editor)
+        sb_components.action_button(r, "Check Catalog Updates", self.check_catalog_updates)
+        sb_components.action_button(r, "Restore Previous Catalog", self.restore_previous_catalog)
+        sb_components.action_button(r, "Health Status", self.show_health)
+
+    def _render_settings_esi(self, body, shell):
+        c = sb_components.card(body, "ESI", "Optional cache-first background ESI recognition. Live monitoring works even when ESI is disabled.")
+        sb_components.check(c, "Enable public ESI entity recognition", self.esi_enabled, self.save_esi_ui_settings)
+        sb_components.check(c, "Enable OAuth features", self.esi_oauth_enabled, self.save_esi_ui_settings)
+        stats = ESI_CACHE.stats(); status = ESI_CACHE.get_status()
+        sb_components.info_label(c, f"Recognition: {'Enabled' if self.esi_enabled.get() else 'Disabled'}")
+        sb_components.info_label(c, f"OAuth: {'Enabled' if self.esi_oauth_enabled.get() else 'Disabled'}")
+        sb_components.info_label(c, f"Known characters/entities: {stats.get('entities', 0)}", muted=True)
+        sb_components.info_label(c, f"Ignored/excluded terms: {stats.get('corrections', 0)}", muted=True)
+        sb_components.info_label(c, f"Recent negative answers: {stats.get('negative', 0)}", muted=True)
+        sb_components.info_label(c, f"Last ESI check: {status.get('last_check') or 'none'}", muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "ESI / OAuth Settings...", self.show_esi_settings)
+        sb_components.action_button(r, "Manual Character Check...", self.manual_esi_check_dialog)
+        sb_components.action_button(r, "Diagnostics", self.show_esi_diagnostics)
+        sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
+
+    def _render_settings_exclusions(self, body, shell):
+        c = sb_components.card(body, "Recognition & Highlight Exclusions", "Current exclusions stop pilot recognition and hide matching visual highlights. Future scoped rules will split pilot ignores, highlight exclusions, noise words, and chat filters.")
+        try:
+            pilot_rules = ESI_CACHE.list_exclusion_rules("pilot_ignore")
+            highlight_rules = ESI_CACHE.list_exclusion_rules("highlight_exclude")
+            noise_rules = ESI_CACHE.list_exclusion_rules("noise_word")
+        except Exception:
+            pilot_rules, highlight_rules, noise_rules = [], [], []
+        sb_components.info_label(c, f"Ignored pilots: {len(pilot_rules)} | Highlight exclusions: {len(highlight_rules)} | Noise words: {len(noise_rules)}")
+        sample = ", ".join((x.get("text") or "") for x in (pilot_rules + highlight_rules + noise_rules)[:12])
+        if sample:
+            sb_components.info_label(c, sample + ("..." if len(pilot_rules) + len(highlight_rules) + len(noise_rules) > 12 else ""), muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Open Scoped Rules...", self.show_esi_exclusion_list)
+
+    def _render_settings_cache_data(self, body, shell):
+        c = sb_components.card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
+        count, hits = TRANSLATION_CACHE.stats()
+        sb_components.info_label(c, f"Legacy starter exclusions disabled: {DEFAULT_EXCLUSIONS_PATH.name}")
+        sb_components.info_label(c, f"Starter recognition rules: {DEFAULT_RECOGNITION_RULES_PATH.exists()} | {DEFAULT_RECOGNITION_RULES_PATH.name}")
+        sb_components.info_label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}")
+        default_translation_cache_path = DATA_DIR / "default_translation_cache.json"
+        sb_components.info_label(c, f"Starter translation cache: {default_translation_cache_path.exists()} | {default_translation_cache_path.name}")
+        sb_components.info_label(c, f"Local translation cache: {count} entries, {hits} hits", muted=True)
+        sb_components.info_label(c, f"Local ESI cache: {ESI_CACHE.stats()}", muted=True)
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Open App Folder", self.open_app_folder)
+        sb_components.action_button(r, "Open Logs Folder", self.open_logs_folder)
+        sb_components.action_button(r, "Clear Translation Cache", self.clear_translation_cache)
+        sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
+
+    def _render_settings_diagnostics(self, body, shell):
+        tk = self.tk
+        c = sb_components.card(body, "Diagnostics", "Copy this information when reporting bugs. UI stalls, slow redraws, and errors are logged as JSONL in the logs folder.")
+        txt = tk.Text(c, height=17, wrap="word", bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg"], relief="flat")
+        txt.pack(fill="both", expand=True, pady=4)
+        txt.insert("1.0", self.settings_summary_text())
+        txt.configure(state="disabled")
+        r = sb_components.action_row(c)
+        sb_components.action_button(r, "Copy Diagnostics", self.copy_diagnostics)
+        sb_components.action_button(r, "Open Logs Folder", self.open_logs_folder)
+        sb_components.action_button(r, "Health Dialog", self.show_health)
+
+    def _render_settings_about(self, body, shell):
+        c = sb_components.card(body, "About / Support")
+        sb_components.info_label(c, f"Signal Bridge v{APP_VERSION}")
+        sb_components.info_label(c, "Lightweight Windows app for live EVE chat monitoring, CN <-> EN translation, and intel highlighting.", muted=True)
+        c2 = sb_components.card(body, "Support Development", "If you like this app and want further development, you can donate some ISK in game.")
+        sb_components.info_label(c2, "Donate ISK to: Mizz Betty", fg=sb_theme.COLORS["gold"])
+        sb_components.info_label(c2, DONATION_TEXT, muted=True)
+        r = sb_components.action_row(c2)
+        sb_components.action_button(r, "Copy Character Name", lambda: self.copy_to_clipboard("Mizz Betty"))
+        sb_components.action_button(r, "Copy Donation Message", lambda: self.copy_to_clipboard(DONATION_TEXT))
+        r2 = sb_components.action_row(c)
+        sb_components.action_button(r2, "About", self.show_about)
+        sb_components.action_button(r2, "Support / Donate ISK", self.show_support)
+        sb_components.action_button(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
 
     def show_settings_center(self, initial_page: str = "General"):
         tk = self.tk
