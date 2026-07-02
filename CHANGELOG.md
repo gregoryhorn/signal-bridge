@@ -5,6 +5,7 @@
 - Added pytest test suite for UI components and settings store.
 - Rebuilt the Settings Center on a shared SettingsShell: uniform nav/scroll/footer, fixed always-visible action bar with a status line, settings-load warnings and save failures now shown in the UI (was P1: hidden controls on the Translation Cache page).
 - Redesigned the Translation Corrections browser as a single two-column Original/English table with a dedicated editor area; the English correction editor is now visually primary.
+- Fixed Pilot Info card: action buttons can no longer be clipped off the bottom, the window auto-sizes to content on open, and the zKill section now shows ranked Recent Kills (small-gang engagements first) and Recent Losses with per-killmail zKillboard links and gang-size labels.
 
 ## v0.5 - 2026-06-25
 

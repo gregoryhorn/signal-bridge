@@ -336,26 +336,14 @@ Investigation notes:
 - Could also be stale cache/classification metadata or alias-corrected asset detection running before ship-type classification.
 - Need reproduce on clean portable profile and compare first render vs redraw after catalog load.
 
-## User feedback: Pilot Info card size still incorrect on load
+## Fixed: Pilot Info card size still incorrect on load
 
-- Status: open
+- Status: fixed in source (Phase 2.3)
 - Priority: medium
 - Reported: 2026-06-21
 - Area: Pilot Info UI / window sizing
 
-The Pilot Info card still opens at the wrong size on load.
-
-Expected behavior:
-
-- Pilot Info should open compactly by default.
-- Footer actions should remain visible.
-- The card should not require unnecessary scrolling for normal profile content.
-- Window size should be stable and appropriate on first open, not only after manual resize/reopen.
-
-Investigation notes:
-
-- Recheck initial geometry calculation, minsize/maxsize, update_idletasks timing, and content-frame requested size.
-- Verify behavior on normal, high-DPI, and narrow/mobile-style layouts.
+Resolved by the Phase 2.3 content-driven fit_to_content sizing; see the Pilot Info card fix summary above.
 
 ## User feedback: Channel add/open menu not showing channels correctly
 
@@ -796,61 +784,17 @@ After fixing:
 - Resolved broad legacy exclusion cleanup by replacing it with scoped Recognition Rules and bundled parser-noise defaults.
 - Added inline Recognition Rules help as the first local help pattern; broader Help Center remains future work.
 
-## P1 UX/Data Issue: Pilot Info card layout and zKill usefulness
+## Fixed: Pilot Info card layout and zKill usefulness
 
-- Status: open / needs design
+- Status: fixed in source (Phase 2.3)
 - Priority: P1 / High
 - Area: Pilot Info / zKill integration / UI layout
 - Type: user feedback / UX and data-quality improvement
 
-### User feedback
+### Fix summary
 
-The Pilot Info card is badly laid out and wastes too much space. Some buttons are hidden at the bottom because the window is not auto-sized, forcing the user to resize the window every time it opens.
-
-The zKill section also does not show the most useful information. It should show recent kills and recent losses in a way that helps quickly judge a pilot.
-
-### Problems to solve
-
-- Pilot Info window does not auto-size well for its content.
-- Important buttons can be hidden below the fold at the default/opening size.
-- Layout wastes space and does not prioritize the most useful pilot information.
-- zKill data is not currently presented as a useful recent activity view.
-- The card should not require manual resizing every time it opens.
-
-### Desired behavior
-
-- Pilot Info should open at a useful default size, or auto-size to its current content within sane screen bounds.
-- Primary actions should always be visible without resizing.
-- The layout should reduce wasted space and make high-value sections easier to scan.
-- zKill should show separate recent activity lists:
-  - recent kills
-  - recent losses
-- Each listed kill/loss should link to the relevant zKill page.
-- The recent-kill list should prioritize more meaningful/smaller engagements over huge killmails.
-
-### zKill prioritization notes
-
-For recent kills, killmails with many participants are often lower-value for judging the pilot. If a killmail has many involved characters, for example more than 10, it should be lower priority than killmails with only a few participants.
-
-The app cannot show every killmail, so the design needs a ranking/filtering strategy.
-
-Potential strategy to evaluate:
-
-- Always show recent losses separately because they are usually highly informative.
-- For kills, prefer recent killmails with fewer involved parties.
-- De-prioritize very large fleet killmails unless there are too few smaller engagements.
-- Show a compact capped list, for example 5 recent kills and 5 recent losses.
-- Include a link to open the full zKill profile for deeper review.
-- Consider labels such as `solo/small gang`, `fleet`, or `large fleet` based on participant count.
-
-### Acceptance criteria
-
-- Pilot Info opens at a usable size with important buttons visible.
-- User does not need to resize the Pilot Info window every time.
-- Layout visibly wastes less space.
-- Recent kills and recent losses are shown as separate sections.
-- Each listed kill/loss has a clickable zKill link.
-- Recent kills are ranked so smaller/more informative engagements are favored over very large killmails.
-- If not enough small kills exist, the card can still show larger killmails as fallback.
-- Visual review is performed before marking fixed.
+- Footer action buttons are now packed before the scroll body so they are never clipped by window size.
+- Replaced duplicated pre-render block sizing with a single content-driven `fit_to_content` autosize that measures actual content and opens the card at the appropriate size.
+- zKill section split into ranked Recent Kills (small-gang engagements first, large-fleet fallback) and Recent Losses with per-killmail zKill links and solo/small gang/fleet/large fleet labels.
+- Verification: automated screenshot walkthrough including a forced-small-window check to ensure buttons remain visible even when opening at minimal size.
 
