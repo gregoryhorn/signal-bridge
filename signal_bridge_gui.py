@@ -26,6 +26,7 @@ import zipfile
 from dataclasses import dataclass, field
 import signal_bridge_render_model as render_model
 from sb_settings import SettingsStore
+import sb_zkill
 from sb_ui import components as sb_components
 from sb_ui import theme as sb_theme
 from sb_ui import windows as sb_windows
@@ -6324,6 +6325,7 @@ class SignalBridgeGui:
             "value": float(((item.get("zkb") or {}).get("totalValue") or 0)),
             "killmail_id": int(item.get("killmail_id") or 0),
             "role": role,
+            "participants": len(attackers),
         }
 
     def start_zkill_sync(self, pilot_id: int, pilot_name: str, callback):
@@ -6365,7 +6367,7 @@ class SignalBridgeGui:
                         except Exception as exc:
                             write_log("zKill event parse failed", exc)
                 recent_events.sort(key=lambda x: str(x.get("time") or ""), reverse=True)
-                recent_events = recent_events[:10]
+                recent_events = recent_events[:16]
                 isk_destroyed = sum(float(((x.get("zkb") or {}).get("totalValue") or 0)) for x in kills[:50])
                 isk_lost = sum(float(((x.get("zkb") or {}).get("totalValue") or 0)) for x in losses[:50])
                 danger = []
@@ -6393,6 +6395,8 @@ class SignalBridgeGui:
                     "isk_lost_30d": round(isk_lost),
                     "danger_tags": sorted(set(danger)),
                     "recent_events": recent_events,
+                    "recent_kills": sb_zkill.rank_kills(recent_events, 5),
+                    "recent_losses": sb_zkill.pick_losses(recent_events, 5),
                     "duration_ms": int((time.time() - started) * 1000),
                     "last_error": "",
                 }
