@@ -1063,6 +1063,8 @@ class TranslationCache:
     ) -> bool:
         if not should_cache_translation_source(source_text, direction, target_lang, engine, protected_terms=protected_terms):
             return False
+        if self._is_noop_auto_en_machine(source_text, source_lang, target_lang, translated_text):
+            return False
         key = self.key_for(source_text, source_lang, target_lang, engine)
         self.put(key, source_text, source_lang, target_lang, translated_text, engine)
         return True
@@ -1109,6 +1111,15 @@ class TranslationCache:
 
     def normalize_source(self, text: str) -> str:
         return re.sub(r"\s+", " ", str(text or "").strip())
+
+    def _is_noop_auto_en_machine(
+        self, source_text: str, source_lang: str, target_lang: str, translated_text: str
+    ) -> bool:
+        if str(source_lang or "auto").lower() != "auto" or str(target_lang or "en").lower() != "en":
+            return False
+        source = self.normalize_source(normalize_feed_text(source_text)).casefold()
+        translated = self.normalize_source(normalize_feed_text(translated_text)).casefold()
+        return bool(source and translated and source == translated)
 
     def key_for(self, source_text: str, source_lang: str, target_lang: str, engine: str) -> str:
         import hashlib
@@ -1404,9 +1415,11 @@ class TranslationCache:
         removed = 0
         try:
             con = sqlite3.connect(self.path)
-            rows = con.execute("select key, source_text, target_lang, engine from translation_cache").fetchall()
+            rows = con.execute("select key, source_text, source_lang, target_lang, engine from translation_cache").fetchall()
             doomed = []
-            for key, source_text, target_lang, engine in rows:
+            for key, source_text, source_lang, target_lang, engine in rows:
+                if str(source_lang or "auto").lower() != "auto" or str(target_lang or "en").lower() != "en":
+                    continue
                 src = str(source_text or "")
                 if not re.search(r"[\u3400-\u9fff\uf900-\ufaff]", src):
                     continue
@@ -1422,7 +1435,7 @@ class TranslationCache:
             write_log("Translation polluted-cache cleanup failed", exc)
         return removed
 
-    def cleanup_invalid_auto_en_rows(self, dry_run: bool = False) -> int:
+    def cleanup_invalid_auto_en_rows(self, dry_run: bool = False, protected_terms: list[str] | None = None) -> int:
         """Remove machine-cache rows that should never be Auto -> EN sources.
 
         This preserves manual overrides and EN -> CN rows. It targets historical
@@ -1432,14 +1445,16 @@ class TranslationCache:
         removed = 0
         try:
             con = sqlite3.connect(self.path)
-            rows = con.execute("select key, source_text, target_lang, engine from translation_cache").fetchall()
+            rows = con.execute("select key, source_text, source_lang, target_lang, translated_text, engine from translation_cache").fetchall()
             doomed = []
-            for key, source_text, target_lang, engine in rows:
+            for key, source_text, source_lang, target_lang, translated_text, engine in rows:
                 target = str(target_lang or "en")
-                if target.lower() != "en":
+                if str(source_lang or "auto").lower() != "auto" or target.lower() != "en":
                     continue
                 src = str(source_text or "")
-                if not should_cache_translation_source(src, "zh-en", target, str(engine or "")):
+                if self._is_noop_auto_en_machine(src, str(source_lang or "auto"), target, str(translated_text or "")):
+                    doomed.append(str(key))
+                elif not should_cache_translation_source(src, "zh-en", target, str(engine or ""), protected_terms=protected_terms):
                     doomed.append(str(key))
             if doomed and not dry_run:
                 with con:
@@ -2643,22 +2658,36 @@ def has_english_letters(text: str) -> bool:
 
 
 def has_non_english_signal(text: str) -> bool:
-    if has_cjk(text):
-        return True
-    # Cyrillic covers Russian/Ukrainian/etc. This avoids fragile literal Cyrillic regex text.
-    if any("\u0400" <= ch <= "\u04ff" for ch in text):
-        return True
-    # Common accented Latin letters used by Spanish/French/German/etc.
-    if re.search(r"[????????????????????????????????]", text, re.I):
-        return True
-    # Conservative Latin-language hints. Avoid broad English-like words to prevent translating normal intel.
-    lowered = " " + text.lower() + " "
-    latin_hints = (
-        " enemigo ", " enemigos ", " neutro ", " neutros ", " rojo ", " rojos ",
-        " puerta ", " entrando ", " entrada ", " salta ", " saltando ",
-        " avec ", " sans ", " rouge ", " porte ", " bonjour ",
+    ranges = (
+        (0x0370, 0x03FF),  # Greek
+        (0x0400, 0x052F),  # Cyrillic
+        (0x0590, 0x05FF),  # Hebrew
+        (0x0600, 0x06FF),  # Arabic
+        (0x0750, 0x077F),  # Arabic Supplement
+        (0x08A0, 0x08FF),  # Arabic Extended-A
+        (0x0900, 0x097F),  # Devanagari
+        (0x0980, 0x09FF),  # Bengali
+        (0x0A00, 0x0A7F),  # Gurmukhi
+        (0x0A80, 0x0AFF),  # Gujarati
+        (0x0B00, 0x0B7F),  # Oriya
+        (0x0B80, 0x0BFF),  # Tamil
+        (0x0C00, 0x0C7F),  # Telugu
+        (0x0C80, 0x0CFF),  # Kannada
+        (0x0D00, 0x0D7F),  # Malayalam
+        (0x0E00, 0x0E7F),  # Thai
+        (0x0E80, 0x0EFF),  # Lao
+        (0x3040, 0x30FF),  # Hiragana and Katakana
+        (0x3400, 0x9FFF),  # CJK
+        (0xAC00, 0xD7AF),  # Hangul
+        (0xF900, 0xFAFF),  # CJK Compatibility Ideographs
     )
-    return any(hint in lowered for hint in latin_hints)
+    for ch in text:
+        code = ord(ch)
+        if code == 0xFFFD or code < 0x20 or 0x7F <= code <= 0x9F:
+            continue
+        if any(start <= code <= end for start, end in ranges):
+            return True
+    return False
 
 
 def argos_runtime_status() -> dict:
@@ -4726,10 +4755,21 @@ class SignalBridgeGui:
         translated_filter.trace_add("write", live_filter)
 
         def clean_duplicate_rows():
+            protected_terms = []
+            try:
+                protected_terms.extend(CATALOG.systems.values())
+                protected_terms.extend(CATALOG.ship_names.values())
+                protected_terms.extend(BUILTIN_ASSETS)
+                protected_terms.extend([str(x.get("original") or "") for x in USER_ALIASES])
+                protected_terms.extend([str(x.get("canonical") or "") for x in USER_ALIASES])
+                protected_terms.extend([str(e.get("name") or "") for e in ESI_CACHE.list_entities("character", limit=2000)])
+            except Exception as exc:
+                write_log("Translation protected-term cleanup list failed", exc)
             dup_removed = TRANSLATION_CACHE.cleanup_duplicate_machine_rows(False)
-            invalid_removed = TRANSLATION_CACHE.cleanup_invalid_auto_en_rows(False)
-            status_var.set(f"Cleaned {dup_removed} duplicate cache record(s) and {invalid_removed} invalid Auto -> EN source row(s). Manual overrides were not deleted.")
-            self.set_status(f"Cleaned translation cache: {dup_removed} duplicates, {invalid_removed} invalid")
+            invalid_removed = TRANSLATION_CACHE.cleanup_invalid_auto_en_rows(False, protected_terms=protected_terms)
+            mixed_removed = TRANSLATION_CACHE.cleanup_polluted_mixed_rows(False)
+            status_var.set(f"Cleaned {dup_removed} duplicate cache record(s), {invalid_removed} invalid Auto -> EN source row(s), and {mixed_removed} mixed-source row(s). Manual overrides were not deleted.")
+            self.set_status(f"Cleaned translation cache: {dup_removed} duplicates, {invalid_removed} invalid, {mixed_removed} mixed")
             refresh_rows(False)
 
         sb_components.action_button(primary_buttons, "New correction", lambda: (state.update({"selected_index": None}), tree.selection_remove(tree.selection()), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New correction: enter Original on the left and English on the right; it will auto-save.")))

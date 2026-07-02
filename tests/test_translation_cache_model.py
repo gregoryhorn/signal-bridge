@@ -1,4 +1,5 @@
 import sqlite3
+import tkinter as tk
 
 import signal_bridge_gui as sb
 
@@ -13,6 +14,9 @@ def test_auto_en_gate_rejects_english_links_counts_and_placeholders():
         "12.5 isk",
         "SBX0 clear",
         "SBX1 SBX2",
+        "4-HWWF someone get shot?",
+        "Morena Aresis loc ?",
+        "T-GCGL \u00d1\u0081lr",
     ]
 
     for source in rejected:
@@ -109,6 +113,14 @@ def test_put_machine_owns_the_cache_write_gate(tmp_path):
     assert cache_rows(cache) == [("\u4ed6\u4eec\u6765\u4e86", "auto", "en", "They are coming", "google")]
 
 
+def test_put_machine_rejects_noop_auto_en_machine_translation(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+
+    assert cache.put_machine("T-GCGL \u0441lr", "auto", "en", "T-GCGL \u0441lr", "google", direction="zh-en") is False
+
+    assert cache_rows(cache) == []
+
+
 def test_worker_does_not_persist_protected_term_only_auto_en_source(tmp_path, monkeypatch):
     cache = make_cache(tmp_path, monkeypatch)
     monkeypatch.setattr(sb, "google_translate_free", lambda text, source="auto", target="en": "Crane")
@@ -173,3 +185,136 @@ def test_worker_persists_english_only_source_for_explicit_en_zh(tmp_path, monkey
     assert result == "\u72de\u737e\u5728\u95e8\u53e3"
     assert label == "segment:google-cached"
     assert cache_rows(cache) == [("Caracal on gate", "en", "zh-CN", "\u72de\u737e\u5728\u95e8\u53e3", "google")]
+
+
+def put_raw_machine(cache, source, translated, target="en", source_lang="auto", engine="google"):
+    key = cache.key_for(source, source_lang, target, engine)
+    cache.put(key, source, source_lang, target, translated, engine)
+    return key
+
+
+def test_cleanup_invalid_auto_en_rows_preserves_manual_overrides_and_en_zh(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    put_raw_machine(cache, "hello local is clear", "hello local is clear", target="en", source_lang="auto")
+    put_raw_machine(cache, "\u043f\u0440\u0438\u0432\u0435\u0442 \u0432\u0440\u0430\u0433", "hello enemy", target="en", source_lang="auto")
+    put_raw_machine(cache, "Caracal on gate", "\u72de\u737e\u5728\u95e8\u53e3", target="zh-CN", source_lang="en")
+    manual_id = cache.save_override("hello local is clear", "manual correction", target_lang="en")
+
+    assert cache.cleanup_invalid_auto_en_rows(False) == 1
+
+    rows = cache.grouped_entries("", "", 20)
+    sources = {(row["source_text"], row["target_lang"], row["winning_kind"]) for row in rows}
+    assert ("\u043f\u0440\u0438\u0432\u0435\u0442 \u0432\u0440\u0430\u0433", "en", "cache") in sources
+    assert ("Caracal on gate", "zh-CN", "cache") in sources
+    assert ("hello local is clear", "en", "manual") in sources
+    assert any(row.get("manual_id") == manual_id for row in rows)
+
+
+def test_cleanup_invalid_auto_en_rows_removes_noop_machine_translation(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    put_raw_machine(cache, "T-GCGL \u0441lr", "T-GCGL \u0441lr", target="en", source_lang="auto")
+    put_raw_machine(cache, "\u043f\u0440\u0438\u0432\u0435\u0442 \u0432\u0440\u0430\u0433", "hello enemy", target="en", source_lang="auto")
+
+    assert cache.cleanup_invalid_auto_en_rows(False) == 1
+
+    assert cache_rows(cache) == [("\u043f\u0440\u0438\u0432\u0435\u0442 \u0432\u0440\u0430\u0433", "auto", "en", "hello enemy", "google")]
+
+
+def test_cleanup_invalid_auto_en_rows_preserves_noop_en_zh_machine_translation(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    put_raw_machine(cache, "T-GCGL \u0441lr", "T-GCGL \u0441lr", target="zh-CN", source_lang="en")
+
+    assert cache.cleanup_invalid_auto_en_rows(False) == 0
+
+    assert cache_rows(cache) == [("T-GCGL \u0441lr", "en", "zh-CN", "T-GCGL \u0441lr", "google")]
+
+
+def test_cleanup_invalid_auto_en_rows_rejects_configured_protected_terms(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    put_raw_machine(cache, "\u5929\u9e64\u7ea7", "Crane", target="en", source_lang="auto")
+    put_raw_machine(cache, "\u4ed6\u4eec\u6765\u4e86", "They are coming", target="en", source_lang="auto")
+
+    assert cache.cleanup_invalid_auto_en_rows(False, protected_terms=["\u5929\u9e64\u7ea7"]) == 1
+
+    rows = cache.grouped_entries("", "", 20)
+    assert [row["source_text"] for row in rows] == ["\u4ed6\u4eec\u6765\u4e86"]
+
+
+def test_settings_cache_cleanup_includes_cached_esi_pilot_names(tk_root, monkeypatch):
+    captured = {}
+
+    class FakeEsiCache:
+        def list_entities(self, entity_type, limit=5000):
+            assert entity_type == "character"
+            assert limit == 2000
+            return [{"name": "Mizz Betty"}]
+
+    class FakeTranslationCache:
+        def stats(self):
+            return (0, 0)
+
+        def override_count(self):
+            return 0
+
+        def grouped_entries(self, source_filter="", translated_filter="", limit=250):
+            return []
+
+        def cleanup_duplicate_machine_rows(self, dry_run):
+            return 0
+
+        def cleanup_invalid_auto_en_rows(self, dry_run, protected_terms=None):
+            captured["protected_terms"] = list(protected_terms or [])
+            return 0
+
+        def cleanup_polluted_mixed_rows(self, dry_run):
+            return 0
+
+    original_action_button = sb.sb_components.action_button
+
+    def capture_action_button(parent, text, command=None, **kwargs):
+        button = original_action_button(parent, text, command, **kwargs)
+        if text == "Clean cache issues":
+            captured["clean_command"] = command
+        return button
+
+    monkeypatch.setattr(sb, "ESI_CACHE", FakeEsiCache())
+    monkeypatch.setattr(sb, "TRANSLATION_CACHE", FakeTranslationCache())
+    monkeypatch.setattr(sb.sb_components, "action_button", capture_action_button)
+
+    app = type("SettingsOnlyApp", (), {})()
+    app.tk = tk
+    app.translation_cache_mode = tk.StringVar(master=tk_root, value="cache-first-auto")
+    app.translation_fallback_mode = tk.StringVar(master=tk_root, value="online-only")
+    app.translation_failure_cooldown_minutes = tk.IntVar(master=tk_root, value=60)
+    app.set_status = lambda _text: None
+    app.schedule_redraw = lambda _delay: None
+    app.save_translation_engine_settings = lambda *_args: None
+    app.show_translation_cache = lambda: None
+    app.messagebox = type("MessageBox", (), {"askyesno": staticmethod(lambda *_args, **_kwargs: False)})
+
+    sb.SignalBridgeGui._render_settings_translation_cache(app, tk_root, object())
+    captured["clean_command"]()
+
+    assert "Mizz Betty" in captured["protected_terms"]
+
+
+def test_cleanup_polluted_mixed_rows_removes_old_mixed_source_rows(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    put_raw_machine(cache, "gate 4-HWWF red \u5929\u9e64\u7ea7 3", "Crane", target="en", source_lang="auto")
+    put_raw_machine(cache, "\u5929\u9e64\u7ea7", "Crane", target="en", source_lang="auto")
+
+    assert cache.cleanup_polluted_mixed_rows(False) == 1
+
+    rows = cache.grouped_entries("", "", 20)
+    assert [row["source_text"] for row in rows] == ["\u5929\u9e64\u7ea7"]
+
+
+def test_cleanup_polluted_mixed_rows_preserves_en_zh_machine_rows(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    put_raw_machine(cache, "gate 4-HWWF red \u5929\u9e64\u7ea7 3", "Crane", target="en", source_lang="auto")
+    put_raw_machine(cache, "Caracal on gate \u5929\u9e64\u7ea7", "\u72de\u737e\u5728\u95e8\u53e3", target="zh-CN", source_lang="en")
+
+    assert cache.cleanup_polluted_mixed_rows(False) == 1
+
+    rows = cache_rows(cache)
+    assert rows == [("Caracal on gate \u5929\u9e64\u7ea7", "en", "zh-CN", "\u72de\u737e\u5728\u95e8\u53e3", "google")]
