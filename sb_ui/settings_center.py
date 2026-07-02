@@ -88,9 +88,21 @@ class SettingsShell:
         self.body.bind("<Configure>", body_configure)
         canvas.bind("<Configure>", body_configure)
 
+        def wheel(event):
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass
+
+        canvas.bind("<MouseWheel>", wheel)
+        self.body.bind("<MouseWheel>", wheel)
+
+        tk.Label(nav, text="Settings", bg=theme.COLORS["bg_nav"],
+                 fg=theme.COLORS["fg_bright"], font=theme.font(12, bold=True)).pack(
+            anchor="w", padx=12, pady=(14, 8))
         for page in self.pages:
             btn = tk.Button(nav, text=page, command=lambda name=page: self.render_page(name))
-            btn.pack(fill="x", padx=8, pady=(8 if not self._nav_buttons else 0, 2))
+            btn.pack(fill="x", padx=8, pady=1)
             self._nav_buttons[page] = btn
 
         self.render_page(self.initial_page)
