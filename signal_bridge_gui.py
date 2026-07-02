@@ -4469,6 +4469,382 @@ class SignalBridgeGui:
         sb_components.action_button(r2, "Support / Donate ISK", self.show_support)
         sb_components.action_button(r2, "Check for Updates", lambda: self.check_for_updates(manual=True))
 
+    def _render_settings_translation(self, body, shell):
+        tk = self.tk
+        c = sb_components.card(body, "Translation", "Translation display is hardened so redraws never perform blocking network/offline MT work.")
+        sb_components.check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw); sb_components.check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
+        rr = sb_components.action_row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_schedule_redraw, **sb_theme.radio_kw()).pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_schedule_redraw, **sb_theme.radio_kw()).pack(side="left")
+        c_engine = sb_components.card(body, "Translation Engine", "Argos is offline/local when installed; Google is online and remains lightweight by default.")
+        sb_components.info_label(c_engine, "Preferred engine")
+        opt1 = tk.OptionMenu(c_engine, self.translation_preferred_engine, "auto", "argos", "google", command=lambda _=None: self.save_translation_engine_settings()); opt1.configure(**sb_theme.optionmenu_kw()); opt1.pack(anchor="w", pady=(0, 4))
+        sb_components.info_label(c_engine, "Cache mode")
+        opt0 = tk.OptionMenu(c_engine, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt0.configure(**sb_theme.optionmenu_kw()); opt0.pack(anchor="w", pady=(0, 4))
+        sb_components.info_label(c_engine, "Fallback mode")
+        opt2 = tk.OptionMenu(c_engine, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt2.configure(**sb_theme.optionmenu_kw()); opt2.pack(anchor="w", pady=(0, 4))
+        tk.Label(c_engine, textvariable=self.argos_status_text, wraplength=640, justify="left", **sb_theme.label_kw(muted=True)).pack(anchor="w", fill="x", pady=2)
+        count, hits = TRANSLATION_CACHE.stats(); sb_components.info_label(c_engine, f"Translation cache: {count} entries, {hits} hits", muted=True)
+        r = sb_components.action_row(c_engine); sb_components.action_button(r, "Refresh Argos Status", self.refresh_argos_status); sb_components.action_button(r, "Install / Repair Argos", self.install_argos_models); sb_components.action_button(r, "Test Translation", self.test_translation_engine)
+        r2 = sb_components.action_row(c_engine); sb_components.action_button(r2, "Open Translation Cache...", lambda: shell.render_page("Translation Cache")); sb_components.action_button(r2, "Cache Status", self.show_translation_cache); sb_components.action_button(r2, "Clear Cache", self.clear_translation_cache); sb_components.action_button(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+
+    def _render_settings_translation_cache(self, body, shell):
+        tk = self.tk
+        c = sb_components.card(body, "Translation Corrections", "Fix what appears in chat. Manual corrections override automatic translation.")
+        count, hits = TRANSLATION_CACHE.stats(); overrides = TRANSLATION_CACHE.override_count()
+        # Keep the raw SQLite path out of the normal correction workflow; diagnostics/cache pages expose it when needed.
+
+        state = {"items": [], "selected_index": None, "autosave_after": None, "loading": False, "saving": False}
+        original_filter = tk.StringVar()
+        translated_filter = tk.StringVar()
+        target_var = tk.StringVar(value="en")
+        enabled_var = tk.BooleanVar(value=True)
+        note_var = tk.StringVar()
+        status_var = tk.StringVar(value="Select a row, edit the English correction, and it auto-saves.")
+        show_internals_var = tk.BooleanVar(value=False)
+        advanced_visible_var = tk.BooleanVar(value=False)
+
+        meta = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        meta.pack(fill="x", pady=(0, 8))
+        for pill in (f"Cache {count}", f"Hits {hits}", f"Manual {overrides}", f"Mode {self.translation_cache_mode.get()}"):
+            tk.Label(meta, text=pill, bg=sb_theme.COLORS["bg_panel"], fg=sb_theme.COLORS["fg_muted"], padx=8, pady=2).pack(side="left", padx=(0, 6))
+
+        toolbar = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        toolbar.pack(fill="x", pady=(0, 8))
+        primary_buttons = tk.Frame(toolbar, bg=sb_theme.COLORS["bg"])
+        primary_buttons.pack(side="left", anchor="w")
+        maintenance_buttons = tk.Frame(toolbar, bg=sb_theme.COLORS["bg"])
+        maintenance_buttons.pack(side="right", anchor="e")
+
+        instruction = tk.Label(
+            c,
+            text="Workflow: choose a grouped translation, correct the English text, and let auto-save update the live feed.",
+            anchor="w", justify="left", wraplength=680, **sb_theme.label_kw(muted=True),
+        )
+        instruction.pack(anchor="w", fill="x", pady=(0, 6))
+
+        advanced_settings = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        advanced_actions = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        def toggle_advanced_settings():
+            if advanced_visible_var.get():
+                advanced_settings.pack(fill="x", pady=(0, 6), before=instruction)
+                advanced_actions.pack(fill="x", pady=(0, 8), before=instruction)
+            else:
+                advanced_settings.pack_forget()
+                advanced_actions.pack_forget()
+        tk.Checkbutton(
+            maintenance_buttons,
+            text="Advanced settings",
+            variable=advanced_visible_var,
+            command=toggle_advanced_settings,
+            **sb_theme.check_kw(),
+        ).pack(side="left", padx=(0, 6))
+
+        tk.Label(advanced_settings, text="Mode", **sb_theme.label_kw(muted=True)).pack(side="left", padx=(0,4))
+        tk.OptionMenu(advanced_settings, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
+        tk.Label(advanced_settings, text="Fallback", **sb_theme.label_kw(muted=True)).pack(side="left", padx=(0,4))
+        tk.OptionMenu(advanced_settings, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()).pack(side="left", padx=(0,8))
+        tk.Label(advanced_settings, text="Failure cooldown min", **sb_theme.label_kw(muted=True)).pack(side="left", padx=(0,4))
+        tk.Spinbox(advanced_settings, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg_bright"]).pack(side="left", padx=(0,8))
+        tk.Checkbutton(advanced_settings, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), **sb_theme.check_kw()).pack(side="left", padx=6)
+
+        # Balanced 50/50 Original/English split that self-corrects on resize
+        # instead of reading winfo_width() once before layout settles.
+        tables, left, right = sb_components.balanced_paned(c, left_min=260, right_min=320, fraction=0.5)
+        tables.pack(fill="both", expand=True, pady=(2, 8))
+
+        for pane in (left, right):
+            pane.grid_columnconfigure(0, weight=1)
+            pane.grid_rowconfigure(3, weight=1)
+
+        tk.Label(left, text="Original", font=sb_theme.font(10, bold=True), **sb_theme.label_kw()).grid(row=0, column=0, sticky="w", padx=(0, 6))
+        tk.Label(left, text="Find original", **sb_theme.label_kw(muted=True)).grid(row=1, column=0, sticky="w", padx=(0, 6), pady=(6, 0))
+        tk.Entry(left, textvariable=original_filter, **sb_theme.entry_kw()).grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(2, 6))
+        orig_list_frame = tk.Frame(left, bg=sb_theme.COLORS["bg"])
+        orig_list_frame.grid(row=3, column=0, sticky="nsew", padx=(0, 6))
+        orig_list_frame.grid_columnconfigure(0, weight=1); orig_list_frame.grid_rowconfigure(0, weight=1)
+        orig_list = tk.Listbox(orig_list_frame, height=5, width=24, **sb_theme.listbox_kw())
+        orig_scroll = tk.Scrollbar(orig_list_frame, orient="vertical", command=orig_list.yview)
+        orig_list.configure(yscrollcommand=orig_scroll.set)
+        orig_list.grid(row=0, column=0, sticky="nsew"); orig_scroll.grid(row=0, column=1, sticky="ns")
+        tk.Label(left, text="Original / source phrase", font=sb_theme.font(9, bold=True), bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["warning"]).grid(row=4, column=0, sticky="w", padx=(0, 6), pady=(8, 2))
+        src_text = tk.Text(left, height=3, **sb_theme.text_kw())
+        src_text.grid(row=5, column=0, sticky="ew", padx=(0, 6), ipady=3)
+        tk.Label(left, text="Use only if the captured source segment is wrong.", anchor="w", **sb_theme.label_kw(muted=True)).grid(row=6, column=0, sticky="w", padx=(0, 6), pady=(2, 0))
+
+        tk.Label(right, text="English", font=sb_theme.font(10, bold=True), **sb_theme.label_kw()).grid(row=0, column=0, sticky="w", padx=(6, 0))
+        tk.Label(right, text="Find English", **sb_theme.label_kw(muted=True)).grid(row=1, column=0, sticky="w", padx=(6, 0), pady=(6, 0))
+        tk.Entry(right, textvariable=translated_filter, **sb_theme.entry_kw()).grid(row=2, column=0, sticky="ew", padx=(6, 0), pady=(2, 6))
+        trans_list_frame = tk.Frame(right, bg=sb_theme.COLORS["bg"])
+        trans_list_frame.grid(row=3, column=0, sticky="nsew", padx=(6, 0))
+        trans_list_frame.grid_columnconfigure(0, weight=1); trans_list_frame.grid_rowconfigure(0, weight=1)
+        trans_list = tk.Listbox(trans_list_frame, height=5, width=38, **sb_theme.listbox_kw())
+        trans_scroll = tk.Scrollbar(trans_list_frame, orient="vertical", command=trans_list.yview)
+        trans_list.configure(yscrollcommand=trans_scroll.set)
+        trans_list.grid(row=0, column=0, sticky="nsew"); trans_scroll.grid(row=0, column=1, sticky="ns")
+        tk.Label(right, text="English correction", font=sb_theme.font(9, bold=True), bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["success"]).grid(row=4, column=0, sticky="w", padx=(6, 0), pady=(8, 2))
+        dst_text = tk.Text(right, height=4, **sb_theme.text_kw())
+        dst_text.grid(row=5, column=0, sticky="ew", padx=(6, 0), ipady=3)
+        tk.Label(right, text="Edit this text to fix what appears in live chat.", anchor="w", **sb_theme.label_kw(muted=True)).grid(row=6, column=0, sticky="w", padx=(6, 0), pady=(2, 0))
+
+        opts = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        opts.pack(fill="x", pady=(0, 6))
+        tk.Label(opts, text="Target", **sb_theme.label_kw(muted=True)).pack(side="left")
+        tk.OptionMenu(opts, target_var, "en", "zh-CN", command=lambda _=None: schedule_autosave()).pack(side="left", padx=6)
+        tk.Checkbutton(opts, text="Enabled", variable=enabled_var, command=lambda: schedule_autosave(), **sb_theme.check_kw()).pack(side="left", padx=6)
+        tk.Label(opts, text="Note", **sb_theme.label_kw(muted=True)).pack(side="left", padx=(10, 2))
+        tk.Entry(opts, textvariable=note_var, **sb_theme.entry_kw()).pack(side="left", fill="x", expand=True, padx=6)
+        tk.Label(c, textvariable=status_var, anchor="w", justify="left", wraplength=680, **sb_theme.label_kw(muted=True)).pack(anchor="w", fill="x", pady=(2, 0))
+
+        def preview(text, n=64):
+            text = str(text or "").replace("\r", " ").replace("\n", " ").strip()
+            return text[:n-1] + "…" if len(text) > n else text
+
+        def set_text(widget, value):
+            state["loading"] = True
+            widget.delete("1.0", "end"); widget.insert("1.0", str(value or ""))
+            state["loading"] = False
+
+        def get_text(widget):
+            return widget.get("1.0", "end").strip()
+
+        def selected_item():
+            idx = state.get("selected_index")
+            if idx is None or idx < 0 or idx >= len(state["items"]):
+                return None
+            return state["items"][idx]
+
+        def refresh_rows(keep_selection=True):
+            old_src = get_text(src_text) if keep_selection else ""
+            src_filter = original_filter.get().strip().casefold()
+            dst_filter = translated_filter.get().strip().casefold()
+            rows = TRANSLATION_CACHE.grouped_entries(src_filter, dst_filter, 250)
+            state["items"] = rows
+            orig_list.delete(0, "end"); trans_list.delete(0, "end")
+            for item in rows:
+                if show_internals_var.get():
+                    prefix = "M" if item.get("manual_id") else "C"
+                    dup = int(item.get("duplicate_count") or 1)
+                    meta = f" d{dup}" if dup > 1 else ""
+                    orig_label = f"[{prefix}{meta}] {preview(item.get('source_text'))}"
+                else:
+                    orig_label = preview(item.get('source_text'))
+                orig_list.insert("end", orig_label)
+                trans_list.insert("end", preview(item.get("translated_text")))
+            new_idx = None
+            if keep_selection and old_src:
+                for i, item in enumerate(rows):
+                    if str(item.get("source_text") or "") == old_src:
+                        new_idx = i; break
+            state["selected_index"] = new_idx
+            if new_idx is not None:
+                orig_list.selection_set(new_idx); trans_list.selection_set(new_idx)
+                orig_list.see(new_idx); trans_list.see(new_idx)
+            hidden = sum(max(0, int(r.get("duplicate_count") or 1) - 1) for r in rows)
+            status_var.set(f"Showing {len(rows)} grouped row(s). Hidden duplicate records: {hidden}. Manual edits auto-save as overrides.")
+
+        def select_index(idx):
+            if idx is None or idx < 0 or idx >= len(state["items"]):
+                return
+            state["selected_index"] = idx
+            orig_list.selection_clear(0, "end"); trans_list.selection_clear(0, "end")
+            orig_list.selection_set(idx); trans_list.selection_set(idx)
+            orig_list.see(idx); trans_list.see(idx)
+            item = state["items"][idx]
+            set_text(src_text, item.get("source_text") or "")
+            set_text(dst_text, item.get("translated_text") or "")
+            target_var.set(str(item.get("target_lang") or "en"))
+            enabled_var.set(bool(item.get("enabled", True)))
+            note_var.set(str(item.get("note") or ""))
+            status_var.set(f"Editing selected row. Type in the English correction box to save a manual override. Source: {item.get('winning_kind','cache')}; duplicates hidden: {max(0, int(item.get('duplicate_count') or 1)-1)}; engines: {item.get('engines','')}")
+
+        def on_select(event=None):
+            widget = event.widget if event is not None else orig_list
+            sel = widget.curselection()
+            if sel:
+                select_index(int(sel[0]))
+
+        def sync_scroll_from_orig(*args):
+            trans_list.yview_moveto(args[0]) if args and args[0] else None
+        def sync_scroll_from_trans(*args):
+            orig_list.yview_moveto(args[0]) if args and args[0] else None
+        # Keep selection synchronized; scrollbars remain independent enough for normal use.
+        orig_list.bind("<<ListboxSelect>>", on_select); trans_list.bind("<<ListboxSelect>>", on_select)
+
+        def save_now():
+            state["autosave_after"] = None
+            if state.get("loading") or state.get("saving"):
+                return
+            source = get_text(src_text); translated = get_text(dst_text)
+            if not source or not translated:
+                status_var.set("Source and translated text are required before auto-save."); return
+            item = selected_item()
+            override_id = item.get("manual_id") if item and item.get("manual_id") else None
+            state["saving"] = True
+            oid = TRANSLATION_CACHE.save_override(source, translated, target_var.get(), "auto" if target_var.get()=="en" else "en", note_var.get(), enabled_var.get(), override_id)
+            state["saving"] = False
+            if not oid:
+                status_var.set("Auto-save failed: source and translation are required."); return
+            FREE_TRANSLATION_CACHE.clear()
+            if item:
+                item.update({"kind":"manual", "manual_id": oid, "id": oid, "source_text": source, "normalized_source": TRANSLATION_CACHE.normalize_source(source), "translated_text": translated, "target_lang": target_var.get(), "enabled": enabled_var.get(), "note": note_var.get(), "winning_kind": "manual"})
+            status_var.set("Saved manual override. Feed update scheduled.")
+            self.set_status("Manual translation override saved")
+            self.schedule_redraw(80)
+            refresh_rows(keep_selection=True)
+
+        def schedule_autosave(event=None):
+            if state.get("loading") or state.get("saving"):
+                return
+            if state.get("autosave_after"):
+                try: c.after_cancel(state["autosave_after"])
+                except Exception: pass
+            state["autosave_after"] = c.after(700, save_now)
+            status_var.set("Editing... auto-save pending")
+
+        def live_filter(*_args):
+            if state.get("autosave_after"):
+                try: c.after_cancel(state["autosave_after"])
+                except Exception: pass
+                state["autosave_after"] = None
+            refresh_rows(keep_selection=True)
+
+        src_text.bind("<KeyRelease>", schedule_autosave)
+        dst_text.bind("<KeyRelease>", schedule_autosave)
+        note_var.trace_add("write", lambda *_: schedule_autosave())
+        original_filter.trace_add("write", live_filter)
+        translated_filter.trace_add("write", live_filter)
+
+        def clean_duplicate_rows():
+            dup_removed = TRANSLATION_CACHE.cleanup_duplicate_machine_rows(False)
+            invalid_removed = TRANSLATION_CACHE.cleanup_invalid_auto_en_rows(False)
+            status_var.set(f"Cleaned {dup_removed} duplicate cache record(s) and {invalid_removed} invalid Auto -> EN source row(s). Manual overrides were not deleted.")
+            self.set_status(f"Cleaned translation cache: {dup_removed} duplicates, {invalid_removed} invalid")
+            refresh_rows(False)
+
+        sb_components.action_button(primary_buttons, "New correction", lambda: (state.update({"selected_index": None}), orig_list.selection_clear(0,"end"), trans_list.selection_clear(0,"end"), set_text(src_text, ""), set_text(dst_text, ""), note_var.set(""), enabled_var.set(True), target_var.set("en"), status_var.set("New correction: enter Original on the left and English on the right; it will auto-save.")))
+        sb_components.action_button(primary_buttons, "Save now", save_now)
+        def delete_selected():
+            item = selected_item()
+            if not item:
+                status_var.set("Select a row before deleting."); return
+            source = str(item.get("normalized_source") or item.get("source_text") or "")
+            target = str(item.get("target_lang") or target_var.get() or "en")
+            if not source:
+                status_var.set("Selected row has no source key to delete."); return
+            msg = "Delete this grouped translation entry?\n\nThis removes the manual override, machine-cache rows, and failure cooldowns for the selected source/target."
+            if self.messagebox.askyesno("Translation Cache", msg):
+                result = TRANSLATION_CACHE.delete_grouped_entry(source, target)
+                FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False)
+                status_var.set(f"Deleted selected entry: {result.get('overrides',0)} override(s), {result.get('cache',0)} cache row(s), {result.get('failures',0)} cooldown(s).")
+                self.set_status("Translation cache entry deleted")
+
+        def clear_all_translation_entries():
+            msg = "Delete ALL translation cache manager entries?\n\nThis removes machine cache, manual overrides, and failure cooldowns. Aliases, exclusions, and phrase overrides are not affected."
+            if self.messagebox.askyesno("Translation Cache", msg):
+                result = TRANSLATION_CACHE.clear_all_entries(include_overrides=True)
+                FREE_TRANSLATION_CACHE.clear(); self.schedule_redraw(80); refresh_rows(keep_selection=False)
+                status_var.set(f"Deleted all translation entries: {result.get('cache',0)} cache, {result.get('overrides',0)} overrides, {result.get('failures',0)} cooldowns.")
+                self.set_status("Translation cache manager entries cleared")
+
+        sb_components.action_button(maintenance_buttons, "Delete selected", delete_selected)
+        sb_components.action_button(advanced_actions, "Clean cache issues", clean_duplicate_rows)
+        sb_components.action_button(advanced_actions, "Cache status", self.show_translation_cache)
+        sb_components.action_button(advanced_actions, "Delete all entries", clear_all_translation_entries)
+        refresh_rows(keep_selection=False)
+
+    def _render_settings_aliases(self, body, shell):
+        tk = self.tk
+        aliases_state = {"items": [dict(x) for x in USER_ALIASES]}
+        c = sb_components.card(body, "Ship & System Aliases", "Aliases replace shorthand or bad translation artifacts with the canonical name in the visible feed and recognition. Use this for ship and system aliases only.")
+        sb_components.info_label(c, f"Stored at: {USER_ALIASES_PATH}", muted=True)
+        form = tk.Frame(c, bg=sb_theme.COLORS["bg"]); form.pack(fill="x", pady=4)
+        alias_var = tk.StringVar(); canonical_var = tk.StringVar(); kind_var = tk.StringVar(value="ship"); enabled_var = tk.BooleanVar(value=True); note_var = tk.StringVar()
+        left = tk.Frame(form, bg=sb_theme.COLORS["bg"]); left.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        right = tk.Frame(form, bg=sb_theme.COLORS["bg"]); right.pack(side="left", fill="x", expand=True)
+        sb_components.info_label(left, "Alias seen in chat", muted=True); tk.Entry(left, textvariable=alias_var, **sb_theme.entry_kw()).pack(fill="x")
+        sb_components.info_label(right, "Canonical display name", muted=True); tk.Entry(right, textvariable=canonical_var, **sb_theme.entry_kw()).pack(fill="x")
+        opts = tk.Frame(c, bg=sb_theme.COLORS["bg"]); opts.pack(fill="x", pady=4)
+        kind_menu = tk.OptionMenu(opts, kind_var, "ship", "system"); kind_menu.configure(**sb_theme.optionmenu_kw()); kind_menu.pack(side="left", padx=(0, 8))
+        tk.Checkbutton(opts, text="Enabled", variable=enabled_var, **sb_theme.check_kw()).pack(side="left")
+        tk.Entry(opts, textvariable=note_var, **sb_theme.entry_kw()).pack(side="left", fill="x", expand=True, padx=(8, 0))
+        list_frame = tk.Frame(c, bg=sb_theme.COLORS["bg"]); list_frame.pack(fill="both", expand=True, pady=6)
+        lb = tk.Listbox(list_frame, height=12, **sb_theme.listbox_kw())
+        lb.pack(side="left", fill="both", expand=True)
+        lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview); lb_scroll.pack(side="right", fill="y"); lb.configure(yscrollcommand=lb_scroll.set)
+        def fmt_alias(entry):
+            status = "on" if entry.get("enabled", True) else "off"
+            return f"[{entry.get('kind','ship')}/{status}] {entry.get('alias','')}  ->  {entry.get('canonical','')}"
+        def reload_list():
+            lb.delete(0, "end")
+            for entry in aliases_state["items"]:
+                lb.insert("end", fmt_alias(entry))
+        def selected_index():
+            sel = lb.curselection()
+            return int(sel[0]) if sel else None
+        def load_selected(_event=None):
+            idx = selected_index()
+            if idx is None: return
+            entry = aliases_state["items"][idx]
+            alias_var.set(entry.get("alias", "")); canonical_var.set(entry.get("canonical", "")); kind_var.set(entry.get("kind", "ship")); enabled_var.set(bool(entry.get("enabled", True))); note_var.set(entry.get("note", ""))
+        def persist_aliases():
+            save_user_aliases(aliases_state["items"])
+            reload_user_aliases()
+            self.redraw_feed()
+            self.set_status("Aliases saved and feed refreshed")
+        def add_or_update():
+            entry = normalize_user_alias_entry({"alias": alias_var.get(), "canonical": canonical_var.get(), "kind": kind_var.get(), "enabled": enabled_var.get(), "note": note_var.get()})
+            if not entry:
+                self.messagebox.showwarning("Aliases", "Alias and canonical name are required."); return
+            idx = selected_index()
+            if idx is None:
+                aliases_state["items"].append(entry)
+            else:
+                aliases_state["items"][idx] = entry
+            persist_aliases(); reload_list()
+        def delete_selected():
+            idx = selected_index()
+            if idx is None: return
+            del aliases_state["items"][idx]
+            persist_aliases(); reload_list(); alias_var.set(""); canonical_var.set(""); note_var.set("")
+        def test_alias():
+            sample = alias_var.get().strip()
+            if not sample: sample = "Apocalypse Navy"
+            kind = kind_var.get()
+            hit = CATALOG.lookup_system(sample) if kind == "system" else CATALOG.lookup_type(sample)
+            self.messagebox.showinfo("Alias Test", f"{sample}\n=> {hit or 'no match'}")
+        btns = sb_components.action_row(c)
+        sb_components.action_button(btns, "Add / Update", add_or_update); sb_components.action_button(btns, "Delete", delete_selected); sb_components.action_button(btns, "Test", test_alias); sb_components.action_button(btns, "Reload", lambda: (aliases_state.update(items=[dict(x) for x in reload_user_aliases()]), reload_list()))
+        lb.bind("<<ListboxSelect>>", load_selected)
+        reload_list()
+
+    def _render_settings_addons(self, body, shell):
+        c = sb_components.card(body, "Add-ons", "Optional add-ons keep Signal Bridge lightweight. LAN Viewer and Argos remain native/core features; Intel History is the first planned optional add-on.")
+        sb_components.info_label(c, f"Modules folder: {MODULES_DIR}", muted=True)
+        sb_components.info_label(c, f"Module data folder: {MODULE_DATA_DIR}", muted=True)
+        ih = self.intel_history_status(); manifest = ih.get("manifest") or {}
+        c2 = sb_components.card(body, INTEL_HISTORY_ADDON_NAME, "Planned optional module for local pilot memory, Pilot Intelligence Cards, flags, zKill enrichment, import/export packs, and future LLM query support.")
+        sb_components.info_label(c2, f"Status: {self.intel_history_status_label()}")
+        if ih.get("installed"):
+            sb_components.info_label(c2, f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}", muted=True)
+            health = self.current_intel_history_health()
+            if health:
+                sb_components.info_label(c2, f"Health: pilots {health.get('pilots', 0)} | sightings {health.get('sightings', 0)} | queue {health.get('queue_size', 0)}", muted=True)
+                sb_components.info_label(c2, f"Last sighting: {health.get('last_sighting', 'none')}", muted=True)
+                if health.get("last_error") and health.get("last_error") != "none":
+                    sb_components.info_label(c2, f"Last error: {str(health.get('last_error'))[:160]}", fg=sb_theme.COLORS["error"])
+            sb_components.info_label(c2, f"Code: {ih.get('code_dir')}", muted=True)
+            sb_components.info_label(c2, f"Data: {ih.get('data_dir')}", muted=True)
+        else:
+            sb_components.info_label(c2, "Not installed. Install the official Intel History add-on ZIP when available.", muted=True)
+        enabled_var = self.tk.BooleanVar(value=bool(ih.get("enabled")))
+        sb_components.check(c2, "Enable Intel History", enabled_var, lambda v=enabled_var: self.set_intel_history_enabled(bool(v.get())))
+        r = sb_components.action_row(c2)
+        sb_components.action_button(r, "Install from ZIP...", self.install_intel_history_addon_from_file)
+        sb_components.action_button(r, "Details", self.show_intel_history_details)
+        sb_components.action_button(r, "Open Data Folder", self.open_intel_history_data_folder)
+        if ih.get("installed"):
+            sb_components.action_button(r, "Uninstall Code", self.uninstall_intel_history_addon_code)
+        sb_components.info_label(c2, "MVP guardrails: same SignalBridge.exe, local SQLite data, ESI-confirmed pilots by default, no live-feed blocking.", muted=True)
+
     def show_settings_center(self, initial_page: str = "General"):
         tk = self.tk
         pages = ["General", "Channels", "Appearance", "Translation", "Translation Cache", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
