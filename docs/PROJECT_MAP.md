@@ -50,6 +50,7 @@ EVE chatlog file
 | UI components | `sb_ui/components.py` | `card`/`action_button`/`check`/`balanced_paned` etc.; compose these in new pages |
 | Window helpers | `sb_ui/windows.py` | `polish_window` chrome/stacking, `fit_to_content` sizing |
 | Settings store | `sb_settings.py` | Typed `SettingsStore`; validation warnings, non-silent saves |
+| Settings Center shell | `sb_ui/settings_center.py` | SettingsShell; page renderers are `_render_settings_*` methods in `signal_bridge_gui.py` |
 | UI/unit tests | `tests/` | pytest suite (real Tk widgets); run `pytest tests/ -v` |
 
 ## Standard validation commands

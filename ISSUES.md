@@ -627,7 +627,7 @@ Acceptance notes:
 
 ## Open: Dedicated settings tab and sub-page design pass
 
-- Status: open
+- Status: partially addressed (Phase 2.1); per-page design passes continue in Phase 2 batches
 - Priority: medium
 - Area: Settings / UX design / dialogs
 - Reported: user feedback
@@ -669,6 +669,10 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - Nested dialogs are parented/transient/modal correctly and do not open behind other windows.
 - Tables and editors resize gracefully on narrow/mobile-style layouts.
 - Help text explains impact without making pages feel like debug tools.
+
+### Progress note (Phase 2.1)
+
+The Settings shell, nav, footer, spacing, and help-text pattern are now uniform via `SettingsShell` + `sb_ui.components`. Individual page redesigns (Translation Corrections, Pilot Info, Help/About) continue in later Phase 2 batches.
 
 
 ## Fixed: False system detection for decimal/security values such as 9.2
@@ -736,9 +740,9 @@ Users should have a Settings option to enable or disable clickable hyperlinks in
 - The setting is documented in README/help/release notes when implemented.
 
 
-## P1 Bug: Translation Cache page layout hides controls and tables are too wide
+## Fixed: Translation Cache page layout hides controls and tables are too wide
 
-- Status: open / P1
+- Status: fixed in source (Phase 2.1 Settings shell rebuild)
 - Priority: P1 / High - requires visual inspection before and after fix
 - Area: Settings / Translation Cache / UI layout
 
@@ -761,6 +765,12 @@ After fixing:
 - Verify Original and English tables/editors fit better and remain usable.
 - Verify action buttons such as Save, Delete Selected Entry, Delete All Entries, Clean Duplicates, and Cache Status are discoverable.
 - Include before/after screenshots or a visual verification note in the PR/release notes.
+
+### Fix summary
+
+- Rebuilt the Settings Center on a shared SettingsShell (`sb_ui/settings_center.py`): scrollable body, fixed always-visible footer with Apply/Close and a status line, uniform nav.
+- The Translation Corrections page uses balanced 50/50 Original/English panes that self-correct on resize; action buttons live in the always-visible toolbar/footer areas.
+- Settings load warnings and save failures are now surfaced in the footer status line instead of being silently swallowed.
 
 
 
