@@ -1051,6 +1051,22 @@ class TranslationCache:
         except Exception as exc:
             write_log("Translation cache put failed", exc)
 
+    def put_machine(
+        self,
+        source_text: str,
+        source_lang: str,
+        target_lang: str,
+        translated_text: str,
+        engine: str,
+        direction: str = "zh-en",
+        protected_terms: list[str] | None = None,
+    ) -> bool:
+        if not should_cache_translation_source(source_text, direction, target_lang, engine, protected_terms=protected_terms):
+            return False
+        key = self.key_for(source_text, source_lang, target_lang, engine)
+        self.put(key, source_text, source_lang, target_lang, translated_text, engine)
+        return True
+
     def seed_entries(self, entries: list[dict]) -> int:
         """Seed bundled starter translations without overwriting local cache rows."""
         if not entries:
@@ -2872,6 +2888,7 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
     for idx, term in enumerate(sorted(unique(terms), key=len, reverse=True)):
         if not term or term not in work: continue
         token=f"SBX{idx}"; work=work.replace(term, token); protected.append((token, term))
+    protected_terms = [original for _token, original in protected]
     for engine in translation_engine_order(preferred_engine, fallback_mode):
         if TRANSLATION_CACHE.failure_active(cache_text, target, engine):
             continue
@@ -2887,8 +2904,9 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
             out=re.sub(rf"\b{re.escape(token)}\b", original, out)
         out=out.strip()
         if out:
-            if should_cache_translation_source(cache_text, direction, target, engine, protected_terms=[original for _token, original in protected]):
-                TRANSLATION_CACHE.put(TRANSLATION_CACHE.key_for(cache_text, source, target, engine), cache_text, source, target, out, engine)
+            if TRANSLATION_CACHE.put_machine(
+                cache_text, source, target, out, engine, direction=direction, protected_terms=protected_terms
+            ):
                 return out, f"segment:{engine}-cached"
             return out, f"segment:{engine}-uncached"
     return "", "fallback-failed"

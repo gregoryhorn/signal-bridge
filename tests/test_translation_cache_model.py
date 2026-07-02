@@ -78,3 +78,98 @@ def test_auto_en_worker_does_not_persist_protected_term_only_source(tmp_path, mo
     assert result == "\u5929\u9e64\u7ea7"
     assert label == "segment:google-uncached"
     assert row_count == 0
+
+
+def make_cache(tmp_path, monkeypatch):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+    monkeypatch.setattr(sb, "TRANSLATION_CACHE", cache)
+    sb.FREE_TRANSLATION_CACHE.clear()
+    return cache
+
+
+def cache_rows(cache):
+    con = sqlite3.connect(cache.path)
+    rows = con.execute(
+        "select source_text, source_lang, target_lang, translated_text, engine from translation_cache order by source_text"
+    ).fetchall()
+    con.close()
+    return rows
+
+
+def test_put_machine_owns_the_cache_write_gate(tmp_path):
+    cache = sb.TranslationCache(tmp_path / "translation_cache.sqlite")
+
+    assert cache.put_machine(
+        "hello local is clear", "auto", "en", "hello local is clear", "google", direction="zh-en"
+    ) is False
+    assert cache.put_machine(
+        "\u4ed6\u4eec\u6765\u4e86", "auto", "en", "They are coming", "google", direction="zh-en"
+    ) is True
+
+    assert cache_rows(cache) == [("\u4ed6\u4eec\u6765\u4e86", "auto", "en", "They are coming", "google")]
+
+
+def test_worker_does_not_persist_protected_term_only_auto_en_source(tmp_path, monkeypatch):
+    cache = make_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(sb, "google_translate_free", lambda text, source="auto", target="en": "Crane")
+
+    result, label = sb.translate_free_text_cached(
+        "\u5929\u9e64\u7ea7",
+        systems=[],
+        assets=["\u5929\u9e64\u7ea7"],
+        localized=[],
+        counts=[],
+        links=[],
+        direction="zh-en",
+        character_names=[],
+        preferred_engine="google",
+        fallback_mode="online-only",
+    )
+
+    assert result == "Crane"
+    assert label == "segment:google-uncached"
+    assert cache_rows(cache) == []
+
+
+def test_worker_persists_non_english_auto_en_source_after_protected_terms(tmp_path, monkeypatch):
+    cache = make_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(sb, "google_translate_free", lambda text, source="auto", target="en": "They are coming")
+
+    result, label = sb.translate_free_text_cached(
+        "4-HWWF \u5929\u9e64\u7ea7 \u4ed6\u4eec\u6765\u4e86",
+        systems=["4-HWWF"],
+        assets=["\u5929\u9e64\u7ea7"],
+        localized=[],
+        counts=[],
+        links=[],
+        direction="zh-en",
+        character_names=[],
+        preferred_engine="google",
+        fallback_mode="online-only",
+    )
+
+    assert result == "They are coming"
+    assert label == "segment:google-cached"
+    assert cache_rows(cache) == [("\u5929\u9e64\u7ea7 \u4ed6\u4eec\u6765\u4e86", "auto", "en", "They are coming", "google")]
+
+
+def test_worker_persists_english_only_source_for_explicit_en_zh(tmp_path, monkeypatch):
+    cache = make_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(sb, "google_translate_free", lambda text, source="en", target="zh-CN": "\u72de\u737e\u5728\u95e8\u53e3")
+
+    result, label = sb.translate_free_text_cached(
+        "Caracal on gate",
+        systems=[],
+        assets=[],
+        localized=[],
+        counts=[],
+        links=[],
+        direction="en-zh",
+        character_names=[],
+        preferred_engine="google",
+        fallback_mode="online-only",
+    )
+
+    assert result == "\u72de\u737e\u5728\u95e8\u53e3"
+    assert label == "segment:google-cached"
+    assert cache_rows(cache) == [("Caracal on gate", "en", "zh-CN", "\u72de\u737e\u5728\u95e8\u53e3", "google")]
