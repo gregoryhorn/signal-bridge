@@ -26,9 +26,9 @@ A live-feed redraw could briefly show an older/raw-looking intermediate state wh
 - Source GUI was restarted and visually inspected after the patch.
 
 
-## Open: Translation Corrections layout gives too much width to Original and squeezes English
+## Fixed: Translation Corrections layout gives too much width to Original and squeezes English
 
-- Status: open
+- Status: fixed in source (Phase 1 UI foundation)
 - Priority: high
 - Area: Settings / Translation Cache / Translation Corrections / UI layout
 - Type: bug / UX
@@ -68,6 +68,11 @@ The Translation Corrections page still lays out the Original and English lists u
 - Save, delete, cleanup, and cache-status actions remain visible and usable.
 - Resizing the Settings window improves available space instead of leaving the English side cramped.
 - Manual overrides and existing cache/correction behavior continue to work.
+
+### Fix summary
+
+- Replaced the one-shot `after_idle` sash placement (which read `winfo_width()` before layout settled) with a shared `balanced_paned` component that tracks a 50/50 split on every `<Configure>` until the user drags the sash.
+- Visual inspection performed at default Settings size and across resizes.
 
 
 ### Recently fixed: Feed Translation Stability Pass

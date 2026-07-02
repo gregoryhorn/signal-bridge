@@ -26,6 +26,8 @@ import zipfile
 from dataclasses import dataclass, field
 import signal_bridge_render_model as render_model
 from sb_settings import SettingsStore
+from sb_ui import components as sb_components
+from sb_ui import windows as sb_windows
 from pathlib import Path
 from typing import Callable
 
@@ -3872,58 +3874,11 @@ class SignalBridgeGui:
 
     def polish_window(self, win, parent=None, *, width=None, height=None, minsize=None, modal=False, center=True, title=None):
         """Apply consistent Signal Bridge chrome, icon, stacking, and placement to child windows."""
-        parent = parent or self.root
-        if title:
-            try:
-                win.title(title)
-            except Exception:
-                pass
-        try:
-            icon = self.app_icon_path()
-            if icon:
-                win.iconbitmap(str(icon))
-        except Exception as exc:
-            write_log(f"Window icon failed: {exc}")
-        try:
-            win.configure(bg="#0b0f14")
-        except Exception:
-            pass
-        if minsize:
-            try:
-                win.minsize(*minsize)
-            except Exception:
-                pass
-        if width and height:
-            try:
-                if center:
-                    parent.update_idletasks()
-                    win.update_idletasks()
-                    px = parent.winfo_rootx()
-                    py = parent.winfo_rooty()
-                    pw = max(1, parent.winfo_width())
-                    ph = max(1, parent.winfo_height())
-                    x = max(0, px + (pw - width) // 2)
-                    y = max(0, py + (ph - height) // 2)
-                    win.geometry(f"{width}x{height}+{x}+{y}")
-                else:
-                    win.geometry(f"{width}x{height}")
-            except Exception:
-                win.geometry(f"{width}x{height}")
-        try:
-            win.transient(parent)
-        except Exception:
-            pass
-        if modal:
-            try:
-                win.grab_set()
-            except Exception:
-                pass
-        try:
-            win.lift(parent)
-            win.focus_force()
-        except Exception:
-            pass
-        return win
+        return sb_windows.polish_window(
+            win, parent or self.root, width=width, height=height, minsize=minsize,
+            modal=modal, center=center, title=title,
+            icon_path=self.app_icon_path(), log=write_log,
+        )
 
     def friendly_datetime(self, value: str) -> str:
         raw = str(value or "").strip()
@@ -4530,15 +4485,10 @@ class SignalBridgeGui:
             tk.Spinbox(advanced_settings, from_=5, to=1440, increment=5, textvariable=self.translation_failure_cooldown_minutes, width=6, command=self.save_translation_engine_settings, bg="#070b10", fg="#d7dde5", insertbackground="#ffffff").pack(side="left", padx=(0,8))
             tk.Checkbutton(advanced_settings, text="Show cache internals", variable=show_internals_var, command=lambda: refresh_rows(keep_selection=True), bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(side="left", padx=6)
 
-            tables = tk.PanedWindow(c, orient="horizontal", bg="#0b0f14", sashwidth=8, sashrelief="flat", bd=0, showhandle=False)
+            # Balanced 50/50 Original/English split that self-corrects on resize
+            # instead of reading winfo_width() once before layout settles.
+            tables, left, right = sb_components.balanced_paned(c, left_min=260, right_min=320, fraction=0.5)
             tables.pack(fill="both", expand=True, pady=(2, 8))
-            left = tk.Frame(tables, bg="#0b0f14")
-            right = tk.Frame(tables, bg="#0b0f14")
-            # Translation corrections are primarily edited on the English side,
-            # so give it a slightly larger default share while keeping Original readable.
-            tables.add(left, minsize=260, stretch="always", padx=0, pady=0)
-            tables.add(right, minsize=320, stretch="always", padx=0, pady=0)
-            tables.after_idle(lambda: tables.sash_place(0, max(260, int(tables.winfo_width() * 0.43)), 0))
 
             for pane in (left, right):
                 pane.grid_columnconfigure(0, weight=1)
