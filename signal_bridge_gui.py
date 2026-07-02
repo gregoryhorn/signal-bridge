@@ -26,8 +26,10 @@ import zipfile
 from dataclasses import dataclass, field
 import signal_bridge_render_model as render_model
 from sb_settings import SettingsStore
+import sb_help
 import sb_zkill
 from sb_ui import components as sb_components
+from sb_ui import markdown_view as sb_markdown
 from sb_ui import theme as sb_theme
 from sb_ui import windows as sb_windows
 from sb_ui.settings_center import SettingsShell
@@ -38,6 +40,8 @@ APP_NAME = "Signal Bridge"
 APP_VERSION = "0.5"
 UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
 UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
+GITHUB_REPO_URL = "https://github.com/gregoryhorn/signal-bridge"
+ISSUE_REPORT_URL = "https://github.com/gregoryhorn/signal-bridge/issues"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
 ALL_CHANNELS_TAB = "__ALL_CHANNELS__"
 APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -3405,8 +3409,12 @@ class SignalBridgeGui:
         menubar.add_cascade(label="Tools", menu=tools_menu)
 
         help_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        help_menu.add_command(label="Help Topics...", command=self.show_help_center)
+        help_menu.add_separator()
         help_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(manual=True))
-        help_menu.add_command(label="About / Support...", command=lambda: self.show_settings_center("About / Support"))
+        help_menu.add_command(label="Report an Issue...", command=lambda: webbrowser.open(ISSUE_REPORT_URL))
+        help_menu.add_separator()
+        help_menu.add_command(label="About Signal Bridge...", command=lambda: self.show_settings_center("About / Support"))
         menubar.add_cascade(label="Help", menu=help_menu)
         self.root.config(menu=menubar)
 
@@ -5540,6 +5548,11 @@ class SignalBridgeGui:
     def show_esi_exclusion_list(self):
         win = self.tk.Toplevel(self.root)
         self.polish_window(win, self.root, width=760, height=560, minsize=(620, 420), modal=True, title="Recognition Rules")
+        help_btn = self.tk.Button(win, text="?", width=2, relief="flat",
+                                  bg="#1c2835", fg="#d7dde5",
+                                  activebackground="#263544", activeforeground="#ffffff",
+                                  command=lambda: self.show_help_center("Recognition Rules"))
+        help_btn.place(relx=1.0, x=-14, y=10, anchor="ne")
         self.tk.Label(win, text="Recognition rules", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
         self.tk.Label(win, text="Use scoped rules when Signal Bridge recognizes, highlights, or checks the wrong text. Each scope changes a different part of the parser/rendering pipeline.", bg="#0b0f14", fg="#8b98a8", wraplength=720, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 6))
 
@@ -5930,6 +5943,34 @@ class SignalBridgeGui:
     def show_update_available(self, tag: str, url: str):
         if self.messagebox.askyesno("Signal Bridge Update Available", f"A newer Signal Bridge release is available: {tag}\n\nOpen the GitHub release page?"):
             self.open_url(url)
+
+    def show_help_center(self, topic: str | None = None):
+        titles = [t for t, _f in sb_help.HELP_TOPICS]
+
+        def make_renderer(filename):
+            def render(body, shell):
+                text = self.tk.Text(body, wrap="word", relief="flat", bd=0,
+                                    bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["fg"],
+                                    highlightthickness=0, padx=4, pady=4, height=26)
+                text.pack(fill="both", expand=True)
+                sb_markdown.render_into(
+                    text, sb_markdown.parse_markdown(sb_help.load_topic(APP_DIR, filename)))
+            return render
+
+        shell = SettingsShell(
+            self.root,
+            pages=titles,
+            descriptions={t: "" for t in titles},
+            renderers={t: make_renderer(f) for t, f in sb_help.HELP_TOPICS},
+            on_apply=lambda: True,
+            polish=self.polish_window,
+            initial_page=topic if topic in titles else titles[0],
+            title="Help - Signal Bridge",
+            nav_title="Help",
+            show_apply=False,
+        )
+        shell.open()
+        record_event("help_center_opened", topic=topic or titles[0])
 
     def show_about(self):
         self.messagebox.showinfo(
