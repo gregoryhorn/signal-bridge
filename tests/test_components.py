@@ -68,3 +68,15 @@ def test_balanced_paned_respects_user_placement(tk_root):
     tk_root.geometry("700x300")
     tk_root.update()
     assert paned.sash_coord(0)[0] <= 300, "auto-placement must stop after user interaction"
+
+
+def test_preview_table_builds_styled_treeview(tk_root):
+    frame, tree = components.preview_table(
+        tk_root, [("original", "Original"), ("english", "English")])
+    assert not frame.winfo_manager(), "caller packs the frame"
+    assert str(tree.cget("selectmode")) == "browse"
+    assert list(tree.cget("columns")) == ["original", "english"]
+    assert str(tree.cget("show")[0]) == "headings"
+    assert str(tree.cget("style")) == "SB.Treeview"
+    iid = tree.insert("", "end", values=("ä½ å¥½", "hello"))
+    assert tree.item(iid, "values") == ("ä½ å¥½", "hello")

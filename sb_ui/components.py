@@ -87,3 +87,26 @@ def balanced_paned(parent, left_min: int = 260, right_min: int = 260,
     paned.bind("<Configure>", schedule_sash)
     paned.bind("<ButtonRelease-1>", mark_user_moved, add="+")
     return paned, left, right
+
+
+def preview_table(parent, columns: list[tuple[str, str]], height: int = 9):
+    """Two(+)-column read-only preview table: (frame, ttk.Treeview).
+
+    columns: list of (key, heading) pairs. The frame is NOT packed.
+    """
+    from tkinter import ttk
+    theme.apply_ttk_styles(parent)
+    frame = tk.Frame(parent, bg=theme.COLORS["bg"])
+    keys = [key for key, _ in columns]
+    tree = ttk.Treeview(frame, columns=keys, show="headings", height=height,
+                        style="SB.Treeview", selectmode="browse")
+    for key, heading in columns:
+        tree.heading(key, text=heading)
+        tree.column(key, anchor="w", stretch=True, width=160)
+    scroll = tk.Scrollbar(frame, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=scroll.set)
+    tree.grid(row=0, column=0, sticky="nsew")
+    scroll.grid(row=0, column=1, sticky="ns")
+    frame.grid_columnconfigure(0, weight=1)
+    frame.grid_rowconfigure(0, weight=1)
+    return frame, tree
