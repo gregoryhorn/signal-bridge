@@ -6430,6 +6430,8 @@ class SignalBridgeGui:
         self.polish_window(win, self.root, width=720, height=620, minsize=(640, 520), title=f"Pilot Info - {name}")
         header = tk.Frame(win, bg="#111821", padx=10, pady=7)
         header.pack(fill="x")
+        actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
+        actions.pack(fill="x", side="bottom")
         scroll_outer = tk.Frame(win, bg="#0b0f14")
         scroll_outer.pack(fill="both", expand=True)
         canvas = tk.Canvas(scroll_outer, bg="#0b0f14", highlightthickness=0)
@@ -6473,8 +6475,6 @@ class SignalBridgeGui:
             except Exception:
                 pass
         win.bind("<Destroy>", _unbind_mousewheel_once)
-        actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
-        actions.pack(fill="x", side="bottom")
 
         def clean_value(value, empty="—"):
             text = str(value or "").strip()
@@ -6623,14 +6623,6 @@ class SignalBridgeGui:
                 profile = fresh
                 pilot = profile.get("pilot") or pilot
             render_summary()
-        try:
-            win.update_idletasks()
-            max_h = max(520, min(680, win.winfo_screenheight() - 80))
-            req_h = min(max_h, max(430, win.winfo_reqheight()))
-            win.geometry(f"720x{req_h}")
-            record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
-        except Exception:
-            pass
 
         def render_summary():
             clear_body(); render_header()
@@ -6708,9 +6700,40 @@ class SignalBridgeGui:
                 scope_text = f" | source: kills={scopes.get('kills','?')} losses={scopes.get('losses','?')}" if scopes else ""
                 label(zbox, f"{pri}: {pri_text} | Synced {self.friendly_datetime(zks.get('synced_at'))} | Kills: {zks.get('recent_kills_30d', 0)} | Losses: {zks.get('recent_losses_30d', 0)}{scope_text}", "#ffb3b3" if pri == "HIGH" else ("#ffe16a" if pri == "MED" else "#d7dde5"))
                 label(zbox, f"ISK: destroyed {fmt_isk(zks.get('isk_destroyed_30d'))}, lost {fmt_isk(zks.get('isk_lost_30d'))} | Signals: {tags}", "#8b98a8")
-                for ev in (zks.get("recent_events") or [])[:3]:
+
+                events = zks.get("recent_events") or []
+                recent_kills = zks.get("recent_kills")
+                if recent_kills is None:
+                    recent_kills = sb_zkill.rank_kills(events, 5)
+                recent_losses = zks.get("recent_losses")
+                if recent_losses is None:
+                    recent_losses = sb_zkill.pick_losses(events, 5)
+
+                def zkill_event_row(parent, ev, accent):
+                    row_frame = tk.Frame(parent, bg=parent.cget("bg"))
+                    row_frame.pack(fill="x", anchor="w")
                     tm = self.friendly_datetime(ev.get("time")).replace("Today ", "")
-                    label(zbox, f"{tm}  {str(ev.get('type') or '').upper()}  {clean_value(ev.get('ship'), 'Unknown')}  {fmt_isk(ev.get('value'))}", "#8b98a8")
+                    gang = sb_zkill.gang_label(int(ev.get("participants") or 0))
+                    text = f"{tm}  {clean_value(ev.get('ship'), 'Unknown')}  {fmt_isk(ev.get('value'))}  [{gang}]"
+                    tk.Label(row_frame, text=text, bg=row_frame.cget("bg"), fg=accent, justify="left").pack(side="left")
+                    km_id = int(ev.get("killmail_id") or 0)
+                    if km_id:
+                        link = tk.Label(row_frame, text="zkill ↗", bg=row_frame.cget("bg"), fg="#5ad7ff", cursor="hand2")
+                        link.pack(side="left", padx=(8, 0))
+                        link.bind("<Button-1>", lambda _e, k=km_id: webbrowser.open(f"https://zkillboard.com/kill/{k}/"))
+
+                tk.Label(zbox, text="Recent kills (small gang first)", bg=zbox.cget("bg"), fg="#7ee787", font=(self.font_family.get(), max(8, int(self.font_size.get()) - 1), "bold")).pack(anchor="w", pady=(4, 0))
+                if recent_kills:
+                    for ev in recent_kills:
+                        zkill_event_row(zbox, ev, "#d7dde5")
+                else:
+                    label(zbox, "No recent kills.", "#8b98a8")
+                tk.Label(zbox, text="Recent losses", bg=zbox.cget("bg"), fg="#ffb3b3", font=(self.font_family.get(), max(8, int(self.font_size.get()) - 1), "bold")).pack(anchor="w", pady=(4, 0))
+                if recent_losses:
+                    for ev in recent_losses:
+                        zkill_event_row(zbox, ev, "#d7dde5")
+                else:
+                    label(zbox, "No recent losses.", "#8b98a8")
             elif zks.get("status") == "syncing":
                 label(zbox, "Syncing zKill in background...", "#5ad7ff")
             elif zks.get("status") == "failed":
@@ -6776,11 +6799,13 @@ class SignalBridgeGui:
         button(actions, "Close", win.destroy)
         render_summary()
         try:
+            # The body sits inside a canvas, which never propagates its
+            # content's requested height — mirror it so fit_to_content sees it.
             win.update_idletasks()
-            max_h = max(520, min(680, win.winfo_screenheight() - 80))
-            req_h = min(max_h, max(430, win.winfo_reqheight()))
-            win.geometry(f"720x{req_h}")
-            record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=req_h)
+            canvas.configure(height=body.winfo_reqheight())
+            width, height = sb_windows.fit_to_content(
+                win, self.root, min_size=(660, 520), max_size=(760, 720))
+            record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=height)
         except Exception:
             pass
 
