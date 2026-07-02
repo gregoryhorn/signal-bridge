@@ -457,6 +457,15 @@ Acceptance notes:
 
 Dedicated About Signal Bridge window (version, GitHub/release/issue links, Copy Diagnostics, update check, donation info) reachable from the restructured Help menu; old About/Support messageboxes re-pointed; settings About page kept as a thin pointer.
 
+## Code health: pre-existing double-encoded UTF-8 literals in signal_bridge_gui.py
+
+- Status: open
+- Priority: low
+- Reported: 2026-07-03 (found during Phase 2.4 final review)
+- Area: parser literals / display polish
+
+Four spots contain historic mojibake (UTF-8 bytes double-encoded): the quote-stripping literals in the alias/term normalizers (three `.strip("* ,.;:()[]{}\"'` + curly-quote garbage)` sites) and a truncation ellipsis in `tab_display_text`. Effect: the strip sets remove the wrong characters (curly quotes are NOT stripped), and long tab labels end in mojibake instead of `…`. Predates Phase 2.4 (byte-identical at 2e316f3). Fix is a careful re-type of the four literals; add a mojibake-scan assertion for the monolith once fixed.
+
 ## User feedback: Google default translation should auto-detect all non-English languages
 
 - Status: open

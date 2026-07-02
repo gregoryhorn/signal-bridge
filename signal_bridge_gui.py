@@ -5543,10 +5543,17 @@ class SignalBridgeGui:
     def show_esi_exclusion_list(self):
         win = self.tk.Toplevel(self.root)
         self.polish_window(win, self.root, width=760, height=560, minsize=(620, 420), modal=True, title="Recognition Rules")
+        def open_rules_help():
+            # The dialog's modal grab would swallow clicks in the Help window.
+            try:
+                win.grab_release()
+            except Exception:
+                pass
+            self.show_help_center("Recognition Rules")
         help_btn = self.tk.Button(win, text="?", width=2, relief="flat",
                                   bg="#1c2835", fg="#d7dde5",
                                   activebackground="#263544", activeforeground="#ffffff",
-                                  command=lambda: self.show_help_center("Recognition Rules"))
+                                  command=open_rules_help)
         help_btn.place(relx=1.0, x=-14, y=10, anchor="ne")
         self.tk.Label(win, text="Recognition rules", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
         self.tk.Label(win, text="Use scoped rules when Signal Bridge recognizes, highlights, or checks the wrong text. Each scope changes a different part of the parser/rendering pipeline.", bg="#0b0f14", fg="#8b98a8", wraplength=720, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 6))
