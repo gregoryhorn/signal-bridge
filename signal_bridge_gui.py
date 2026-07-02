@@ -5562,13 +5562,13 @@ class SignalBridgeGui:
             except Exception:
                 pass
             self.show_help_center("Recognition Rules")
-        help_btn = self.tk.Button(win, text="?", width=2, relief="flat",
-                                  bg="#1c2835", fg="#d7dde5",
-                                  activebackground="#263544", activeforeground="#ffffff",
+        help_btn = self.tk.Button(win, text="?", width=2,
+                                  **sb_theme.btn_secondary_kw(),
                                   command=open_rules_help)
         help_btn.place(relx=1.0, x=-14, y=10, anchor="ne")
-        self.tk.Label(win, text="Recognition rules", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
-        self.tk.Label(win, text="Use scoped rules when Signal Bridge recognizes, highlights, or checks the wrong text. Each scope changes a different part of the parser/rendering pipeline.", bg="#0b0f14", fg="#8b98a8", wraplength=720, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 6))
+        self.tk.Label(win, text="Recognition rules", **sb_theme.label_kw(),
+                      font=sb_theme.font(10, bold=True)).pack(anchor="w", padx=12, pady=(12, 4))
+        self.tk.Label(win, text="Use scoped rules when Signal Bridge recognizes, highlights, or checks the wrong text. Each scope changes a different part of the parser/rendering pipeline.", **sb_theme.label_kw(muted=True), wraplength=720, justify="left").pack(anchor="w", fill="x", padx=12, pady=(0, 6))
 
         scope_labels = {
             "pilot_ignore": "Ignored pilots",
@@ -5594,36 +5594,36 @@ class SignalBridgeGui:
         example_var = self.tk.StringVar()
         target_help_var = self.tk.StringVar()
 
-        help_box = self.tk.Frame(win, bg="#111821", highlightthickness=1, highlightbackground="#1f2f42")
+        help_box = self.tk.Frame(win, bg=sb_theme.COLORS["bg_panel"], highlightthickness=1, highlightbackground=sb_theme.COLORS["border"])
         help_box.pack(fill="x", padx=12, pady=(0, 8))
-        self.tk.Label(help_box, text="What should this rule do?", bg="#111821", fg="#d7dde5", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=8, pady=(6, 2))
-        self.tk.Label(help_box, textvariable=help_var, bg="#111821", fg="#cfd8e3", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8)
-        self.tk.Label(help_box, textvariable=example_var, bg="#111821", fg="#8b98a8", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8, pady=(2, 2))
-        self.tk.Label(help_box, text="Quick guide: bad pilot match -> Ignored pilots | wrong color -> Highlight exclusions | common phrase -> Noise words | unsure -> use Test term", bg="#111821", fg="#7ee787", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8, pady=(0, 6))
+        self.tk.Label(help_box, text="What should this rule do?", bg=sb_theme.COLORS["bg_panel"], fg=sb_theme.COLORS["fg"], font=sb_theme.font(9, bold=True)).pack(anchor="w", padx=8, pady=(6, 2))
+        self.tk.Label(help_box, textvariable=help_var, bg=sb_theme.COLORS["bg_panel"], fg="#cfd8e3", wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8)
+        self.tk.Label(help_box, textvariable=example_var, bg=sb_theme.COLORS["bg_panel"], fg=sb_theme.COLORS["fg_muted"], wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8, pady=(2, 2))
+        self.tk.Label(help_box, text="Quick guide: bad pilot match -> Ignored pilots | wrong color -> Highlight exclusions | common phrase -> Noise words | unsure -> use Test term", bg=sb_theme.COLORS["bg_panel"], fg=sb_theme.COLORS["success"], wraplength=700, justify="left").pack(anchor="w", fill="x", padx=8, pady=(0, 6))
 
-        top = self.tk.Frame(win, bg="#0b0f14"); top.pack(fill="x", padx=12, pady=(0, 6))
-        self.tk.Label(top, text="Scope", bg="#0b0f14", fg="#8b98a8").pack(side="left")
+        top = self.tk.Frame(win, bg=sb_theme.COLORS["bg"]); top.pack(fill="x", padx=12, pady=(0, 6))
+        self.tk.Label(top, text="Scope", **sb_theme.label_kw(muted=True)).pack(side="left")
         scope_menu = self.tk.OptionMenu(top, scope_var, *scope_labels.values())
-        scope_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat")
+        scope_menu.configure(**sb_theme.optionmenu_kw())
         scope_menu.pack(side="left", padx=(6, 14))
-        self.tk.Label(top, text="Target", bg="#0b0f14", fg="#8b98a8").pack(side="left")
+        self.tk.Label(top, text="Target", **sb_theme.label_kw(muted=True)).pack(side="left")
         target_menu = self.tk.OptionMenu(top, target_var, "any", "pilot", "ship", "system", "module", "ess")
-        target_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat")
+        target_menu.configure(**sb_theme.optionmenu_kw())
         target_menu.pack(side="left", padx=(6, 14))
-        self.tk.Label(top, textvariable=status_var, bg="#0b0f14", fg="#8b98a8", anchor="w").pack(side="left", fill="x", expand=True)
-        self.tk.Label(win, textvariable=target_help_var, bg="#0b0f14", fg="#8b98a8", anchor="w", justify="left", wraplength=720).pack(anchor="w", fill="x", padx=12, pady=(0, 4))
+        self.tk.Label(top, textvariable=status_var, **sb_theme.label_kw(muted=True), anchor="w").pack(side="left", fill="x", expand=True)
+        self.tk.Label(win, textvariable=target_help_var, **sb_theme.label_kw(muted=True), anchor="w", justify="left", wraplength=720).pack(anchor="w", fill="x", padx=12, pady=(0, 4))
 
-        frame = self.tk.Frame(win, bg="#0b0f14"); frame.pack(fill="both", expand=True, padx=12, pady=6)
-        lb = self.tk.Listbox(frame, bg="#070b10", fg="#d7dde5", selectbackground="#1f6feb", relief="flat", font=("Consolas", 9))
+        frame = self.tk.Frame(win, bg=sb_theme.COLORS["bg"]); frame.pack(fill="both", expand=True, padx=12, pady=6)
+        lb = self.tk.Listbox(frame, font=("Consolas", 9), **sb_theme.listbox_kw())
         sb = self.tk.Scrollbar(frame, command=lb.yview); lb.configure(yscrollcommand=sb.set)
         lb.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
 
-        form = self.tk.Frame(win, bg="#0b0f14"); form.pack(fill="x", padx=12, pady=(4, 4))
-        self.tk.Label(form, text="Term", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w")
-        entry = self.tk.Entry(form, bg="#111821", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+        form = self.tk.Frame(win, bg=sb_theme.COLORS["bg"]); form.pack(fill="x", padx=12, pady=(4, 4))
+        self.tk.Label(form, text="Term", **sb_theme.label_kw(muted=True)).grid(row=0, column=0, sticky="w")
+        entry = self.tk.Entry(form, bg=sb_theme.COLORS["bg_panel"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg"], relief="flat")
         entry.grid(row=1, column=0, sticky="ew", padx=(0, 8))
-        self.tk.Label(form, text="Note", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=1, sticky="w")
-        note_entry = self.tk.Entry(form, textvariable=note_var, bg="#111821", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+        self.tk.Label(form, text="Note", **sb_theme.label_kw(muted=True)).grid(row=0, column=1, sticky="w")
+        note_entry = self.tk.Entry(form, textvariable=note_var, bg=sb_theme.COLORS["bg_panel"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg"], relief="flat")
         note_entry.grid(row=1, column=1, sticky="ew")
         form.grid_columnconfigure(0, weight=2); form.grid_columnconfigure(1, weight=1)
 
@@ -5725,12 +5725,17 @@ class SignalBridgeGui:
             scope_var.trace_add("write", reload_list)
         except Exception:
             pass
-        buttons = self.tk.Frame(win, bg="#0b0f14"); buttons.pack(fill="x", padx=12, pady=(0, 12))
-        self.tk.Button(buttons, text="Add rule", command=add_rule).pack(side="left", padx=(0, 6))
-        self.tk.Button(buttons, text="Remove selected", command=remove_selected).pack(side="left", padx=(0, 6))
-        self.tk.Button(buttons, text="Import...", command=import_rules).pack(side="left", padx=(0, 6))
-        self.tk.Button(buttons, text="Test term", command=test_term).pack(side="left", padx=(0, 6))
-        self.tk.Button(buttons, text="Close", command=win.destroy).pack(side="right")
+        buttons = self.tk.Frame(win, bg=sb_theme.COLORS["bg"]); buttons.pack(fill="x", padx=12, pady=(0, 12))
+        self.tk.Button(buttons, text="Add rule", command=add_rule,
+                       **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Remove selected", command=remove_selected,
+                       **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Import...", command=import_rules,
+                       **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Test term", command=test_term,
+                       **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
+        self.tk.Button(buttons, text="Close", command=win.destroy,
+                       **sb_theme.btn_secondary_kw()).pack(side="right")
         reload_list()
 
     def authorize_esi_character(self):
