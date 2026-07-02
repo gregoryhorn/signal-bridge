@@ -4891,11 +4891,11 @@ class SignalBridgeGui:
 
         # Keep action buttons visible on narrow/mobile-style layouts by making
         # only the settings body scroll while the footer stays fixed.
-        outer = tk.Frame(win, bg="#0b0f14")
+        outer = tk.Frame(win, bg=sb_theme.COLORS["bg"])
         outer.pack(fill="both", expand=True)
-        canvas = tk.Canvas(outer, bg="#0b0f14", highlightthickness=0, bd=0)
+        canvas = tk.Canvas(outer, bg=sb_theme.COLORS["bg"], highlightthickness=0, bd=0)
         body_scroll = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        body = tk.Frame(canvas, bg="#0b0f14")
+        body = tk.Frame(canvas, bg=sb_theme.COLORS["bg"])
         body_window = canvas.create_window((0, 0), window=body, anchor="nw")
         canvas.configure(yscrollcommand=body_scroll.set)
         canvas.pack(side="left", fill="both", expand=True)
@@ -4928,29 +4928,35 @@ class SignalBridgeGui:
             families = sorted(set(tkfont.families(self.root)))
         except Exception:
             families = ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Consolas", "Courier New"]
-        top = tk.LabelFrame(body, text="General", bg="#0b0f14", fg="#d7dde5", padx=10, pady=8)
+        top = tk.LabelFrame(body, text="General", bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["fg"], padx=10, pady=8)
         top.pack(fill="x", padx=12, pady=(10, 8))
-        tk.Label(top, text="Preset", bg="#0b0f14", fg="#8b98a8").grid(row=0, column=0, sticky="w", pady=3)
+        tk.Label(top, text="Preset", **sb_theme.label_kw(muted=True)).grid(row=0, column=0, sticky="w", pady=3)
         preset_menu = tk.OptionMenu(top, preset_var, *APPEARANCE_PRESETS.keys())
-        preset_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", highlightthickness=0)
+        preset_menu.configure(**sb_theme.optionmenu_kw(), highlightthickness=0)
         preset_menu.grid(row=0, column=1, sticky="ew", padx=(8, 18), pady=3)
-        tk.Label(top, text="Font", bg="#0b0f14", fg="#8b98a8").grid(row=1, column=0, sticky="w", pady=3)
+        tk.Label(top, text="Font", **sb_theme.label_kw(muted=True)).grid(row=1, column=0, sticky="w", pady=3)
         font_menu = tk.OptionMenu(top, fam_var, *families)
-        font_menu.configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", highlightthickness=0)
+        font_menu.configure(**sb_theme.optionmenu_kw(), highlightthickness=0)
         font_menu.grid(row=1, column=1, sticky="ew", padx=(8, 18), pady=3)
-        tk.Label(top, text="Size", bg="#0b0f14", fg="#8b98a8").grid(row=1, column=2, sticky="w", pady=3)
-        tk.Spinbox(top, from_=8, to=28, width=6, textvariable=size_var, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", buttonbackground="#111821").grid(row=1, column=3, sticky="w", padx=8, pady=3)
-        tk.Label(top, text="Opacity", bg="#0b0f14", fg="#8b98a8").grid(row=2, column=0, sticky="w", pady=3)
-        tk.Scale(top, from_=55, to=100, orient="horizontal", variable=opacity_var, bg="#0b0f14", fg="#d7dde5", troughcolor="#111821", activebackground="#5ad7ff", highlightthickness=0, length=230).grid(row=2, column=1, sticky="ew", padx=(8, 18), pady=3)
-        tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").grid(row=2, column=2, columnspan=2, sticky="w", pady=3)
+        tk.Label(top, text="Size", **sb_theme.label_kw(muted=True)).grid(row=1, column=2, sticky="w", pady=3)
+        tk.Spinbox(top, from_=8, to=28, width=6, textvariable=size_var,
+                   bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"],
+                   insertbackground=sb_theme.COLORS["fg"], buttonbackground=sb_theme.COLORS["bg_panel"]).grid(row=1, column=3, sticky="w", padx=8, pady=3)
+        tk.Label(top, text="Opacity", **sb_theme.label_kw(muted=True)).grid(row=2, column=0, sticky="w", pady=3)
+        tk.Scale(top, from_=55, to=100, orient="horizontal", variable=opacity_var,
+                 bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["fg"],
+                 troughcolor=sb_theme.COLORS["bg_panel"], activebackground="#5ad7ff",
+                 highlightthickness=0, length=230).grid(row=2, column=1, sticky="ew", padx=(8, 18), pady=3)
+        tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled,
+                       **sb_theme.check_kw()).grid(row=2, column=2, columnspan=2, sticky="w", pady=3)
         top.columnconfigure(1, weight=1)
 
-        grid = tk.LabelFrame(body, text="Highlight Colors", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+        grid = tk.LabelFrame(body, text="Highlight Colors", bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["fg"], padx=8, pady=6)
         grid.pack(fill="x", padx=12, pady=4)
-        tk.Label(grid, text="Category", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 4))
-        tk.Label(grid, text="Text", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=1, columnspan=3, sticky="w", pady=(0, 4))
-        tk.Label(grid, text="Bold", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=4, sticky="w", pady=(0, 4))
-        tk.Label(grid, text="Background", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9, "bold")).grid(row=0, column=5, columnspan=3, sticky="w", pady=(0, 4))
+        tk.Label(grid, text="Category", **sb_theme.label_kw(muted=True), font=sb_theme.font(9, bold=True)).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 4))
+        tk.Label(grid, text="Text", **sb_theme.label_kw(muted=True), font=sb_theme.font(9, bold=True)).grid(row=0, column=1, columnspan=3, sticky="w", pady=(0, 4))
+        tk.Label(grid, text="Bold", **sb_theme.label_kw(muted=True), font=sb_theme.font(9, bold=True)).grid(row=0, column=4, sticky="w", pady=(0, 4))
+        tk.Label(grid, text="Background", **sb_theme.label_kw(muted=True), font=sb_theme.font(9, bold=True)).grid(row=0, column=5, columnspan=3, sticky="w", pady=(0, 4))
         rows = [("time","Timestamp"),("sender","Sender"),("system","Systems"),("esi","Characters / ESI"),("asset","Ships"),("module","Modules / Assets"),("ess","ESS"),("translation","Translation"),("link","Links")]
         swatches: list[tk.Widget] = []
         def normalized_color(value: str, fallback: str = "#070b10") -> str:
@@ -4987,24 +4993,26 @@ class SignalBridgeGui:
             swatch.fallback_color = fallback
             swatch.grid(row=row, column=col, sticky="w", padx=(0, 4), pady=2)
             swatches.append(swatch)
-            entry = tk.Entry(grid, textvariable=var, width=11, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat")
+            entry = tk.Entry(grid, textvariable=var, width=11, **sb_theme.entry_kw())
             entry.grid(row=row, column=col + 1, sticky="w", padx=(0, 4), pady=2)
-            tk.Button(grid, text="Pick", command=lambda v=var: choose_color(v), bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", relief="flat", padx=6).grid(row=row, column=col + 2, sticky="w", pady=2)
+            tk.Button(grid, text="Pick", command=lambda v=var: choose_color(v),
+                      padx=6, **sb_theme.btn_secondary_kw()).grid(row=row, column=col + 2, sticky="w", pady=2)
         for r, (key, label) in enumerate(rows, start=1):
             style = self.appearance.get(key, DEFAULT_APPEARANCE.get(key, {}))
             fg = tk.StringVar(value=str(style.get("foreground", "#d7dde5")))
             bold = tk.BooleanVar(value=bool(style.get("bold", False)))
             bg = tk.StringVar(value=str(style.get("background", "")))
             vars[key] = {"foreground": fg, "bold": bold, "background": bg}
-            tk.Label(grid, text=label, bg="#0b0f14", fg="#d7dde5").grid(row=r, column=0, sticky="w", padx=(0, 10), pady=2)
+            tk.Label(grid, text=label, **sb_theme.label_kw()).grid(row=r, column=0, sticky="w", padx=(0, 10), pady=2)
             make_color_control(r, 1, fg, "#d7dde5")
-            tk.Checkbutton(grid, variable=bold, bg="#0b0f14", selectcolor="#111821", activebackground="#0b0f14", command=lambda: update_preview()).grid(row=r, column=4, sticky="w", padx=(8, 8), pady=2)
+            tk.Checkbutton(grid, variable=bold, command=lambda: update_preview(),
+                           **sb_theme.check_kw()).grid(row=r, column=4, sticky="w", padx=(8, 8), pady=2)
             make_color_control(r, 5, bg, "#070b10")
         grid.columnconfigure(0, minsize=135)
         grid.columnconfigure(2, minsize=92)
         grid.columnconfigure(6, minsize=92)
 
-        preview_box = tk.LabelFrame(body, text="Preview", bg="#0b0f14", fg="#d7dde5", padx=8, pady=6)
+        preview_box = tk.LabelFrame(body, text="Preview", bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["fg"], padx=8, pady=6)
         preview_box.pack(fill="x", padx=12, pady=8)
         preview = tk.Text(preview_box, height=4, relief="flat", wrap="word", padx=8, pady=8)
         preview.pack(fill="x", expand=False)
@@ -5095,12 +5103,16 @@ class SignalBridgeGui:
                 except Exception: pass
         preset_var.trace_add("write", preset_changed)
         render_preview(collect())
-        btns = tk.Frame(win, bg="#111821", highlightthickness=1, highlightbackground="#1f2f42")
+        btns = tk.Frame(win, bg=sb_theme.COLORS["bg_panel"], highlightthickness=1, highlightbackground=sb_theme.COLORS["border"])
         btns.pack(fill="x", side="bottom")
-        tk.Button(btns, text="Reset Defaults", command=reset_defaults).pack(side="left", padx=(12, 6), pady=10)
-        tk.Button(btns, text="Apply", command=lambda: apply_now(False)).pack(side="left", padx=6, pady=10)
-        tk.Button(btns, text="OK", command=lambda: apply_now(True)).pack(side="right", padx=(6, 12), pady=10)
-        tk.Button(btns, text="Cancel", command=cancel).pack(side="right", padx=6, pady=10)
+        tk.Button(btns, text="Reset Defaults", command=reset_defaults,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=(12, 6), pady=10)
+        tk.Button(btns, text="Apply", command=lambda: apply_now(False),
+                  **sb_theme.btn_primary_kw()).pack(side="left", padx=6, pady=10)
+        tk.Button(btns, text="OK", command=lambda: apply_now(True),
+                  **sb_theme.btn_primary_kw()).pack(side="right", padx=(6, 12), pady=10)
+        tk.Button(btns, text="Cancel", command=cancel,
+                  **sb_theme.btn_secondary_kw()).pack(side="right", padx=6, pady=10)
         win.protocol("WM_DELETE_WINDOW", cancel)
 
     def persist_settings(self):

@@ -8,6 +8,7 @@
 - Fixed Pilot Info card: action buttons can no longer be clipped off the bottom, the window auto-sizes to content on open, and the zKill section now shows ranked Recent Kills (small-gang engagements first) and Recent Losses with per-killmail zKillboard links and gang-size labels.
 - Added an in-app Help Center (Help menu) with nine offline help topics rendered from bundled markdown, plus a restructured Help menu (Help Topics, Report an Issue, About Signal Bridge).
 - Added a dedicated About/Support window with version, project links, diagnostics copy, update check, and donation info, replacing the old About and Support messageboxes.
+- Unified the remaining dialogs (Appearance, Recognition Rules, channel picker, hidden tabs) on the shared dark theme.
 
 ## v0.5 - 2026-06-25
 
