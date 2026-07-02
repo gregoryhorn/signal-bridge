@@ -79,3 +79,37 @@ def test_startup_status_shown(tk_root):
     shell.open()
     assert "warnings" in shell._status_var.get()
     shell.win.destroy()
+
+
+def _descendants(widget):
+    out = []
+    stack = [widget]
+    while stack:
+        w = stack.pop()
+        out.append(w)
+        stack.extend(w.winfo_children())
+    return out
+
+
+def test_nav_title_custom_and_apply_hidden(tk_root):
+    rendered = []
+    shell = SettingsShell(
+        tk_root, pages=["Alpha"], descriptions={"Alpha": ""},
+        renderers={"Alpha": lambda body, shell: rendered.append("Alpha")},
+        on_apply=lambda: True, polish=_noop_polish, initial_page="Alpha",
+        nav_title="Help", show_apply=False)
+    win = shell.open()
+    widgets = _descendants(win)
+    assert any(isinstance(w, tk.Label) and w.cget("text") == "Help" for w in widgets)
+    assert not any(isinstance(w, tk.Button) and w.cget("text") == "Apply" for w in widgets)
+    win.destroy()
+
+
+def test_defaults_keep_settings_nav_and_apply(tk_root):
+    rendered = []
+    shell = make_shell(tk_root, rendered)
+    win = shell.open()
+    widgets = _descendants(win)
+    assert any(isinstance(w, tk.Label) and w.cget("text") == "Settings" for w in widgets)
+    assert any(isinstance(w, tk.Button) and w.cget("text") == "Apply" for w in widgets)
+    win.destroy()

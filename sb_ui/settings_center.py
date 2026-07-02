@@ -18,7 +18,9 @@ class SettingsShell:
                  on_apply: Callable[[], bool],
                  polish: Callable, initial_page: str = "General",
                  title: str = "Signal Bridge Settings",
-                 startup_status: str = ""):
+                 startup_status: str = "",
+                 nav_title: str = "Settings",
+                 show_apply: bool = True):
         self.root = root
         self.pages = list(pages)
         self.descriptions = dict(descriptions)
@@ -28,6 +30,8 @@ class SettingsShell:
         self.initial_page = initial_page if initial_page in self.pages else self.pages[0]
         self.title_text = title
         self.startup_status = startup_status
+        self.nav_title = nav_title
+        self.show_apply = show_apply
         self.win: tk.Toplevel | None = None
         self.body: tk.Frame | None = None
         self._nav_buttons = {}
@@ -60,8 +64,9 @@ class SettingsShell:
         footer.pack(fill="x", side="bottom")
         tk.Button(footer, text="Close", command=win.destroy, padx=16,
                   **theme.btn_primary_kw()).pack(side="right", padx=12, pady=10)
-        tk.Button(footer, text="Apply", command=self._apply, padx=14,
-                  **theme.btn_secondary_kw()).pack(side="right", padx=6, pady=10)
+        if self.show_apply:
+            tk.Button(footer, text="Apply", command=self._apply, padx=14,
+                      **theme.btn_secondary_kw()).pack(side="right", padx=6, pady=10)
         self._status_var = tk.StringVar(master=win, value=self.startup_status)
         tk.Label(footer, textvariable=self._status_var, bg=theme.COLORS["bg_panel"],
                  fg=theme.COLORS["fg_muted"], anchor="w").pack(
@@ -97,7 +102,7 @@ class SettingsShell:
         canvas.bind("<MouseWheel>", wheel)
         self.body.bind("<MouseWheel>", wheel)
 
-        tk.Label(nav, text="Settings", bg=theme.COLORS["bg_nav"],
+        tk.Label(nav, text=self.nav_title, bg=theme.COLORS["bg_nav"],
                  fg=theme.COLORS["fg_bright"], font=theme.font(12, bold=True)).pack(
             anchor="w", padx=12, pady=(14, 8))
         for page in self.pages:
