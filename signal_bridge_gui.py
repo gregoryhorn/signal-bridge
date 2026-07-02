@@ -25,6 +25,7 @@ import urllib.error
 import zipfile
 from dataclasses import dataclass, field
 import signal_bridge_render_model as render_model
+from sb_settings import SettingsStore
 from pathlib import Path
 from typing import Callable
 
@@ -102,57 +103,59 @@ def detect_chatlog_dir() -> Path:
     return candidate_chatlog_dirs()[0]
 
 
+def _settings_log(message: str) -> None:
+    # write_log is defined later in the module; the first load_settings() call
+    # happens at import time before it exists, so resolve it lazily.
+    logger = globals().get("write_log")
+    if logger:
+        logger(message)
+
+
+SETTINGS_SCHEMA = {
+    "chatlog_dir": (str, lambda: str(detect_chatlog_dir())),
+    "db_path": (str, lambda: str(DEFAULT_DB_PATH if DEFAULT_DB_PATH.exists() else DATA_DIR / "translations.db")),
+    "active_channels": (list, []),
+    "always_on_top": (bool, True),
+    "translated_only": (bool, True),
+    "translate_free_text": (bool, True),
+    "translation_direction": (str, "zh-en"),
+    "translation_preferred_engine": (str, "auto"),
+    "translation_fallback_mode": (str, "online-only"),
+    "translation_cache_mode": (str, "cache-first-auto"),
+    "translation_failure_cooldown_minutes": (int, 60),
+    "compact_mode": (bool, True),
+    "font_family": (str, "Segoe UI"),
+    "font_size": (int, 10),
+    "show_timestamps": (bool, True),
+    "show_channel_names": (bool, False),
+    "show_channel_names_in_all": (bool, True),
+    "enable_hyperlinks": (bool, True),
+    "active_tab_id": (str, ALL_CHANNELS_TAB),
+    "tab_order": (list, [ALL_CHANNELS_TAB]),
+    "hidden_tab_ids": (list, []),
+    "auto_open_new_channels": (bool, True),
+    "auto_switch_to_new_channel": (bool, False),
+    "max_tab_rows": (int, 3),
+    "check_updates_on_start": (bool, True),
+    "addons": (dict, {INTEL_HISTORY_ADDON_ID: {"enabled": True}}),
+    "esi_entity_recognition": (bool, True),
+    "esi_oauth_enabled": (bool, False),
+    "replay_on_start": (bool, False),
+}
+
+MAIN_SETTINGS_STORE = SettingsStore(CONFIG_PATH, SETTINGS_SCHEMA, log=_settings_log)
+
+
 def load_settings() -> dict:
-    defaults = {
-        "chatlog_dir": str(detect_chatlog_dir()),
-        "db_path": str(DEFAULT_DB_PATH if DEFAULT_DB_PATH.exists() else DATA_DIR / "translations.db"),
-        "active_channels": [],
-        "always_on_top": True,
-        "translated_only": True,
-        "translate_free_text": True,
-        "translation_direction": "zh-en",
-        "translation_preferred_engine": "auto",
-        "translation_fallback_mode": "online-only",
-        "translation_cache_mode": "cache-first-auto",
-        "translation_failure_cooldown_minutes": 60,
-        "compact_mode": True,
-        "font_family": "Segoe UI",
-        "font_size": 10,
-        "show_timestamps": True,
-        "show_channel_names": False,
-        "show_channel_names_in_all": True,
-        "enable_hyperlinks": True,
-        "active_tab_id": ALL_CHANNELS_TAB,
-        "tab_order": [ALL_CHANNELS_TAB],
-        "hidden_tab_ids": [],
-        "auto_open_new_channels": True,
-        "auto_switch_to_new_channel": False,
-        "max_tab_rows": 3,
-        "check_updates_on_start": True,
-        "addons": {INTEL_HISTORY_ADDON_ID: {"enabled": True}},
-        "esi_entity_recognition": True,
-        "esi_oauth_enabled": False,
-        "replay_on_start": False,
-    }
-    try:
-        if CONFIG_PATH.exists():
-            loaded = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                defaults.update(loaded)
-    except Exception:
-        pass
-    return defaults
+    return MAIN_SETTINGS_STORE.load()
 
 
 def save_settings(settings: dict) -> None:
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        MODEL_DIR.mkdir(parents=True, exist_ok=True)
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
-    except Exception:
-        pass
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    if not MAIN_SETTINGS_STORE.save(settings):
+        _settings_log(f"Settings save failed: {CONFIG_PATH}")
 
 
 def addon_code_dir(addon_id: str) -> Path:
