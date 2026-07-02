@@ -3661,14 +3661,16 @@ class SignalBridgeGui:
         win = tk.Toplevel(self.root)
         win.title("Restore Hidden Tabs")
         win.geometry("360x420")
-        win.configure(bg="#0b0f14")
+        win.configure(bg=sb_theme.COLORS["bg"])
         win.transient(self.root)
-        tk.Label(win, text="Select tabs to restore", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
-        lb = tk.Listbox(win, selectmode="extended", bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
+        tk.Label(win, text="Select tabs to restore", **sb_theme.label_kw(),
+                 font=sb_theme.font(10, bold=True)).pack(anchor="w", padx=10, pady=(10, 4))
+        lb = tk.Listbox(win, selectmode="extended", activestyle="none",
+                        **sb_theme.listbox_kw())
         lb.pack(fill="both", expand=True, padx=10, pady=6)
         for tab_id in hidden:
             lb.insert("end", tab_label(tab_id))
-        btns = tk.Frame(win, bg="#0b0f14")
+        btns = tk.Frame(win, bg=sb_theme.COLORS["bg"])
         btns.pack(fill="x", padx=10, pady=8)
         def restore_selected():
             chosen = [hidden[i] for i in lb.curselection()]
@@ -3683,9 +3685,12 @@ class SignalBridgeGui:
             if not self.visible_channel and hidden:
                 self.visible_channel = hidden[0]
             self.update_channel_tabs(); self.persist_settings(); self.redraw_feed(); win.destroy()
-        tk.Button(btns, text="Restore Selected", command=restore_selected).pack(side="left", padx=(0, 6))
-        tk.Button(btns, text="Restore All", command=restore_all).pack(side="left", padx=6)
-        tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
+        tk.Button(btns, text="Restore Selected", command=restore_selected,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Restore All", command=restore_all,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=6)
+        tk.Button(btns, text="Cancel", command=win.destroy,
+                  **sb_theme.btn_secondary_kw()).pack(side="right")
 
     def show_tab_context_menu(self, event, tab_id: str):
         menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
@@ -3807,9 +3812,11 @@ class SignalBridgeGui:
         order = sorted(catalog, key=lambda c: (0 if catalog[c].get("active") else 1 if catalog[c].get("discovered") else 2, -int(catalog[c].get("last_seen_ns") or 0), channel_sort_key(c)))
         win = tk.Toplevel(self.root)
         self.polish_window(win, self.root, width=620, height=600, minsize=(520, 420), modal=True, title="Choose / Open Chat Channels")
-        tk.Label(win, text="Choose / Open Chat Channels", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=10, pady=(10, 2))
-        tk.Label(win, text="Active channels are selected. Saved channels remain listed even if no current chatlog is available, so you do not have to re-add them after restart.", bg="#0b0f14", fg="#8b98a8", font=("Segoe UI", 9), wraplength=580, justify="left").pack(anchor="w", padx=10, pady=(0, 6))
-        lb = tk.Listbox(win, selectmode="extended", bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
+        tk.Label(win, text="Choose / Open Chat Channels", **sb_theme.label_kw(),
+                 font=sb_theme.font(11, bold=True)).pack(anchor="w", padx=10, pady=(10, 2))
+        tk.Label(win, text="Active channels are selected. Saved channels remain listed even if no current chatlog is available, so you do not have to re-add them after restart.", **sb_theme.label_kw(muted=True), font=sb_theme.font(9), wraplength=580, justify="left").pack(anchor="w", padx=10, pady=(0, 6))
+        lb = tk.Listbox(win, selectmode="extended", activestyle="none",
+                        **sb_theme.listbox_kw())
         lb.pack(fill="both", expand=True, padx=10, pady=6)
         for idx, channel in enumerate(order):
             info = catalog[channel]
@@ -3822,7 +3829,7 @@ class SignalBridgeGui:
             lb.insert("end", marker + channel + suffix)
             if info.get("active"):
                 lb.selection_set(idx)
-        btns = tk.Frame(win, bg="#0b0f14")
+        btns = tk.Frame(win, bg=sb_theme.COLORS["bg"])
         btns.pack(fill="x", padx=10, pady=8)
         def selected_channels():
             return {order[i] for i in lb.curselection()}
@@ -3839,11 +3846,16 @@ class SignalBridgeGui:
             lb.selection_set(0, "end")
         def select_none():
             lb.selection_clear(0, "end")
-        tk.Button(btns, text="Add / Keep Selected", command=add_selected).pack(side="left", padx=(0, 6))
-        tk.Button(btns, text="Replace Active", command=replace_selection).pack(side="left", padx=6)
-        tk.Button(btns, text="All", command=select_all).pack(side="left", padx=6)
-        tk.Button(btns, text="None", command=select_none).pack(side="left", padx=6)
-        tk.Button(btns, text="Cancel", command=win.destroy).pack(side="right")
+        tk.Button(btns, text="Add / Keep Selected", command=add_selected,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
+        tk.Button(btns, text="Replace Active", command=replace_selection,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=6)
+        tk.Button(btns, text="All", command=select_all,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=6)
+        tk.Button(btns, text="None", command=select_none,
+                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=6)
+        tk.Button(btns, text="Cancel", command=win.destroy,
+                  **sb_theme.btn_secondary_kw()).pack(side="right")
 
     def add_channels(self, channels: set[str], manual: bool = False):
         channels = {normalize_channel_name(c) for c in channels if normalize_channel_name(c)}
