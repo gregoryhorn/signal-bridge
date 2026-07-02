@@ -4,6 +4,7 @@
 - Fixed Translation Corrections Original/English split: balanced 50/50 layout that self-corrects on resize (was P1).
 - Added pytest test suite for UI components and settings store.
 - Rebuilt the Settings Center on a shared SettingsShell: uniform nav/scroll/footer, fixed always-visible action bar with a status line, settings-load warnings and save failures now shown in the UI (was P1: hidden controls on the Translation Cache page).
+- Redesigned the Translation Corrections browser as a single two-column Original/English table with a dedicated editor area; the English correction editor is now visually primary.
 
 ## v0.5 - 2026-06-25
 

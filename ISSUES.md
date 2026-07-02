@@ -73,6 +73,7 @@ The Translation Corrections page still lays out the Original and English lists u
 
 - Replaced the one-shot `after_idle` sash placement (which read `winfo_width()` before layout settled) with a shared `balanced_paned` component that tracks a 50/50 split on every `<Configure>` until the user drags the sash.
 - Visual inspection performed at default Settings size and across resizes.
+- Phase 2.2 finishing pass: replaced the dual synchronized listboxes with a single two-column Original/English preview table and a dedicated editor area below, with the English correction editor visually primary — completing the issue's original design direction. Verified via automated full-Settings screenshot walkthrough.
 
 
 ### Recently fixed: Feed Translation Stability Pass
