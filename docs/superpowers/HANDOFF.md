@@ -16,20 +16,17 @@ Executing a phased UI overhaul of the Tkinter monolith `signal_bridge_gui.py` pe
 | 1 — UI foundation (`sb_ui/` theme/components/windows, `sb_settings.py`, pytest suite, sash P1 fix) | ✅ complete | `2026-07-02-phase1-ui-foundation.md` | `bb9a52d` |
 | 2.1 — Settings Center shell rebuild (SettingsShell, 13 pages → `_render_settings_*` methods, save failures surfaced) | ✅ complete | `2026-07-03-phase2.1-settings-shell.md` | `5361df6` |
 | 2.2 — Translation Corrections single-table redesign | ✅ complete | `2026-07-03-phase2.2-translation-corrections.md` | `ec3f724` |
-| 2.3 — Pilot Info card + zKill usefulness (last open P1) | 📋 plan written, **uncommitted**, execution not started | `2026-07-03-phase2.3-pilot-info-zkill.md` | — |
+| 2.3 — Pilot Info card + zKill usefulness (last open P1) | ✅ complete (final review: ready to merge) | `2026-07-03-phase2.3-pilot-info-zkill.md` | `40a8a5b`, `35a6048`, `f34fb48`, `d59a89a` |
 | 2.4 — Help menu + About/Support | not planned yet | write via superpowers:writing-plans | — |
 | 2.5 — Remaining dialogs (Appearance, ESI exclusion list, channel picker, alias editor) onto foundation | not planned yet | — | — |
 | 3.x — Functional issues (cache data model P1, language auto-detect, filters, spam limiting, backlog ingest, highlight fixes) | scoped in roadmap only | — | — |
 
 ## Immediate next steps (in order)
 
-1. **Commit the Phase 2.3 plan file** (`docs/superpowers/plans/2026-07-03-phase2.3-pilot-info-zkill.md` is written in the working tree but uncommitted; this HANDOFF.md is also uncommitted).
-2. **Execute Phase 2.3** per its "Execution assignment" section:
-   - Task 1 (`sb_zkill.py` pure ranking + tests) → Codex or Sonnet subagent. Handoff prompt: *"Execute Task 1 from `docs/superpowers/plans/2026-07-03-phase2.3-pilot-info-zkill.md`. Create only `sb_zkill.py` and `tests/test_zkill_rank.py`; do not touch any other file. TDD order as written; interfaces verbatim. Commit with the plan's message. Report commit hash and test count (34 expected)."*
-   - Task 2 (sync enrichment, 3 small located edits in `signal_bridge_gui.py`) → Sonnet subagent, then review the diff.
-   - Task 3 (card layout surgery + rebuilt zKill section) → strongest available model; verify with the automated screenshot method (below).
-   - Task 4 (ISSUES/CHANGELOG closure) → Haiku subagent.
-3. After 2.3: write the 2.4 plan (Help/About) via superpowers:writing-plans, consuming `SettingsShell`/`sb_ui` patterns.
+1. **Write the 2.4 plan (Help/About)** via superpowers:writing-plans, consuming `SettingsShell`/`sb_ui` patterns. Brainstorm scope with the owner first (Help menu content and About/Support text are owner decisions).
+2. Then execute 2.4, then plan 2.5.
+
+Phase 2.3 notes: executed 2026-07-03 via subagent-driven development (ledger: `.superpowers/sdd/progress.md`, git-ignored). One approved deviation from the plan's Task 3 snippet: `canvas.configure(height=body.winfo_reqheight())` before `fit_to_content`, because a Canvas never propagates its child's requested height — without it the card always clamped to the 520 min. Deferred cosmetic minors (final review triage): bare `list` type hints in `sb_zkill.py`; duplicate `int()` cast in `zkill_event_row` (optional cleanup: expose `sb_zkill.participants()` and reuse); unused `width` unpack in the autosize block; loss rows' gang label shows the killing fleet's size, which reads ambiguously ("[large fleet]" on a loss = died to a blob) — possible future wording polish.
 
 ## Working agreements (owner's explicit preferences)
 
