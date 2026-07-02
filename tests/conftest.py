@@ -2,8 +2,8 @@ import pytest
 import tkinter as tk
 
 
-@pytest.fixture()
-def tk_root():
+@pytest.fixture(scope="session")
+def _tk_root_session():
     try:
         root = tk.Tk()
     except tk.TclError as exc:
@@ -14,3 +14,15 @@ def tk_root():
         root.destroy()
     except tk.TclError:
         pass
+
+
+@pytest.fixture()
+def tk_root(_tk_root_session):
+    root = _tk_root_session
+    for child in root.winfo_children():
+        child.destroy()
+    root.withdraw()
+    yield root
+    for child in root.winfo_children():
+        child.destroy()
+    root.withdraw()
