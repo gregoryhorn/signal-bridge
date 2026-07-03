@@ -546,9 +546,9 @@ Acceptance notes:
 - Rate limiting does not block normal intel reports.
 - Diagnostics include suppressed/rate-limited counts.
 
-## P1 Bug: Translation Cache still contains English in Original and English fields
+## Fixed: Translation Cache still contains English in Original and English fields
 
-- Status: open / P1
+- Status: fixed in source (Phase 3.1)
 - Priority: P1 / High - requires visual inspection before and after fix
 - Reported: 2026-06-21
 - Area: translation cache / segmentation / cache hygiene / design review
@@ -606,6 +606,16 @@ After fixing:
 - For Auto -> EN, reject English-only, URL-only, system-only, pilot-only, and protected-term-only source text.
 - For EN -> CN, allow English source only when target language/direction is explicitly Chinese.
 - Add a cleanup/dedupe path for existing polluted rows.
+
+### Fix summary
+
+- Added a documented Translation Cache data-model review before implementation.
+- Hardened the central machine-cache persistence gate so Auto to EN stores only genuine non-English source segments.
+- Added `TranslationCache.put_machine(...)` as the storage boundary for machine-cache writes.
+- Kept English machine-cache rows valid only for explicit EN to CN direction.
+- Passed protected EVE terms into cache-write decisions so system, ship, pilot, URL, count, and placeholder-only work strings do not become Translation Corrections rows.
+- Extended cleanup so invalid Auto to EN and polluted mixed-source machine-cache rows can be removed without deleting manual overrides or valid EN to CN rows.
+- Verified with focused unit tests plus Translation Cache visual inspection.
 
 ## Fixed: Intel History enabled by default
 
