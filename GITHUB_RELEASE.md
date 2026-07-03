@@ -1,31 +1,28 @@
-# Signal Bridge v0.5
+# Signal Bridge v0.6
 
 ## Release summary
 
-Signal Bridge v0.5 focuses on recognition cleanup, cleaner first-run defaults, and package hygiene. New portable installs start with clean runtime/cache state, scoped Recognition Rules, and bundled parser-noise defaults instead of the old broad legacy exclusion list.
+Signal Bridge v0.6 focuses on the UI foundation refresh, offline help, and Translation Cache data hygiene. New portable installs keep the v0.5 clean-runtime packaging model while adding the Settings Center shell, themed shared controls, redesigned Translation Corrections, dedicated About/Support, offline Help Center topics, and safer machine-cache cleanup.
 
 ## Assets
 
-- `SignalBridge-v0.5-win64-portable.zip`
-- `SignalBridge-v0.5-win64-portable.zip.sha256`
+- `SignalBridge-v0.6-win64-portable.zip`
+- `SignalBridge-v0.6-win64-portable.zip.sha256`
 - `SignalBridge.exe.sha256`
 
 ## Highlights
 
-- Bumped app/package version to **0.5**.
-- Added scoped **Recognition Rules** for:
-  - ignored pilots
-  - highlight exclusions
-  - parser noise words
-- Added inline help and clearer test-term output for Recognition Rules.
-- Added bundled `data/default_recognition_rules.json` with scoped default parser-noise rules for common chat false positives.
-- Disabled legacy broad exclusion reseeding so clean installs do not inherit dirty local exclusions.
-- Improved the Translation Corrections layout with aligned panes, clearer button hierarchy, and advanced controls hidden behind a toggle.
-- Updated packaging so portable builds copy only curated starter data and empty runtime folders.
+- Bumped app/package version to **0.6**.
+- Added the shared `sb_ui` theme/components/window foundation used by Settings, Help, and About surfaces.
+- Rebuilt the Settings Center on a shared SettingsShell with consistent navigation, scrolling, fixed footer actions, status text, and visible settings-load/save failures.
+- Redesigned Translation Corrections as a balanced Original/English table with a focused correction editor.
+- Added offline in-app Help Center topics under `docs/help/`, plus a dedicated About/Support window with project links, diagnostics copy, update check, and donation info.
+- Fixed Auto to EN Translation Cache source pollution and added Settings cleanup for invalid machine rows while preserving manual corrections and explicit EN to CN rows.
+- Kept portable packaging clean: curated starter data and empty runtime folders only.
 
 ## Clean-data packaging note
 
-The v0.5 portable package should include curated starter data only. It must **not** include local `cache/`, `runtime/`, `logs/`, ESI tokens, zKill cache, translation runtime cache, starter ESI cache rows, legacy broad exclusions, temporary backup files, or local testing state.
+The v0.6 portable package should include curated starter data only. It must **not** include local `cache/`, `runtime/`, `logs/`, ESI tokens, zKill cache, translation runtime cache, starter ESI cache rows, legacy broad exclusions, temporary backup files, or local testing state.
 
 ## Intended packaged data
 
@@ -45,13 +42,13 @@ The portable package must also include the `docs/help/` folder (offline in-app h
 ## Verification commands
 
 ```powershell
-Get-Item .\SignalBridge-v0.5-win64-portable.zip
-Get-FileHash .\SignalBridge-v0.5-win64-portable.zip -Algorithm SHA256
+Get-Item .\SignalBridge-v0.6-win64-portable.zip
+Get-FileHash .\SignalBridge-v0.6-win64-portable.zip -Algorithm SHA256
 Get-FileHash .\dist\SignalBridge\SignalBridge.exe -Algorithm SHA256
 ```
 
 ## Install
 
-Download and extract `SignalBridge-v0.5-win64-portable.zip`, then run `SignalBridge.exe`.
+Download and extract `SignalBridge-v0.6-win64-portable.zip`, then run `SignalBridge.exe`.
 
 No installer or admin rights are required.

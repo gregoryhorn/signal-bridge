@@ -1,3 +1,7 @@
+## v0.6 release note
+
+Signal Bridge v0.6 focuses on the UI foundation refresh: shared themed controls, a dedicated Settings Center shell, redesigned Translation Corrections, offline Help Center, dedicated About/Support window, and safer Translation Cache cleanup. New portable builds continue to include curated starter data only and exclude local cache/runtime/log state.
+
 ## v0.5 release note
 
 Signal Bridge v0.5 focuses on scoped recognition rules, cleaner first-run defaults, and package hygiene. Broad legacy exclusions are replaced by scoped ignored-pilot, highlight-exclusion, and noise-word rules. New portable builds should include curated starter data only and exclude local cache/runtime/log state, legacy broad exclusions, and starter ESI cache rows.

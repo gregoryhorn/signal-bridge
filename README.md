@@ -1,10 +1,10 @@
-# Signal Bridge v0.5 Alpha
+# Signal Bridge v0.6 Alpha
 
 Signal Bridge is a lightweight portable Windows app for EVE Online live chat monitoring, CN/EN translation, intel/entity highlighting, ESI pilot lookups, zKill-aware Pilot Info, aliases, exclusions, and cache-first translation correction.
 
 It is designed for players who want a compact side-panel tool beside EVE: no installer, no admin requirement, live-only chat monitoring by default, and a clean local-first workflow.
 
-Current version: **0.5**
+Current version: **0.6**
 
 ## Screenshot
 
@@ -16,8 +16,8 @@ Signal Bridge screenshot showing the live EVE intel feed, translation workflow, 
 
 Get the Windows portable app from the GitHub release:
 
-- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.5](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.5)
-- **Direct download:** [SignalBridge-v0.5-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.5/SignalBridge-v0.5-win64-portable.zip)
+- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.6](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.6)
+- **Direct download:** [SignalBridge-v0.6-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.6/SignalBridge-v0.6-win64-portable.zip)
 
 Extract the ZIP, then run:
 
@@ -27,12 +27,12 @@ SignalBridge.exe
 
 No installer is required. The ZIP is the standalone portable package; keep the extracted folder together because `SignalBridge.exe` uses the bundled `_internal` runtime folder.
 
-SHA256:
+SHA256 checksums are published beside the portable ZIP as `SignalBridge-v0.6-win64-portable.zip.sha256` and `SignalBridge.exe.sha256`.
 
-```text
-F1E627C55857DE941942C6C649BED777D622CB0C08C78AC6A219E2F3217ECB7B
-```
 
+## v0.6 UI foundation and help update
+
+Signal Bridge v0.6 ships the UI foundation refresh: centralized Settings Center shell, themed shared widgets, redesigned Translation Corrections, fixed-footer dialogs, offline in-app Help Center, dedicated About/Support window, and safer Translation Cache machine-row cleanup. Portable builds continue to start with clean runtime/cache/log state while bundling curated starter data and offline help topics.
 
 ## v0.5 Recognition and clean-data update
 

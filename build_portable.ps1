@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = '0.5'
+$Version = '0.6'
 Set-Location $Root
 
 # Lean portable build:
@@ -53,7 +53,17 @@ Copy-Item .\ISSUES.md .\dist\SignalBridge\ISSUES.md -Force
 Copy-Item .\docs .\dist\SignalBridge\docs -Recurse -Force
 Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\user_aliases.json,.\data\default_recognition_rules.json,.\data\default_recognition_rules.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
 
-Compress-Archive -Path .\dist\SignalBridge\* -DestinationPath $Zip -Force
+$Compressed = $false
+for ($Attempt = 1; $Attempt -le 5; $Attempt++) {
+  try {
+    Compress-Archive -Path .\dist\SignalBridge\* -DestinationPath $Zip -Force
+    $Compressed = $true
+    break
+  } catch {
+    if ($Attempt -eq 5) { throw }
+    Start-Sleep -Seconds 2
+  }
+}
 Get-FileHash $Zip -Algorithm SHA256 | Tee-Object -FilePath "$Zip.sha256"
 Get-FileHash .\dist\SignalBridge\SignalBridge.exe -Algorithm SHA256 | Tee-Object -FilePath .\SignalBridge.exe.sha256
 Write-Host "Portable ZIP created: $Zip"

@@ -1,5 +1,7 @@
 ## Unreleased
 
+## v0.6 - 2026-07-03
+
 - Fixed Translation Cache source pollution: Auto to EN no longer stores English-only, URL-only, placeholder-only, or protected EVE-term-only machine-cache rows, while preserving manual corrections and explicit EN to CN rows.
 - Added shared UI foundation (`sb_ui` theme/components/window helpers) and typed settings store with validation warnings and non-silent save failures.
 - Fixed Translation Corrections Original/English split: balanced 50/50 layout that self-corrects on resize (was P1).

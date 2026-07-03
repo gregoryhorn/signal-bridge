@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Callable
 
 APP_NAME = "Signal Bridge"
-APP_VERSION = "0.5"
+APP_VERSION = "0.6"
 UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
 UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
 GITHUB_REPO_URL = "https://github.com/gregoryhorn/signal-bridge"

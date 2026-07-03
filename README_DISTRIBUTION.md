@@ -49,3 +49,7 @@ The v0.4 portable package includes `ISSUES.md`, `docs/images/signal-bridge-v0.4-
 ## v0.5 clean-data package note
 
 The v0.5 portable package must start with clean local runtime state. Include curated starter files such as `data/default_recognition_rules.json`, `data/default_translation_cache.json`, catalog data, phrase overrides, and committed default aliases. Do not include local cache files, runtime folders, logs, ESI tokens, zKill cache, translation runtime cache, temporary legacy-exclusion backups, or local testing state.
+
+## v0.6 UI/help package note
+
+The v0.6 portable package keeps the v0.5 clean-data rules and includes offline Help Center topics under `docs/help/` in the extracted ZIP.
