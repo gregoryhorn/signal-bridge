@@ -1,5 +1,7 @@
 # Contracts Foundation + Backlog Issues Implementation Plan
 
+> **Status (2026-07-10):** **Implemented on branch `feature/contracts-and-backlog`.** Core tasks (0–14 product/modules) are done; remaining follow-ups are PR merge, manual live smoke, full Settings design pass, and further god-file extraction (ESI/parse/free_text). Checkbox steps below are historical execution notes.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the six documented target contracts real, testable runtime types; close every still-open `ISSUES.md` backlog item; and while doing so, **extract every system we touch into small, isolated modules** so work no longer requires regular edits to the ~7k-line `signal_bridge_gui.py` god file.

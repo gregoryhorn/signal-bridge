@@ -28,3 +28,9 @@ def test_no_double_encoded_marker_in_new_modules():
         text = path.read_text(encoding="utf-8")
         assert "\ufffd" not in text
         assert "â€" not in text
+
+
+def test_gui_catalog_strip_sites_not_double_encoded():
+    text = Path("signal_bridge_gui.py").read_text(encoding="utf-8")
+    assert "â€œ" not in text
+    assert "â€" not in text or text.count("â€") == 0

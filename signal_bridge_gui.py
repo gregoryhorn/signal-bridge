@@ -381,7 +381,8 @@ NUMERIC_TOKEN_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?$")
 
 def is_numeric_or_decimal_token(term: str) -> bool:
     """Return True for plain numeric/security/range tokens that must never be systems."""
-    value = str(term or "").strip().strip("* ,;:()[]{}\"\'`")
+    from sb_text import strip_term_punctuation
+    value = strip_term_punctuation(term)
     if not value:
         return False
     return bool(NUMERIC_TOKEN_RE.fullmatch(value))
@@ -559,7 +560,8 @@ def candidate_terms(text: str) -> list[str]:
     for n in (4, 3, 2, 1):
         for i in range(0, max(0, len(words) - n + 1)):
             terms.append(" ".join(words[i:i+n]))
-    return unique([t.strip().strip("* ,.;:()[]{}\"'`€œ€€˜€™") for t in terms])
+    from sb_text import strip_term_punctuation
+    return unique([strip_term_punctuation(t) for t in terms])
 
 
 
@@ -601,7 +603,8 @@ class EveCatalog:
         return {"systems": len(self.systems), "types": len(self.types), "aliases": len(self.aliases), "market_groups": len(self.market_groups), "ship_names": len(self.ship_names)}
 
     def lookup_type(self, term: str) -> str | None:
-        key = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™").casefold()
+        from sb_text import strip_term_punctuation
+        key = strip_term_punctuation(term).casefold()
         if not key or len(key) < 2:
             return None
         return self.types.get(key) or self.aliases.get(key) or self.market_groups.get(key)
@@ -612,7 +615,8 @@ class EveCatalog:
         return self.systems.get(term.strip().casefold())
 
     def is_ship(self, term: str) -> bool:
-        key = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™").casefold()
+        from sb_text import strip_term_punctuation
+        key = strip_term_punctuation(term).casefold()
         canonical = self.lookup_type(term) or term
         return key in self.ship_names or canonical.casefold() in self.ship_names or self.alias_kinds.get(key) == "ship"
 
@@ -2309,7 +2313,8 @@ class EveDb:
             self.con = None
 
     def lookup_type(self, term: str) -> str | None:
-        term = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™")
+        from sb_text import strip_term_punctuation
+        term = strip_term_punctuation(term)
         if not term or len(term) < 2:
             return None
         key = term.lower()
