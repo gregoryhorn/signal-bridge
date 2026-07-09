@@ -1,4 +1,13 @@
-## Unreleased
+## Unreleased (v0.7 modular backlog)
+
+- **Contracts:** `sb_contracts/` pure types (RenderRow, IntelSegment, TranslationDecision, AddonEvent, diagnostic redaction); feed builds RenderRow; Intel History uses AddonEvent.
+- **Modules:** extracted `sb_paths`, `sb_diagnostics`, `sb_channels`, `sb_monitor`, `sb_translation`, `sb_filters`/`sb_spam`/`sb_feed_admit`, `sb_highlight`, `sb_appearance`, `sb_text` so features are not piled into the GUI file.
+- **Channels:** persisted active channels stay listed as waiting-for-log; catalog summary diagnostics.
+- **Filters / spam:** Settings > Filters for keyword/sender; Local spam + ASCII-art controls; admit pipeline before feed append.
+- **Backlog ingest:** optional Start Monitoring backlog window (default 10 minutes) via Settings > General.
+- **Translation:** Auto→EN uses CJK `zh-CN` or Google `auto` for other non-English (e.g. Russian).
+- **Highlight:** ships never paint as purple modules; purple modules off by default (`highlight_modules`).
+- **Portable:** `DEFAULT_DB_PATH` is `data/translations.db`; monitor dedupe is bounded.
 
 ## v0.6 - 2026-07-03
 

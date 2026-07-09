@@ -286,9 +286,9 @@ What Pilot Info showed instead:
 - Fix: passive calls are silent and record health state; explicit user actions still show one install/enable notice.
 - Packaging follow-up: the official Intel History add-on code is now bundled in the portable ZIP by default.
 
-## User feedback: Backlog chat ingest option
+## Fixed: Backlog chat ingest option
 
-- Status: open
+- Status: fixed in source (modular `sb_monitor` + Settings > General)
 - Priority: medium
 - Reported: 2026-06-21
 - Area: Settings / chatlog monitor startup
@@ -311,9 +311,9 @@ Acceptance notes:
 - Deduplication still prevents duplicate rows across clients/logs.
 - Live monitoring continues after initial backlog ingest.
 
-## User feedback: Ships initially highlighted purple on first load
+## Fixed: Ships initially highlighted purple on first load
 
-- Status: open
+- Status: fixed in source (`sb_highlight` + catalog ship check before module tag)
 - Priority: medium
 - Reported: 2026-06-21
 - Area: entity detection / first render / catalog hydration
@@ -345,9 +345,9 @@ Investigation notes:
 
 Resolved by the Phase 2.3 content-driven fit_to_content sizing; see the Pilot Info card fix summary above.
 
-## User feedback: Channel add/open menu not showing channels correctly
+## Fixed: Channel add/open menu not showing channels correctly
 
-- Status: open
+- Status: fixed in source (`sb_channels.build_channel_catalog` keeps persisted channels waiting for log)
 - Priority: high
 - Reported: 2026-06-21
 - Area: channel discovery / Add/Open Channels menu / tracking startup
@@ -386,9 +386,9 @@ Acceptance notes:
 - Add/Open Channels menu accurately shows channel state.
 - Diagnostics should include channel discovery count, active tracking count, and any channels skipped with reason.
 
-## User feedback: Purple asset/module highlighting should be off by default
+## Fixed: Purple asset/module highlighting should be off by default
 
-- Status: open
+- Status: fixed in source (`sb_appearance.highlight_modules` default False + Appearance toggle)
 - Priority: medium
 - Reported: 2026-06-21
 - Area: Appearance / Display Options / entity highlighting
@@ -457,18 +457,18 @@ Acceptance notes:
 
 Dedicated About Signal Bridge window (version, GitHub/release/issue links, Copy Diagnostics, update check, donation info) reachable from the restructured Help menu; old About/Support messageboxes re-pointed; settings About page kept as a thin pointer.
 
-## Code health: pre-existing double-encoded UTF-8 literals in signal_bridge_gui.py
+## Fixed: pre-existing double-encoded UTF-8 literals in signal_bridge_gui.py
 
-- Status: open
+- Status: fixed in source (`sb_text.truncate_label` / `strip_term_punctuation`; tab labels use real ellipsis)
 - Priority: low
 - Reported: 2026-07-03 (found during Phase 2.4 final review)
 - Area: parser literals / display polish
 
 Four spots contain historic mojibake (UTF-8 bytes double-encoded): the quote-stripping literals in the alias/term normalizers (three `.strip("* ,.;:()[]{}\"'` + curly-quote garbage)` sites) and a truncation ellipsis in `tab_display_text`. Effect: the strip sets remove the wrong characters (curly quotes are NOT stripped), and long tab labels end in mojibake instead of `…`. Predates Phase 2.4 (byte-identical at 2e316f3). Fix is a careful re-type of the four literals; add a mojibake-scan assertion for the monolith once fixed.
 
-## User feedback: Google default translation should auto-detect all non-English languages
+## Fixed: Google default translation should auto-detect all non-English languages
 
-- Status: open
+- Status: fixed in source (`sb_translation.detect` + `pick_google_source_lang` / auto sl)
 - Priority: high
 - Reported: 2026-06-21
 - Area: translation engine / language detection
@@ -494,9 +494,9 @@ Acceptance notes:
 - Mixed EVE intel lines preserve protected EVE terms.
 - Translation remains background/non-blocking and never freezes the UI.
 
-## User feedback: Add content and sender filter/block settings
+## Fixed: Add content and sender filter/block settings
 
-- Status: open
+- Status: fixed in source (`sb_filters` + Settings > Filters + `sb_feed_admit`)
 - Priority: high
 - Reported: 2026-06-21
 - Area: Settings / filtering / feed hygiene
@@ -521,9 +521,9 @@ Acceptance notes:
 - Filter settings persist across restarts.
 - There is a safe way to review/edit/delete filters.
 
-## User feedback: Add local-channel spam and ASCII-art rate limiting
+## Fixed: Add local-channel spam and ASCII-art rate limiting
 
-- Status: open
+- Status: fixed in source (`sb_spam.SpamLimiter` + Filters page spam controls)
 - Priority: high
 - Reported: 2026-06-21
 - Area: feed hygiene / Local channel / spam control

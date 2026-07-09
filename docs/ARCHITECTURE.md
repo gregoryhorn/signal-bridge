@@ -2,9 +2,27 @@
 
 ## Current architecture
 
-The current live app is a Python/Tk Windows app centered around `signal_bridge_gui.py`. It monitors EVE chatlog files, parses chat rows, performs local EVE entity recognition, optionally uses ESI/cache enrichment, renders a compact feed, and loads the optional Intel History add-on.
+The current live app is a Python/Tk Windows app. `signal_bridge_gui.py` is the Tk wiring shell; subsystem logic lives in focused modules so features do not require editing a single god file.
 
-The app has grown feature-rich, so the architectural goal is now separation of concerns and UI safety rather than adding more features directly into the GUI path.
+It monitors EVE chatlog files, parses chat rows, performs local EVE entity recognition, optionally uses ESI/cache enrichment, renders a compact feed, and loads the optional Intel History add-on.
+
+### Module map (v0.7 direction)
+
+| Module | Responsibility |
+|---|---|
+| `sb_paths.py` | Portable app/user dirs, `DEFAULT_DB_PATH` |
+| `sb_diagnostics.py` | Logs, JSONL events (secret redaction via contracts) |
+| `sb_contracts/` | Pure contracts: RenderRow, IntelSegment, TranslationDecision, AddonEvent, diagnostics redaction |
+| `sb_channels.py` | Channel discover + catalog status merge |
+| `sb_monitor.py` | Live monitor, backlog window, bounded dedupe |
+| `sb_translation/` | Language detect + Google free edge |
+| `sb_filters.py` / `sb_spam.py` / `sb_feed_admit.py` | Feed filters + spam policy + single admit path |
+| `sb_highlight.py` | Ship vs module highlight kind |
+| `sb_appearance.py` | Appearance defaults (`highlight_modules` off by default) |
+| `sb_text.py` | Normalize/strip/truncate (no mojibake) |
+| `sb_ui/` | Theme, components, settings shell, filters page |
+
+**Rule:** library modules must not import `signal_bridge_gui`.
 
 ## UI foundation (Phase 1, 2026-07)
 
