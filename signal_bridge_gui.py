@@ -28,6 +28,45 @@ import signal_bridge_render_model as render_model
 from sb_settings import SettingsStore
 import sb_help
 import sb_zkill
+from sb_paths import (
+    APP_DIR,
+    CACHE_DIR,
+    CATALOG_MANIFEST_PATH,
+    CATALOG_PATH,
+    CATALOG_PREVIOUS_PATH,
+    CONFIG_DIR,
+    CONFIG_PATH,
+    DATA_DIR,
+    DEFAULT_DB_PATH,
+    DEFAULT_ESI_ENTITIES_PATH,
+    DEFAULT_EXCLUSIONS_PATH,
+    DEFAULT_RECOGNITION_RULES_PATH,
+    ERROR_LOG_PATH,
+    ESI_CACHE_PATH,
+    ESI_CONFIG_PATH,
+    ESI_TOKENS_PATH,
+    EVENT_LOG_PATH,
+    JOB_LOG_PATH,
+    LOG_DIR,
+    LOG_PATH,
+    MODEL_DIR,
+    MODULE_DATA_DIR,
+    MODULES_DIR,
+    PHRASE_OVERRIDES_PATH,
+    STALL_LOG_PATH,
+    TRANSLATION_CACHE_PATH,
+    USER_ALIASES_PATH,
+    USER_DIR,
+    ZKILL_CACHE_PATH,
+    ensure_app_dirs,
+)
+from sb_diagnostics import (
+    install_exception_logging,
+    record_error,
+    record_event,
+    write_jsonl,
+    write_log,
+)
 from sb_ui import components as sb_components
 from sb_ui import markdown_view as sb_markdown
 from sb_ui import theme as sb_theme
@@ -44,24 +83,8 @@ GITHUB_REPO_URL = "https://github.com/gregoryhorn/signal-bridge"
 ISSUE_REPORT_URL = "https://github.com/gregoryhorn/signal-bridge/issues"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
 ALL_CHANNELS_TAB = "__ALL_CHANNELS__"
-APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-USER_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
-CONFIG_DIR = USER_DIR / "config"
-CACHE_DIR = USER_DIR / "cache"
-MODEL_DIR = USER_DIR / "models" / "argos"
-LOG_DIR = USER_DIR / "logs"
-LOG_PATH = LOG_DIR / "signal_bridge.log"
-EVENT_LOG_PATH = LOG_DIR / "events.jsonl"
-ERROR_LOG_PATH = LOG_DIR / "errors.jsonl"
-STALL_LOG_PATH = LOG_DIR / "stalls.jsonl"
-JOB_LOG_PATH = LOG_DIR / "jobs.jsonl"
-CONFIG_PATH = CONFIG_DIR / "settings.json"
-DATA_DIR = USER_DIR / "data"
-MODULES_DIR = USER_DIR / "modules"
-MODULE_DATA_DIR = USER_DIR / "user_data" / "modules"
 INTEL_HISTORY_ADDON_ID = "intel-history"
 INTEL_HISTORY_ADDON_NAME = "Intel History / Pilot Intelligence"
-DEFAULT_DB_PATH = Path(r"D:\AI\Rift\signal-bridge-v2\signal-bridge-v3\src-tauri\bundle-resources\translations.db")
 POLL_SECONDS = 1.0
 MAX_CHUNK = 1024 * 1024
 MAX_ROWS = 600
@@ -70,19 +93,6 @@ REDRAW_BATCH_SIZE = 25
 GOOGLE_TRANSLATE_TIMEOUT = 2.5
 FREE_TRANSLATION_CACHE: dict[str, str] = {}
 ARGOS_STATUS_CACHE = {"checked": False, "runtime": False, "models": set(), "error": ""}
-CATALOG_PATH = DATA_DIR / "eve_catalog.json"
-CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
-CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
-PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
-USER_ALIASES_PATH = DATA_DIR / "user_aliases.json"
-DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
-DEFAULT_RECOGNITION_RULES_PATH = DATA_DIR / "default_recognition_rules.json"
-DEFAULT_ESI_ENTITIES_PATH = DATA_DIR / "default_esi_entities.json"
-TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
-ZKILL_CACHE_PATH = CACHE_DIR / "zkill_cache.json"
-ESI_CONFIG_PATH = CONFIG_DIR / "esi_settings.json"
-ESI_TOKENS_PATH = CONFIG_DIR / "esi_tokens.json"
-ESI_CACHE_PATH = CACHE_DIR / "esi_cache.sqlite"
 ESI_DEFAULT_CLIENT_ID = "6d57a179c8764b3aa95cc956f7ad7050"
 ESI_CALLBACK_URL = "http://localhost:8080/callback"
 ESI_CALLBACK_HOST = "127.0.0.1"
@@ -373,72 +383,7 @@ def make_intel_history_event(row) -> dict:
     }
 
 
-def ensure_app_dirs() -> None:
-    for path in (CONFIG_DIR, CACHE_DIR, MODEL_DIR, LOG_DIR, DATA_DIR, MODULES_DIR, MODULE_DATA_DIR):
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
-
-
 ensure_app_dirs()
-
-
-def write_log(message: str, exc: BaseException | None = None) -> None:
-    try:
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        ts = time.strftime("%Y-%m-%d %H:%M:%S")
-        with LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(f"[{ts}] {message}\n")
-            if exc is not None:
-                f.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
-                f.write("\n")
-    except Exception:
-        pass
-
-
-def _safe_json_value(value):
-    try:
-        json.dumps(value)
-        return value
-    except Exception:
-        return str(value)
-
-
-def write_jsonl(path: Path, event: dict) -> None:
-    try:
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        payload = {str(k): _safe_json_value(v) for k, v in dict(event).items()}
-        payload.setdefault("ts", time.strftime("%Y-%m-%dT%H:%M:%S%z"))
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
-    except Exception:
-        pass
-
-
-def record_event(event_type: str, **data) -> None:
-    payload = {"type": event_type, **data}
-    write_jsonl(EVENT_LOG_PATH, payload)
-
-
-def record_error(context: str, exc: BaseException | None = None, **data) -> None:
-    payload = {"type": "error", "context": context, **data}
-    if exc is not None:
-        payload.update({"error_type": type(exc).__name__, "error": str(exc)})
-    write_jsonl(ERROR_LOG_PATH, payload)
-
-
-def install_exception_logging() -> None:
-    def _hook(exc_type, exc, tb):
-        try:
-            LOG_DIR.mkdir(parents=True, exist_ok=True)
-            with LOG_PATH.open("a", encoding="utf-8") as f:
-                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Uncaught exception\n")
-                traceback.print_exception(exc_type, exc, tb, file=f)
-                f.write("\n")
-        finally:
-            sys.__excepthook__(exc_type, exc, tb)
-    sys.excepthook = _hook
 
 LIVE_INLINE = re.compile(r"^\[\s*(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*\]\s*(.+?)\s*(?:>|:)\s*(.+)$", re.I)
 HEADER_CHANNEL = re.compile(r"^Channel Name:\s*(.+)$", re.I)
