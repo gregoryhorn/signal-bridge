@@ -353,34 +353,8 @@ class AddonRuntime:
 
 
 def make_intel_history_event(row) -> dict:
-    chars = []
-    for ent in getattr(row, "esi_entities", []) or []:
-        if ent.get("entity_type") != "character" or not ent.get("entity_id"):
-            continue
-        chars.append({
-            "entity_type": "character",
-            "entity_id": ent.get("entity_id"),
-            "name": ent.get("name") or ent.get("query") or "",
-            "query": ent.get("query") or ent.get("name") or "",
-            "corporation_id": ent.get("corporation_id"),
-            "corporation_name": ent.get("corporation_name") or "",
-            "alliance_id": ent.get("alliance_id"),
-            "alliance_name": ent.get("alliance_name") or "",
-            "confidence": ent.get("confidence") or "high",
-        })
-    return {
-        "type": "intel_row",
-        "timestamp": getattr(row, "received_at", "") or getattr(row, "time", "") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "channel": getattr(row, "channel", "") or "",
-        "sender": getattr(row, "sender", "") or "",
-        "text": getattr(row, "text", "") or "",
-        "systems": list(getattr(row, "systems", []) or []),
-        "ships": list(getattr(row, "ships", []) or getattr(row, "assets", []) or []),
-        "assets": list(getattr(row, "assets", []) or []),
-        "links": list(getattr(row, "links", []) or []),
-        "characters": chars,
-        "raw_text_available": False,
-    }
+    from sb_contracts.addon_event import row_to_addon_event
+    return row_to_addon_event(row)
 
 
 ensure_app_dirs()
@@ -7527,6 +7501,7 @@ class SignalBridgeGui:
             self.queue.put(("translation_result", key, row, direction, result or "", error, duration_ms, source_label))
 
     def handle_translation_result(self, key, row: Row, direction: str, result: str, error: str, duration_ms: int, source_label: str = ""):
+        from sb_contracts.translation_decision import make_translation_decision
         self.translation_pending.discard(key)
         self.diagnostics["translation_pending"] = len(self.translation_pending)
         self.diagnostics["last_translation_ms"] = duration_ms
@@ -7535,6 +7510,10 @@ class SignalBridgeGui:
             record_event("translation_failed", direction=direction, duration_ms=duration_ms, error=error[:240])
             try:
                 row._last_translation_decision = f"failed: {error[:120]}"
+                row.translation_decision = make_translation_decision(
+                    decision="error", reason="background_failed", engine="google",
+                    duration_ms=duration_ms, error=error[:240],
+                )
             except Exception:
                 pass
             return
@@ -7542,6 +7521,9 @@ class SignalBridgeGui:
             record_event("translation_empty", direction=direction, duration_ms=duration_ms)
             try:
                 row._last_translation_decision = f"skipped: no {direction} translation result"
+                row.translation_decision = make_translation_decision(
+                    decision="skipped", reason="empty_result", engine="none", duration_ms=duration_ms,
+                )
             except Exception:
                 pass
             return
@@ -7550,8 +7532,16 @@ class SignalBridgeGui:
         if direction == "zh-en":
             row.free_translation = cache[direction]
         row.translation_source = source_label or ("catalog/db+background-mt" if (row.translation or row.localized) else "background-mt")
+        engine = "cache" if "cache" in str(source_label or "").lower() else ("google" if "google" in str(source_label or "").lower() else "background")
         try:
             row._last_translation_decision = f"used: {source_label or 'background'} {direction} translation ({duration_ms}ms)"
+            row.translation_decision = make_translation_decision(
+                decision="used",
+                reason=str(source_label or "background-mt"),
+                engine=engine,
+                duration_ms=duration_ms,
+                cache_hit=("cache" in engine),
+            )
         except Exception:
             pass
         record_event("translation_completed", direction=direction, duration_ms=duration_ms, sender=row.sender, channel=row.channel)
@@ -7603,11 +7593,24 @@ class SignalBridgeGui:
 
     def _render_row(self, row: Row, auto_scroll: bool = True):
         # Render must stay fast: ESI/cache hydration is done when rows arrive or resolver events update rows.
+        # Display lines come from pure RenderRow (contracts); no network/MT/ESI work here.
+        from sb_contracts.render_row import build_render_row
         self.text.configure(state="normal")
         row_tag = f"row_{self.render_seq}"
         self.render_seq += 1
         row_start = self.text.index("end-1c")
         parts = self.row_display_parts(row)
+        rr = build_render_row(
+            row,
+            translated_only=bool(self.translated_only.get()),
+            normalize=normalize_feed_text,
+        )
+        # Prefer alias-aware display body from row_display_parts for single-line chat;
+        # multi-segment rows use contract visible_lines (kill splits, etc.).
+        if self.row_uses_multiline_segments(row):
+            display_lines = list(rr.visible_lines)
+        else:
+            display_lines = self.row_visible_body_lines(row, parts)
         ts = row.received_at.split()[-1]
         if bool(self.show_timestamps.get()):
             self.text.insert("end", f"[{ts}] ", "time")
@@ -7617,7 +7620,6 @@ class SignalBridgeGui:
         sender_prefix = f"{row.sender} > "
         self.text.insert("end", sender_prefix, "sender")
         body_start = self.text.index("end-1c")
-        display_lines = self.row_visible_body_lines(row, parts)
         tag_assets = row.assets + [
             normalize_feed_text(x.get("original", ""))
             for x in row.localized
@@ -7650,7 +7652,13 @@ class SignalBridgeGui:
             if not is_parser_noise(name) and not is_esi_ignored(name):
                 self.tag_term(name, "esi", body_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
-        self.rendered_row_map[row_tag] = {"row": row, **parts, "segments": [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])]}
+        self.rendered_row_map[row_tag] = {
+            "row": row,
+            **parts,
+            "render_row_id": rr.row_id,
+            "render": rr,
+            "segments": rr.segments or [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])],
+        }
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
         if auto_scroll:
             self.restore_feed_scroll(True)
