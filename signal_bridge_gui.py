@@ -1911,6 +1911,19 @@ COMMON_ESI_NOISE = {
     "description", "exclusions", "multiple", "multiple items", "seconds", "status", "version",
     "drone", "drones", "probe", "probes", "scanning probe", "combat scanning probe",
     "dscan", "cyno", "cloak", "cloaky", "bubble", "armor", "caldari", "item exchange",
+    # Translation / UI / free-text English — never pilot candidates
+    "original", "translation", "translated", "translate", "english", "chinese", "source",
+    "target", "message", "text", "string", "language", "auto", "cache", "manual", "override",
+    "phrase", "alias", "aliases", "catalog", "unknown", "none", "null", "true", "false",
+    "was", "were", "been", "being", "have", "has", "had", "will", "would", "should", "could",
+    "about", "just", "only", "really", "still", "already", "before", "after", "more", "most",
+    "other", "others", "something", "nothing", "everything", "this", "that", "these", "those",
+    "into", "onto", "over", "under", "than", "then", "also", "very", "much", "many", "some",
+    "any", "all", "not", "out", "off", "up", "down", "back", "here", "there", "now", "then",
+    "yes", "no", "ok", "okay", "please", "sorry", "hello", "hi", "hey", "lol", "lmao", "afk",
+    "wait", "hold", "coming", "gone", "left", "right", "north", "south", "east", "west",
+    "class", "level", "grade", "type", "types", "item", "items", "module", "modules",
+    "capital", "supercarrier", "titan", "fax", "dread", "carrier", "ratting", "mining",
 }
 NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
@@ -1982,9 +1995,11 @@ def longest_non_overlapping_terms(text: str, terms: list[str]) -> list[str]:
 def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[int, int] | None = None) -> bool:
     cand = re.sub(r"\s+", " ", candidate.strip().strip(" ,.;:()[]{}\"'`"))
     key = cand.casefold()
-    if len(cand) < 3 or key in COMMON_ESI_NOISE:
+    if len(cand) < 3 or key in COMMON_ESI_NOISE or is_parser_noise(cand):
         return False
     if _catalog_or_plural_catalog_term(cand):
+        return False
+    if CATALOG.is_ship(cand) or CATALOG.lookup_system(cand):
         return False
     if SYSTEM_RE.fullmatch(cand) or LINK_RE.search(cand) or COUNT_RE.fullmatch(cand):
         return False
@@ -1993,12 +2008,15 @@ def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[
         return False
     if len(parts) == 1:
         token = parts[0]
-        if len(token) < 5 or token.lower() in COMMON_ESI_NOISE:
+        if len(token) < 5 or token.lower() in COMMON_ESI_NOISE or is_parser_noise(token):
             return False
         # Single-token EVE character names can be lowercase handles or even all-uppercase
         # exact names (for example MADRICO).  System/code/catalog checks above catch the
         # common non-name cases; the ESI negative cache absorbs remaining false positives.
         if token.isupper() and len(token) < 6:
+            return False
+        # Common English dictionary-style words without pilot-context should not hit ESI.
+        if token.isalpha() and token.casefold() in COMMON_ESI_NOISE:
             return False
         if text and span:
             before = text[max(0, span[0]-18):span[0]].lower().split()[-3:]
@@ -2006,7 +2024,9 @@ def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[
             if not any(w in before or w in after for w in NAME_CONTEXT_WORDS):
                 return False
     for part in parts:
-        if part.casefold() in COMMON_ESI_NOISE or _catalog_or_plural_catalog_term(part):
+        if part.casefold() in COMMON_ESI_NOISE or is_parser_noise(part) or _catalog_or_plural_catalog_term(part):
+            return False
+        if CATALOG.is_ship(part) or CATALOG.lookup_system(part):
             return False
     return True
 
@@ -2156,7 +2176,10 @@ class EsiResolver(threading.Thread):
     def submit(self, query: str, force: bool = False):
         query = str(query or "").strip()
         key = normalize_esi_query(query)
-        if not key or len(key) < 3 or key in COMMON_ESI_NOISE:
+        if not key or len(key) < 3 or key in COMMON_ESI_NOISE or is_parser_noise(query):
+            return
+        # Catalog ships/systems are not character names.
+        if not force and (CATALOG.is_ship(query) or CATALOG.lookup_system(query) or _catalog_or_plural_catalog_term(query)):
             return
         if is_esi_ignored(query) and not force:
             ESI_CACHE.set_status("last_check", f"ignored: {query}")
@@ -2375,6 +2398,23 @@ class EveDb:
         return out
 
 
+def discover_ships_in_text(text: str) -> list[str]:
+    """Find catalog ships in free text (including English after translation)."""
+    found: list[str] = []
+    if not text:
+        return found
+    for term in sorted(candidate_terms(text), key=lambda s: -len(s)):
+        if is_numeric_or_decimal_token(term) or len(term) < 3:
+            continue
+        if CATALOG.is_ship(term):
+            found.append(CATALOG.lookup_type(term) or term)
+            continue
+        hit = CATALOG.lookup_type(term)
+        if hit and CATALOG.is_ship(hit):
+            found.append(hit)
+    return unique(found)
+
+
 def extract_intel(text: str, db: EveDb):
     systems = []
     for raw_sys in SYSTEM_RE.findall(text):
@@ -2396,6 +2436,10 @@ def extract_intel(text: str, db: EveDb):
             assets.append(hit)
             if hit.lower() != term.lower():
                 localized.append({"original": term, "canonical": hit})
+        elif CATALOG.is_ship(term):
+            assets.append(CATALOG.lookup_type(term) or term)
+    # Explicit ship pass so capitals (Chimera/Minokawa/Erebus/…) always land as assets.
+    assets.extend(discover_ships_in_text(text))
     for term in sorted(BUILTIN_ASSETS, key=lambda s: -len(s)):
         if re.search(word_boundary(term), text, re.I):
             assets.append(term)
@@ -6957,7 +7001,10 @@ class SignalBridgeGui:
         return out
 
     def insert_tagged_text(self, text: str, systems: list[str], assets: list[str], pilots: list[str] | None = None):
-        text = self.add_entity_separators(text, systems, assets, pilots)
+        # Re-scan the visible line for catalog ships so English names after Auto→EN
+        # still highlight even when assets were extracted from CJK/original only.
+        merged_assets = unique(list(assets or []) + discover_ships_in_text(text))
+        text = self.add_entity_separators(text, systems, merged_assets, pilots)
         start_index = self.text.index("end-1c")
         self.text.insert("end", text)
         # Tag exact spans inside the inserted region.
@@ -6973,7 +7020,7 @@ class SignalBridgeGui:
         except Exception:
             ship_terms = set()
         highlight_modules = bool(self.appearance.get("highlight_modules", False)) if isinstance(self.appearance, dict) else False
-        for term in sorted(unique(assets), key=len, reverse=True):
+        for term in sorted(unique(merged_assets), key=len, reverse=True):
             if is_parser_noise(term) or is_highlight_excluded(term):
                 continue
             # System aliases/canonicals must stay yellow.  If extraction produced
@@ -7575,11 +7622,18 @@ class SignalBridgeGui:
         row_end = self.text.index("end-1c")
         for ent in row.esi_entities:
             name = str(ent.get("name") or ent.get("query") or "")
-            if name and not is_parser_noise(name) and not is_esi_ignored(name):
-                self.tag_term(name, "esi", body_start, row_end)
+            if not name or is_parser_noise(name) or is_esi_ignored(name):
+                continue
+            # Never paint ships/systems as ESI characters.
+            if CATALOG.is_ship(name) or CATALOG.lookup_system(name) or _catalog_or_plural_catalog_term(name):
+                continue
+            self.tag_term(name, "esi", body_start, row_end)
         for name in self.character_names_for_row(row):
-            if not is_parser_noise(name) and not is_esi_ignored(name):
-                self.tag_term(name, "esi", body_start, row_end)
+            if not name or is_parser_noise(name) or is_esi_ignored(name):
+                continue
+            if CATALOG.is_ship(name) or CATALOG.lookup_system(name) or _catalog_or_plural_catalog_term(name):
+                continue
+            self.tag_term(name, "esi", body_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
         self.rendered_row_map[row_tag] = {
             "row": row,
