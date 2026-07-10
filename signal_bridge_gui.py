@@ -2002,7 +2002,74 @@ def longest_non_overlapping_terms(text: str, terms: list[str]) -> list[str]:
     return unique([term for _, _, term in chosen])
 
 
-def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[int, int] | None = None) -> bool:
+def _looks_like_eve_handle(token: str) -> bool:
+    """True for handle-like tokens (digits, camelCase, symbols) rather than plain English."""
+    t = str(token or "").strip()
+    if not t:
+        return False
+    if re.search(r"\d", t):
+        return True
+    if re.search(r"[_]", t):
+        return True
+    # internal camelCase / mixed case: aB, xxYY, McName-ish with mid caps
+    if re.search(r"[a-z]`?[A-Z]", t) or re.search(r"[A-Z]{2,}[a-z]", t):
+        return True
+    # apostrophe handles uncommon in plain chat words
+    if "'" in t or "`" in t:
+        return True
+    return False
+
+
+def _is_plain_english_token(token: str) -> bool:
+    """Alphabetic chat English (or Titlecase word) without handle signals."""
+    t = str(token or "").strip()
+    if len(t) < 3 or not t.isalpha():
+        return False
+    if _looks_like_eve_handle(t):
+        return False
+    if t.isupper() and len(t) >= 6:
+        # long ALLCAPS can be tickers/names; treat as not plain English prose
+        return False
+    return True
+
+
+def _has_name_context(text: str, span: tuple[int, int] | None) -> bool:
+    if not text or not span:
+        return False
+    before = text[max(0, span[0] - 18) : span[0]].lower().split()[-3:]
+    after = text[span[1] : span[1] + 18].lower().split()[:3]
+    return any(w in before or w in after for w in NAME_CONTEXT_WORDS)
+
+
+def _is_title_case_name(parts: list[str]) -> bool:
+    """Matek Bathana / Picard X style — each part capitalised or short suffix."""
+    if not parts:
+        return False
+    for p in parts:
+        if len(p) == 1 and p.isalpha():
+            continue  # allow X suffix
+        if not (p[:1].isupper() and (len(p) == 1 or p[1:].islower() or p[1:].isalpha())):
+            # Accept pure Titlecase or single capital letter tokens
+            if not (p.istitle() or (p.isupper() and len(p) <= 3)):
+                return False
+    # At least one part longer than 1
+    return any(len(p) > 1 for p in parts)
+
+
+def is_probable_character_candidate(
+    candidate: str,
+    text: str = "",
+    span: tuple[int, int] | None = None,
+    *,
+    allow_plain_single: bool = False,
+) -> bool:
+    """Heuristic ESI name gate.
+
+    Root issue (fixed): message-body extraction used to accept *any* alphabetic
+    token ≥5 chars not on a hand list, and every sub-window of contiguous tokens
+    (so whole English phrases became candidates). Real names need handle shape,
+    Title Case multi-word form, pilot-context words, or (for senders) plain single.
+    """
     cand = re.sub(r"\s+", " ", candidate.strip().strip(" ,.;:()[]{}\"'`"))
     key = cand.casefold()
     if len(cand) < 3 or key in COMMON_ESI_NOISE or is_parser_noise(cand):
@@ -2016,29 +2083,48 @@ def is_probable_character_candidate(candidate: str, text: str = "", span: tuple[
     parts = cand.split()
     if len(parts) > 4:
         return False
-    if len(parts) == 1:
-        token = parts[0]
-        if len(token) < 5 or token.lower() in COMMON_ESI_NOISE or is_parser_noise(token):
-            return False
-        # Single-token EVE character names can be lowercase handles or even all-uppercase
-        # exact names (for example MADRICO).  System/code/catalog checks above catch the
-        # common non-name cases; the ESI negative cache absorbs remaining false positives.
-        if token.isupper() and len(token) < 6:
-            return False
-        # Common English dictionary-style words without pilot-context should not hit ESI.
-        if token.isalpha() and token.casefold() in COMMON_ESI_NOISE:
-            return False
-        if text and span:
-            before = text[max(0, span[0]-18):span[0]].lower().split()[-3:]
-            after = text[span[1]:span[1]+18].lower().split()[:3]
-            if not any(w in before or w in after for w in NAME_CONTEXT_WORDS):
-                return False
     for part in parts:
         if part.casefold() in COMMON_ESI_NOISE or is_parser_noise(part) or _catalog_or_plural_catalog_term(part):
             return False
         if CATALOG.is_ship(part) or CATALOG.lookup_system(part):
             return False
-    return True
+
+    if len(parts) == 1:
+        token = parts[0]
+        if len(token) < 3 or token.lower() in COMMON_ESI_NOISE or is_parser_noise(token):
+            return False
+        if token.isupper() and len(token) < 6:
+            return False
+        # Handle-like single tokens (digits/camelCase) are always OK.
+        if _looks_like_eve_handle(token):
+            return True
+        # Plain English single word: only with pilot context, or sender exception.
+        if _is_plain_english_token(token):
+            if allow_plain_single:
+                return len(token) >= 3
+            if _has_name_context(text, span):
+                return True
+            return False
+        # Other single tokens (mixed punctuation already handled) — require length
+        return len(token) >= 5
+
+    # Multi-word: reject bags of plain English ("check useless happy fight").
+    plain_parts = [_is_plain_english_token(p) for p in parts]
+    if all(plain_parts) and not _is_title_case_name(parts):
+        # Allow if pilot-context sits on the span; still reject free English phrases.
+        if _has_name_context(text, span) and _is_title_case_name(parts):
+            return True
+        # "seen PilotNameHere" won't be all plain without title case
+        return False
+    if _is_title_case_name(parts):
+        return True
+    # Mixed: at least one handle-like part
+    if any(_looks_like_eve_handle(p) for p in parts):
+        return True
+    # Fallback multi-word with context
+    if _has_name_context(text, span):
+        return True
+    return False
 
 
 def _catalog_or_plural_catalog_term(term: str) -> bool:
@@ -2061,7 +2147,7 @@ def _plausible_name_token(token: str) -> bool:
     if len(token) < 3 or not re.search(r"[A-Za-z]", token):
         return False
     key = token.casefold()
-    if key in COMMON_ESI_NOISE:
+    if key in COMMON_ESI_NOISE or is_parser_noise(token):
         return False
     if SYSTEM_RE.fullmatch(token) or COUNT_RE.fullmatch(token) or LINK_RE.search(token):
         return False
@@ -2070,10 +2156,18 @@ def _plausible_name_token(token: str) -> bool:
     # Short all-caps fragments are usually tickers/codes, not enough for an exact ESI name by themselves.
     if token.isupper() and len(token) <= 4:
         return False
+    # Drop plain English tokens from grouping unless handle-like — they create
+    # phrase candidates ("check useless happy") that spam ESI.
+    if _is_plain_english_token(token) and not _looks_like_eve_handle(token):
+        return False
     return True
 
 
-def _candidate_from_tokens(tokens: list[str], text: str = "") -> str | None:
+def _candidate_from_tokens(
+    tokens: list[str],
+    text: str = "",
+    span: tuple[int, int] | None = None,
+) -> str | None:
     parts = [t.strip(" ,.;:()[]{}\"'`") for t in tokens if t.strip(" ,.;:()[]{}\"'`")]
     while parts and parts[0].casefold() in COMMON_ESI_NOISE:
         parts.pop(0)
@@ -2082,7 +2176,7 @@ def _candidate_from_tokens(tokens: list[str], text: str = "") -> str | None:
     if not parts or len(parts) > 4:
         return None
     cand = " ".join(parts)
-    if not is_probable_character_candidate(cand, text):
+    if not is_probable_character_candidate(cand, text, span):
         return None
     return cand
 
@@ -2112,25 +2206,23 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
     token_matches = list(re.finditer(r"[A-Za-z][A-Za-z0-9'`-]{2,}", work))
     tokens = [(m.group(0), m.start(), m.end()) for m in token_matches if _plausible_name_token(m.group(0))]
 
-    # Group contiguous plausible tokens separated only by whitespace. Emit the longest
-    # conservative chunk first, but also allow a single lowercase/mixed token because
-    # EVE pilot names often are lowercase handles.
-    group: list[str] = []
+    # Group contiguous handle-like tokens only (plain English filtered in _plausible_name_token).
+    group: list[tuple[str, int, int]] = []
     last_end: int | None = None
+
     def flush_group():
         nonlocal group
         if not group:
             return
-        # Do not only emit the longest chunk. Intel often writes multiple adjacent
-        # character names, or a name followed by a shorthand/ship/free word, e.g.
-        # "Potderillettes MADRICO", "Prometeus22 CASPULE", "Shax HerooooMvP".
-        # Submit bounded sub-windows so exact ESI names can resolve independently.
         max_size = min(4, len(group))
         for start in range(len(group)):
             for size in range(max_size, 0, -1):
                 if start + size > len(group):
                     continue
-                cand = _candidate_from_tokens(group[start:start+size], text)
+                chunk = group[start : start + size]
+                words = [t[0] for t in chunk]
+                span = (chunk[0][1], chunk[-1][2])
+                cand = _candidate_from_tokens(words, text, span)
                 if cand:
                     out.append(cand)
         group = []
@@ -2138,7 +2230,7 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
     for token, a, b in tokens:
         if last_end is not None and work[last_end:a].strip():
             flush_group()
-        group.append(token)
+        group.append((token, a, b))
         last_end = b
         if len(group) >= 4:
             flush_group()
@@ -2163,7 +2255,10 @@ def esi_message_candidates_for_row(row: Row) -> list[str]:
 def esi_candidates_for_row(row: Row) -> list[str]:
     out: list[str] = []
     sender = re.sub(r"\s+", " ", row.sender.strip())
-    if sender and sender.lower() != "eve system" and is_probable_character_candidate(sender):
+    # Senders are already EVE character names on the log line — allow plain singles.
+    if sender and sender.lower() != "eve system" and is_probable_character_candidate(
+        sender, allow_plain_single=True
+    ):
         out.append(sender)
     if getattr(row, "esi_candidates", None):
         out.extend(row.esi_candidates)
