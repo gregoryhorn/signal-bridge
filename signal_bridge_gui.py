@@ -2755,19 +2755,24 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
         return "", "not-needed"
     if direction == "en-zh" and not has_english_letters(text):
         return "", "not-needed"
+    from sb_translation.protect import reattach_untranslated_source_tokens, restore_protected_translation_tokens
     cache_text = translation_source_for_cache(text, direction)
     cached, label = translation_cache_lookup(cache_text, direction, preferred_engine, fallback_mode)
     if cached:
-        return cached, label
+        # Cache stores CJK-only segments; reattach English names left on the full line.
+        return reattach_untranslated_source_tokens(text, cached, cache_text), label
     if str(fallback_mode or "").lower() in {"cache-only", "offline-cache"}:
         return "", "cache-miss-offline"
     source, target, argos_source, argos_target = translation_langs_for_direction(direction)
     override_text, override_changed = apply_phrase_overrides(cache_text, direction)
     if override_changed and direction == "zh-en" and not has_non_english_signal(override_text):
-        return override_text.strip(), "phrase-override"
+        return reattach_untranslated_source_tokens(text, override_text.strip(), cache_text), "phrase-override"
     protected=[]; work=override_text; terms=[]
     terms.extend(systems); terms.extend(assets); terms.extend(counts); terms.extend(links); terms.extend(HTTP_LINK_RE.findall(text))
     if character_names: terms.extend(character_names)
+    # Protect latin tokens still present on the *full* line (not only the CJK cache segment)
+    if direction == "zh-en" and text:
+        terms.extend(re.findall(r"[A-Za-z][A-Za-z0-9'*.-]{1,}", text))
     terms.extend(re.findall(r"\b\d+(?:\.\d+)?\s*(?:isk|m|mil|b|bil|kk)\b", text, re.I))
     for ent in localized:
         terms.append(ent.get("original", "")); terms.append(ent.get("canonical", ""))
@@ -2785,16 +2790,15 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
         if not translated:
             TRANSLATION_CACHE.record_failure(cache_text, target, engine, "empty result", cooldown_minutes)
             continue
-        out=translated
-        for token, original in protected:
-            out=re.sub(rf"\b{re.escape(token)}\b", original, out)
-        out=out.strip()
-        if out:
-            if TRANSLATION_CACHE.put_machine(
-                cache_text, source, target, out, engine, direction=direction, protected_terms=protected_terms
-            ):
-                return out, f"segment:{engine}-cached"
-            return out, f"segment:{engine}-uncached"
+        # Restore placeholders on the MT segment only; reattach full-line English after cache write
+        # so machine cache stays CJK-segment clean (e.g. 能塌吗 -> Can it collapse?).
+        mt_out = restore_protected_translation_tokens(translated, protected)
+        if mt_out:
+            cached_ok = TRANSLATION_CACHE.put_machine(
+                cache_text, source, target, mt_out, engine, direction=direction, protected_terms=protected_terms
+            )
+            display = reattach_untranslated_source_tokens(text, mt_out, cache_text)
+            return display, (f"segment:{engine}-cached" if cached_ok else f"segment:{engine}-uncached")
     return "", "fallback-failed"
 
 def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
@@ -2863,10 +2867,11 @@ def translate_free_text(text: str, systems: list[str], assets: list[str], locali
             break
     if not translated:
         return ""
-    out = translated
-    for token, original in protected:
-        out = re.sub(rf"\b{re.escape(token)}\b", original, out)
-    return out.strip()
+    from sb_translation.protect import reattach_untranslated_source_tokens, restore_protected_translation_tokens
+    out = restore_protected_translation_tokens(translated, protected)
+    if direction == "zh-en":
+        out = reattach_untranslated_source_tokens(text, out, translation_source_for_cache(text, direction))
+    return out
 
 
 def translate_free_chinese_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str]) -> str:

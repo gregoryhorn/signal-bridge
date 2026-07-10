@@ -160,8 +160,10 @@ def test_worker_persists_non_english_auto_en_source_after_protected_terms(tmp_pa
         fallback_mode="online-only",
     )
 
-    assert result == "They are coming"
+    # Full-line display reattaches system codes stripped from the CJK cache segment.
+    assert result == "They are coming 4-HWWF"
     assert label == "segment:google-cached"
+    # Machine cache remains CJK-segment clean (no reattached English/system tails).
     assert cache_rows(cache) == [("\u5929\u9e64\u7ea7 \u4ed6\u4eec\u6765\u4e86", "auto", "en", "They are coming", "google")]
 
 
