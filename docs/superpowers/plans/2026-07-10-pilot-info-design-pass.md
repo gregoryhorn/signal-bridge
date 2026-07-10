@@ -1,6 +1,6 @@
 # Pilot Info Card — Design / Look & Feel Pass
 
-> **Status:** design plan (not implemented).  
+> **Status:** implemented in source (`sb_ui/pilot_info.py`, wired from `show_pilot_info_card`).  
 > **For agentic workers:** implement after approval with `superpowers:subagent-driven-development` or `superpowers:executing-plans`.  
 > **Scope:** visual hierarchy, density, and wasted space — **not** ESI/zKill correctness (already Phase 2.3).  
 > **Constraint:** keep network work off the render path (`docs/INVARIANTS.md`). No `APP_VERSION` bump unless packaging.
