@@ -814,4 +814,3 @@ After fixing:
 - Replaced duplicated pre-render block sizing with a single content-driven `fit_to_content` autosize that measures actual content and opens the card at the appropriate size.
 - zKill section split into ranked Recent Kills (small-gang engagements first, large-fleet fallback) and Recent Losses with per-killmail zKill links and solo/small gang/fleet/large fleet labels.
 - Verification: automated screenshot walkthrough including a forced-small-window check to ensure buttons remain visible even when opening at minimal size.
-
