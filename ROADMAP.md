@@ -1,6 +1,6 @@
 ## v0.7 in progress (modular contracts + backlog)
 
-Branch: `feature/contracts-and-backlog`. Target contracts are runtime modules under `sb_contracts/`. Subsystem logic for channels, monitor/backlog, filters/spam, translation detect, highlight, and appearance defaults lives in isolated `sb_*` modules. Phase 3.2–3.7 product items from the UI overhaul roadmap are implemented in source; remaining work is merge/release, manual live smoke, and the open Settings per-page design pass.
+Branch: `feature/contracts-and-backlog`. Target contracts are runtime modules under `sb_contracts/`. Subsystem logic for channels, monitor/backlog, filters/spam, translation detect, highlight, and appearance defaults lives in isolated `sb_*` modules. Phase 3.2–3.7 product items and the Settings per-page design pass are implemented in source. Remaining: merge/release, manual live smoke, optional APP_VERSION cut when packaging.
 
 ## v0.6 release note
 

@@ -30,6 +30,17 @@ No installer is required. The ZIP is the standalone portable package; keep the e
 SHA256 checksums are published beside the portable ZIP as `SignalBridge-v0.6-win64-portable.zip.sha256` and `SignalBridge.exe.sha256`.
 
 
+## Unreleased development (source / PR)
+
+Shipped **v0.6** remains the public release. Current mainline development (see `CHANGELOG.md` Unreleased and the open PR) adds modular internals and feed hygiene **without a version bump yet**:
+
+- Settings **Filters** (keyword/sender) and Local spam rate limits
+- Optional **startup backlog** window on Start Monitoring (default still live-only)
+- **Auto → EN** multi-language detection (CJK and other non-English via Google auto)
+- Purple **module** highlighting off by default; ships always use ship color
+- Settings nav **Recognition Rules** (was Exclusions); design-pass layout cleanup
+- Pure contracts under `sb_contracts/` and isolated `sb_*` modules for channels, monitor, filters, translation detect, highlight, appearance
+
 ## v0.6 UI foundation and help update
 
 Signal Bridge v0.6 ships the UI foundation refresh: centralized Settings Center shell, themed shared widgets, redesigned Translation Corrections, fixed-footer dialogs, offline in-app Help Center, dedicated About/Support window, and safer Translation Cache machine-row cleanup. Portable builds continue to start with clean runtime/cache/log state while bundling curated starter data and offline help topics.
@@ -45,14 +56,15 @@ Signal Bridge v0.5 starts new portable installs from clean runtime/cache data wh
 
 - **Safe clickable hyperlinks** are enabled by default and can be disabled in Settings > General while leaving URLs visible as plain text.
 - Portable Windows app: no installer or admin rights required.
-- Live-only EVE chatlog monitoring by default; old history is not replayed on startup.
-- Dynamic EVE chat channel discovery; no channel is hard-coded.
+- Live-only EVE chatlog monitoring by default; optional startup backlog (minutes window) when enabled in Settings > General.
+- Dynamic EVE chat channel discovery; no channel is hard-coded. Saved channels stay listed when waiting for a new log file.
 - Combined `All` tab plus selectable channel tabs with unread state, hidden-tab restore, and drag/wrap behavior.
-- CN -> EN and EN -> CN translation modes with cache-first correction support.
+- Auto → EN and EN → CN translation modes with cache-first correction; Auto → EN supports Chinese and other non-English text via Google auto-detect.
 - Translation Cache Manager with editable Original/English corrections, grouped duplicate rows, delete/reset actions, and clean bundled starter cache.
 - Compact EVE catalog with catalog-driven Chinese/localized ship-name detection and curated slang aliases.
-- User-managed aliases and general exclusion list packaged with the portable app.
-- Solar systems, pilots/characters, ships/assets, ESS, URLs, and tactical intel are highlighted separately.
+- User-managed ship/system aliases and scoped **Recognition Rules** (ignored pilots, highlight exclusions, noise words).
+- **Filters** (keyword/sender) and Local spam / ASCII-art rate limiting under Settings > Filters.
+- Solar systems, pilots/characters, ships, optional modules, ESS, URLs, and tactical intel are highlighted separately (module purple off by default).
 - Optional ESI-backed entity detection with local SQLite cache and background-only lookups; new portable installs start with an empty ESI cache.
 - Pilot Info cards with character ID, zKill link/sync, recent local history, manual flags, and optional Intel History add-on support.
 - Intel History add-on code is bundled in the portable app by default, with local data stored under the app folder.
@@ -64,9 +76,11 @@ Signal Bridge v0.5 starts new portable installs from clean runtime/cache data wh
 
 - Signal Bridge opens by default in a narrow mobile-style side-panel layout (`430x720`) so it can sit beside EVE without consuming a wide monitor area.
 - Use `View > Appearance / Display Options...` to tune fonts, colors, opacity, and highlight categories.
-- Use `Settings > Translation Cache` to edit translation corrections.
-- Use `Settings > Aliases` to manage ship/system aliases.
-- Use `Tools > Recognition Rules...` for words or names that should stay visually neutral.
+- Use **Settings > Settings...** for the full Settings Center (General, Channels, Translation, Filters, Recognition Rules, and more).
+- Use **Settings > Translation Cache** (or Translation Corrections) to edit translation corrections.
+- Use **Settings > Aliases** for ship/system aliases.
+- Use **Settings > Filters** for keyword/sender filters and Local spam controls.
+- Use **Settings > Recognition Rules** (or Tools > Recognition Rules) for ignored pilots, highlight exclusions, and noise words.
 - Use `Help > Check for Updates` to manually check the latest GitHub release.
 - See [ROADMAP.md](ROADMAP.md) for planned work including LAN viewer, UI polish, automation, signing, and Intel History improvements.
 

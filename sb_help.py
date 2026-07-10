@@ -14,6 +14,7 @@ HELP_TOPICS: list[tuple[str, str]] = [
     ("Translation", "04-translation.md"),
     ("Aliases", "05-aliases.md"),
     ("Recognition Rules", "06-recognition-rules.md"),
+    ("Filters", "10-filters.md"),
     ("Pilot Info", "07-pilot-info.md"),
     ("Intel History", "08-intel-history.md"),
     ("Diagnostics", "09-diagnostics.md"),

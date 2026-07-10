@@ -49,11 +49,12 @@ EVE chatlog file
 | Text helpers | `sb_text.py` | Strip/truncate without mojibake |
 | Render helpers | `signal_bridge_render_model.py` | Pure visible lines |
 | Settings store | `sb_settings.py` | Typed `SettingsStore` |
-| UI foundation | `sb_ui/*` | theme, components, windows, settings shell, filters page |
+| UI foundation | `sb_ui/*` | theme, components (`danger_card`, …), windows, settings shell, filters page |
 | Intel History | `addons/intel-history` | Optional add-on, fail-isolated |
-| Help | `sb_help.py` + `docs/help/` | Offline topics |
+| Help | `sb_help.py` + `docs/help/` | Offline topics (10), including Filters |
+| Contracts docs | `docs/contracts/` | Specs; runtime under `sb_contracts/` |
 | zKill helpers | `sb_zkill.py` | Ranking pure helpers |
-| Tests | `tests/` | pytest; pure modules + Tk widgets |
+| Tests | `tests/` | pytest; pure modules + Tk widgets + settings page smoke |
 
 ## Standard validation commands
 

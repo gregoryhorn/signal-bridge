@@ -2,6 +2,8 @@
 
 Add-ons should receive narrow, versioned events instead of arbitrary GUI internals.
 
+**Implemented in:** `sb_contracts/addon_event.py` (`row_to_addon_event`). Intel History uses this shape via `make_intel_history_event`.
+
 ## Proposed fields
 
 | Field | Type | Notes |
