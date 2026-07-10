@@ -78,6 +78,9 @@ from sb_ui import windows as sb_windows
 from sb_ui.feed import apply_base_feed_colors, default_feed_background, default_feed_foreground
 from sb_ui.settings_center import SettingsShell
 from sb_ui.shell import build_header_bar, build_main_layout, menu_colors
+from sb_ui.tabs import TabStrip
+import sb_tabs
+from sb_tabs import TabStripState
 from pathlib import Path
 from typing import Callable
 
@@ -3289,6 +3292,17 @@ class SignalBridgeGui:
         # Color legend intentionally hidden; colors are documented in Help/About.
 
         self.tab_bar = layout.tabs_host
+        self.tab_strip = TabStrip(
+            self.tab_bar,
+            on_select=self.select_tab,
+            on_close=self.hide_tab,
+            on_close_others=self.hide_other_tabs,
+            on_close_all=self.close_selected_channels,
+            on_copy=self.copy_to_clipboard,
+            on_restore_hidden=self.restore_hidden_tabs_dialog,
+            max_visible=6,
+        )
+        self.tab_strip.pack(fill="x")
         self.tab_bar.bind("<Configure>", self.on_tab_bar_configure)
         self.update_channel_tabs()
 
@@ -3297,46 +3311,35 @@ class SignalBridgeGui:
         self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
 
+    def _tab_state(self) -> TabStripState:
+        return TabStripState(
+            order=list(self.tab_order),
+            active_id=self.visible_channel,
+            hidden=set(self.hidden_tab_ids),
+            unread=dict(self.unread_counts),
+        )
+
+    def _apply_tab_state(self, state: TabStripState) -> None:
+        self.tab_order = list(state.order)
+        self.visible_channel = state.active_id
+        self.hidden_tab_ids = set(state.hidden)
+        self.unread_counts = dict(state.unread)
+
     def normalize_tab_state(self, prefer_all: bool = False):
-        valid = set(self.active_channels)
-        valid.add(ALL_CHANNELS_TAB)
-        self.hidden_tab_ids = {x for x in self.hidden_tab_ids if x in valid}
-        ordered: list[str] = []
-        for tab_id in self.tab_order:
-            if tab_id in valid and tab_id not in ordered:
-                ordered.append(tab_id)
-        if ALL_CHANNELS_TAB not in ordered:
-            ordered.insert(0, ALL_CHANNELS_TAB)
-        for channel in sorted(self.active_channels):
-            if channel not in ordered:
-                ordered.append(channel)
-        self.tab_order = ordered
-        visible = self.visible_tabs()
-        if self.visible_channel not in visible:
-            if prefer_all and ALL_CHANNELS_TAB in visible:
-                self.visible_channel = ALL_CHANNELS_TAB
-            else:
-                self.visible_channel = visible[0] if visible else None
+        state = sb_tabs.normalize(
+            self._tab_state(),
+            set(self.active_channels),
+            prefer_all=prefer_all,
+        )
+        self._apply_tab_state(state)
 
     def visible_tabs(self) -> list[str]:
-        valid_channels = set(self.active_channels)
-        tabs = []
-        if ALL_CHANNELS_TAB not in self.hidden_tab_ids:
-            tabs.append(ALL_CHANNELS_TAB)
-        for tab_id in self.tab_order:
-            if tab_id == ALL_CHANNELS_TAB:
-                continue
-            if tab_id in valid_channels and tab_id not in self.hidden_tab_ids:
-                tabs.append(tab_id)
-        return tabs
+        infos = sb_tabs.visible_tabs(self._tab_state(), set(self.active_channels))
+        return [t.tab_id for t in infos]
 
     def on_tab_bar_configure(self, _event=None):
-        if self._tab_layout_after:
-            try:
-                self.root.after_cancel(self._tab_layout_after)
-            except Exception:
-                pass
-        self._tab_layout_after = self.root.after(80, self.layout_tab_widgets)
+        # Real tab strip is pack-managed; width changes may adjust overflow later.
+        return
 
     def tab_style(self, active: bool = False, unread: bool = False) -> dict:
         bg = TAB_THEME["tab_active_bg"] if active else (TAB_THEME["tab_unread_bg"] if unread else TAB_THEME["tab_bg"])
@@ -3357,105 +3360,25 @@ class SignalBridgeGui:
         return label
 
     def update_channel_tabs(self):
-        tk = self.tk
-        for child in self.tab_bar.winfo_children():
-            child.destroy()
-        self.tab_widgets = {}
         self.normalize_tab_state(prefer_all=True)
-        tabs = self.visible_tabs()
-        hidden_count = len([t for t in self.tab_order if t in self.hidden_tab_ids and (t == ALL_CHANNELS_TAB or t in self.active_channels)])
-        if not tabs:
-            container = tk.Frame(self.tab_bar, bg=TAB_THEME["bar_bg"])
-            container.pack(fill="x")
-            label = tk.Label(container, text="No visible channels", bg=TAB_THEME["bar_bg"], fg=TAB_THEME["empty_fg"], font=("Segoe UI", 9))
-            label.pack(side="left", padx=4)
-            btn = tk.Button(container, text="Restore...", command=self.restore_hidden_tabs_dialog, bg=TAB_THEME["tab_bg"], fg=TAB_THEME["tab_fg"], relief="flat", padx=6, pady=1)
-            btn.pack(side="left", padx=6)
-            self.tab_widgets["__empty__"] = container
-            return
-
-        # Mobile-style compact channel bar: one line instead of stacked tab rows.
-        bar = tk.Frame(self.tab_bar, bg=TAB_THEME["bar_bg"])
-        bar.pack(fill="x")
-        self.tab_widgets["__bar__"] = bar
-
-        if ALL_CHANNELS_TAB in tabs:
-            all_unread = self.unread_counts.get(ALL_CHANNELS_TAB, 0) > 0
-            all_style = self.tab_style(self.visible_channel == ALL_CHANNELS_TAB, all_unread)
-            all_btn = tk.Button(
-                bar, text=self.tab_display_text(ALL_CHANNELS_TAB, max_chars=10), command=lambda: self.select_tab(ALL_CHANNELS_TAB),
-                bg=all_style["bg"], fg=all_style["fg"], activebackground=all_style["activebackground"], activeforeground=all_style["activeforeground"],
-                relief="flat", borderwidth=0, padx=9, pady=3, font=("Segoe UI", 9, "bold" if self.visible_channel == ALL_CHANNELS_TAB or all_unread else "normal")
-            )
-            all_btn.pack(side="left", padx=(0, 5))
-            all_btn.bind("<Button-3>", lambda e: self.show_tab_context_menu(e, ALL_CHANNELS_TAB), add="+")
-            self.tab_widgets[ALL_CHANNELS_TAB] = all_btn
-
-        channel_tabs = [t for t in tabs if t != ALL_CHANNELS_TAB]
-        current = self.visible_channel if self.visible_channel in channel_tabs else (channel_tabs[0] if channel_tabs else "")
-        self.channel_selector_var = tk.StringVar(value=current)
-        if channel_tabs:
-            selector = tk.OptionMenu(bar, self.channel_selector_var, *channel_tabs, command=lambda value: self.select_tab(str(value)))
-            selector.configure(
-                bg=TAB_THEME["tab_active_bg"], fg=TAB_THEME["tab_active_fg"], activebackground=TAB_THEME["tab_hover_bg"], activeforeground="#ffffff",
-                relief="flat", borderwidth=0, highlightthickness=1, highlightbackground=TAB_THEME["tab_active_border"],
-                font=("Segoe UI", 9, "bold"), padx=4, pady=2
-            )
-            try:
-                selector["menu"].configure(bg="#111821", fg="#d7dde5", activebackground="#23405c", activeforeground="#ffffff", tearoff=False)
-                selector["menu"].delete(0, "end")
-                for tab_id in channel_tabs:
-                    selector["menu"].add_command(label=self.tab_display_text(tab_id, max_chars=42), command=lambda t=tab_id: self.select_tab(t))
-            except Exception:
-                pass
-            selector.pack(side="left", fill="x", expand=True, padx=(0, 5))
-            if current:
-                self.tab_widgets[current] = selector
-            close_btn = tk.Button(
-                bar, text="x", command=lambda: self.hide_tab(self.visible_channel) if self.visible_channel and self.visible_channel != ALL_CHANNELS_TAB else None,
-                bg=TAB_THEME["tab_bg"], fg=TAB_THEME["close_fg"], activebackground=TAB_THEME["close_hover_bg"], activeforeground="#ffffff",
-                relief="flat", borderwidth=0, padx=7, pady=3, font=("Segoe UI", 9, "bold")
-            )
-            close_btn.pack(side="left", padx=(0, 5))
-            if current:
-                close_btn.bind("<Button-3>", lambda e, t=current: self.show_tab_context_menu(e, t), add="+")
-
-        if hidden_count:
-            restore = tk.Button(
-                bar, text=f"+{hidden_count}", command=self.restore_hidden_tabs_dialog,
-                bg=TAB_THEME["restore_bg"], fg=TAB_THEME["restore_fg"], activebackground=TAB_THEME["tab_hover_bg"], activeforeground="#ffffff",
-                relief="flat", borderwidth=0, padx=8, pady=3, font=("Segoe UI", 9)
-            )
-            restore.pack(side="right")
-            self.tab_widgets["__restore__"] = restore
+        infos = sb_tabs.visible_tabs(self._tab_state(), set(self.active_channels))
+        hidden = sb_tabs.hidden_count(self._tab_state(), set(self.active_channels))
+        self.tab_strip.set_tabs(
+            infos,
+            self.visible_channel,
+            hidden_count=hidden,
+        )
+        self.tab_widgets = dict(self.tab_strip._widgets)
 
     def set_tab_hover(self, tab_id: str, hover: bool):
-        if tab_id == self.visible_channel:
-            return
-        widget = self.tab_widgets.get(tab_id)
-        if not widget:
-            return
-        unread = self.unread_counts.get(tab_id, 0) > 0
-        style = self.tab_style(False, unread)
-        bg = TAB_THEME["tab_hover_bg"] if hover else style["bg"]
-        try:
-            widget.configure(bg=bg)
-            for child in widget.winfo_children():
-                child.configure(bg=bg)
-        except Exception:
-            pass
+        return
 
     def layout_tab_widgets(self):
-        # Channel bar is intentionally single-line and pack-managed for mobile-style layout.
         return
 
     def select_tab(self, tab_id: str):
-        if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:
-            return
-        if tab_id in self.hidden_tab_ids:
-            return
-        self.visible_channel = tab_id
-        self.unread_counts.pop(tab_id, None)
+        state = sb_tabs.select_tab(self._tab_state(), tab_id, set(self.active_channels))
+        self._apply_tab_state(state)
         self.update_channel_tabs()
         self.persist_settings()
         self.redraw_feed()
@@ -3467,13 +3390,8 @@ class SignalBridgeGui:
         self.select_tab(ALL_CHANNELS_TAB)
 
     def hide_tab(self, tab_id: str):
-        if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:
-            return
-        self.hidden_tab_ids.add(tab_id)
-        self.unread_counts.pop(tab_id, None)
-        if self.visible_channel == tab_id:
-            visible = [t for t in self.visible_tabs() if t != tab_id]
-            self.visible_channel = visible[0] if visible else None
+        state = sb_tabs.close_tab(self._tab_state(), tab_id, set(self.active_channels))
+        self._apply_tab_state(state)
         self.update_channel_tabs()
         self.persist_settings()
         self.redraw_feed()
@@ -3485,15 +3403,13 @@ class SignalBridgeGui:
     def restore_tab(self, tab_id: str, focus: bool = False):
         if tab_id != ALL_CHANNELS_TAB and tab_id not in self.active_channels:
             self.active_channels.add(tab_id)
-        self.hidden_tab_ids.discard(tab_id)
-        if tab_id not in self.tab_order:
-            if tab_id == ALL_CHANNELS_TAB:
-                self.tab_order.insert(0, tab_id)
-            else:
-                self.tab_order.append(tab_id)
-        if focus or not self.visible_channel or not self.visible_tabs():
-            self.visible_channel = tab_id
-            self.unread_counts.pop(tab_id, None)
+        state = sb_tabs.restore_tab(
+            self._tab_state(),
+            tab_id,
+            set(self.active_channels),
+            focus=focus,
+        )
+        self._apply_tab_state(state)
         self.update_channel_tabs()
         self.persist_settings()
         self.redraw_feed()
@@ -3547,20 +3463,17 @@ class SignalBridgeGui:
                   **sb_theme.btn_secondary_kw()).pack(side="right")
 
     def show_tab_context_menu(self, event, tab_id: str):
-        menu = self.tk.Menu(self.root, tearoff=False, bg="#111821", fg="#d7dde5")
-        label = "Close / Hide All Tab" if tab_id == ALL_CHANNELS_TAB else "Close Channel"
-        menu.add_command(label=label, command=lambda: self.hide_tab(tab_id))
-        menu.add_command(label="Close Other Channels", command=lambda: self.hide_other_tabs(tab_id))
-        menu.add_command(label="Close All Channels", command=self.close_selected_channels)
-        if tab_id != ALL_CHANNELS_TAB:
-            menu.add_separator()
-            menu.add_command(label="Copy Channel Name", command=lambda: self.copy_to_clipboard(tab_id))
-        menu.add_separator()
-        menu.add_command(label="Restore Hidden Tabs...", command=self.restore_hidden_tabs_dialog)
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
+        from sb_ui.tabs.menu import build_tab_context_menu, popup_menu
+        menu = build_tab_context_menu(
+            self.root,
+            tab_id,
+            on_close=self.hide_tab,
+            on_close_others=self.hide_other_tabs,
+            on_close_all=self.close_selected_channels,
+            on_copy=self.copy_to_clipboard,
+            on_restore_hidden=self.restore_hidden_tabs_dialog,
+        )
+        popup_menu(menu, event)
 
     def copy_to_clipboard(self, text: str):
         self.root.clipboard_clear()
@@ -3568,12 +3481,11 @@ class SignalBridgeGui:
         self.set_status("Copied")
 
     def hide_other_tabs(self, keep_tab_id: str):
-        for tab_id in list(self.visible_tabs()):
-            if tab_id != keep_tab_id:
-                self.hidden_tab_ids.add(tab_id)
-                self.unread_counts.pop(tab_id, None)
-        self.visible_channel = keep_tab_id
-        self.update_channel_tabs(); self.persist_settings(); self.redraw_feed()
+        state = sb_tabs.close_others(self._tab_state(), keep_tab_id, set(self.active_channels))
+        self._apply_tab_state(state)
+        self.update_channel_tabs()
+        self.persist_settings()
+        self.redraw_feed()
 
     def begin_tab_drag(self, event, tab_id: str):
         self._tab_drag = {"tab_id": tab_id, "start_x": event.x_root, "start_y": event.y_root, "moved": False}
@@ -7130,13 +7042,13 @@ class SignalBridgeGui:
     def mark_unread_for_row(self, row: Row):
         if row.channel in self.hidden_tab_ids:
             return
-        if self.visible_channel == row.channel:
-            return
         if self.visible_channel == ALL_CHANNELS_TAB and ALL_CHANNELS_TAB not in self.hidden_tab_ids:
             return
-        self.unread_counts[row.channel] = self.unread_counts.get(row.channel, 0) + 1
+        state = self._tab_state()
+        state = sb_tabs.mark_unread(state, row.channel, delta=1)
         if ALL_CHANNELS_TAB not in self.hidden_tab_ids and self.visible_channel != ALL_CHANNELS_TAB:
-            self.unread_counts[ALL_CHANNELS_TAB] = self.unread_counts.get(ALL_CHANNELS_TAB, 0) + 1
+            state = sb_tabs.mark_unread(state, ALL_CHANNELS_TAB, delta=1)
+        self._apply_tab_state(state)
         self.update_channel_tabs()
 
     def add_discovered_channel(self, channel: str):
