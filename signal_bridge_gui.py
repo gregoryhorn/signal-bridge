@@ -3036,9 +3036,17 @@ class SignalBridgeGui:
         self.root = tk.Tk()
         self.root.title(f"{APP_NAME} v{APP_VERSION}")
         try:
-            icon = APP_DIR / "assets" / "signal_bridge_icon.ico"
-            if icon.exists():
-                self.root.iconbitmap(str(icon))
+            ico = APP_DIR / "assets" / "signal_bridge_icon.ico"
+            png = APP_DIR / "assets" / "signal_bridge_icon_true_transparent_1024.png"
+            if ico.exists():
+                self.root.iconbitmap(str(ico))
+            # Prefer high-res PNG for title-bar/taskbar where Tk supports it.
+            if png.exists():
+                try:
+                    self._app_icon_photo = self.tk.PhotoImage(file=str(png))
+                    self.root.iconphoto(True, self._app_icon_photo)
+                except Exception as photo_exc:
+                    write_log(f"Root iconphoto failed: {photo_exc}")
         except Exception as exc:
             write_log(f"Root icon failed: {exc}")
         # Mobile-style default: narrow, tall layout suitable for side-panel/overlay use.
