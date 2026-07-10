@@ -23,7 +23,19 @@ results and new translations arrive in the background.
 
 ## Fixing bad translations
 
-Settings, page **Translation Cache** (Translation Corrections): one table of
-cached phrases where you can edit the primary English text. Manual corrections
-persist and win over engine output. Cleanup tools remove polluted machine-cache
-rows without deleting manual overrides.
+Translation layers (highest trust first):
+
+1. **Phrase overrides** (`data/phrase_overrides.json`) — curated EVE Chinese/English
+   fixes shipped with the app. Not wiped by cache cleanup.
+2. **Manual corrections** (Settings → Translation Cache) — your saved overrides in
+   the local DB. Survive “clean machine cache”; deleted only if you delete that entry.
+3. **Machine cache** — Google/Argos results. Ephemeral; safe to clean; can be wrong
+   for EVE slang (ships, attributes, market talk).
+
+When a machine translation is wrong for EVE, prefer promoting a fix into
+**phrase overrides** or a **manual correction**, then delete the bad machine-cache
+row so it cannot reappear until re-fetched.
+
+Settings, page **Translation Cache** (Translation Corrections): edit English text
+for a phrase. Manual corrections win over engine output. Cleanup removes polluted
+machine rows without deleting manual overrides.

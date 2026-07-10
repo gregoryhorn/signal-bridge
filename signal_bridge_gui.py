@@ -2290,11 +2290,31 @@ PHRASE_OVERRIDES = load_phrase_overrides()
 
 
 def apply_phrase_overrides(text: str, direction: str) -> tuple[str, bool]:
-    out = text; changed = False
-    for item in PHRASE_OVERRIDES:
-        src = str(item.get("source", "")); tgt = str(item.get("target", "")); idir = str(item.get("direction", "zh-en"))
+    """Apply curated phrase overrides (durable, not machine-cache).
+
+    Longer sources are applied first so compounds like 旗舰技能 are not
+    mangled by a shorter 旗舰 replacement.
+    """
+    out = text
+    changed = False
+    items = sorted(
+        PHRASE_OVERRIDES,
+        key=lambda item: len(str(item.get("source", "") or "")),
+        reverse=True,
+    )
+    for item in items:
+        src = str(item.get("source", ""))
+        tgt = str(item.get("target", ""))
+        idir = str(item.get("direction", "zh-en"))
         if src and tgt and idir in (direction, "auto", "any") and src in out:
-            out = out.replace(src, tgt); changed = True
+            out = out.replace(src, tgt)
+            changed = True
+    if changed:
+        # Avoid gluing English replacements to neighboring latin tokens: "?Buffering"
+        out = re.sub(r"([?!.,:;])([A-Za-z0-9])", r"\1 \2", out)
+        out = re.sub(r"([A-Za-z0-9])([\u3400-\u9fff\uf900-\ufaff])", r"\1 \2", out)
+        out = re.sub(r"([\u3400-\u9fff\uf900-\ufaff])([A-Za-z0-9])", r"\1 \2", out)
+        out = re.sub(r"[ \t]{2,}", " ", out).strip()
     return out, changed
 
 
