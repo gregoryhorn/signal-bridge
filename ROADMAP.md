@@ -1,553 +1,198 @@
-## Shipped: v0.6 (2026-07-10)
+# Signal Bridge Roadmap — path to 1.0
 
-Public GitHub release **v0.6** includes UI foundation, modular contracts/backlog systems, Settings design pass, Pilot Info redesign, Filters/spam, multi-language Auto→EN, EVE phrase promotions, and clean portable packaging. See `CHANGELOG.md` and `GITHUB_RELEASE.md`.
+**Status:** Direction set 2026-07-10 (post-v0.6)  
+**Current public release:** v0.6  
+**Next public cut:** **v0.7** = all four pillars below  
+**Implementation plan:** [`docs/superpowers/plans/2026-07-10-v0.7-four-pillars.md`](docs/superpowers/plans/2026-07-10-v0.7-four-pillars.md) (modular file map + task phases)  
+**Later:** v0.8+ harden · **v1.0** = recommendable / no P0 caveats
 
-## Next
+This file is the **product** forward plan. Historical release notes live in `CHANGELOG.md`.
 
-- Live smoke feedback and issue triage  
-- Further ESI / free-text extraction from the GUI  
-- LAN viewer / Argos helper process (still planned)
+---
 
-## v0.5 release note
+## Guiding principles (unchanged)
 
-Signal Bridge v0.5 focuses on scoped recognition rules, cleaner first-run defaults, and package hygiene. Broad legacy exclusions are replaced by scoped ignored-pilot, highlight-exclusion, and noise-word rules. New portable builds should include curated starter data only and exclude local cache/runtime/log state, legacy broad exclusions, and starter ESI cache rows.
+- Lightweight, portable Windows side-panel tool  
+- Never block live chat rendering (no network/MT on the Tk UI thread)  
+- Live-only monitoring by default  
+- Network features opt-in and visible  
+- Prefer local EVE data for EVE terms; machine translation for free text only  
 
-## v0.4 release note
+---
 
-Signal Bridge v0.4 focuses on release hygiene and correction workflows: Translation Cache deletion/reset, empty bundled translation cache, packaged maintained aliases/exclusions, public issue list, refreshed screenshot, and SEO-ready GitHub docs. Future work continues with translation editor polish, CJK shorthand coverage, Pilot Info/zKill verification, LAN viewer planning, and release automation.
+## v0.7 product pillars (decided)
 
-- Translation Cache Manager: completed grouped-entry deletion and all-entry reset so bad cache rows can be removed reliably from the UI.
-- Translation data hygiene: removed bundled starter translation-cache entries until the cache export path can guarantee clean segment-only sources.
-- Packaging data hygiene: current maintained alias list and General Exclusion List are now part of source/package data; runtime cache/settings/logs remain excluded.
-- Public tracking: added `ISSUES.md` for GitHub-visible known issues and short follow-up work items.
+These four items are **the v0.7 release scope**. They also define the product bar toward 1.0; post-0.7 is harden/polish, not a second round of these pillars.
 
-- Alias management: expand dedicated ship/system alias workflows and sample-line testing as real intel shorthand appears.
-- Translation correction workflow: grouped cache rows and dual Original/English editors are in place; future work can add dedicated phrase-override editing if needed.
-- Translation quality: continue collecting live bad translations and promote stable corrections into aliases, phrase overrides, and cache/manual override workflows.
-- Translation cache cleanup: segment-based cache keys now reduce duplicated/polluted Google/Argos rows while keeping manual overrides as the highest-priority correction layer.
-- Feed/Pilot Info UX: continue refining compact tactical cards, entity separation, and status/signal classification.
-# Signal Bridge Roadmap
+### 1. Full look-and-feel update
 
-Signal Bridge is a lightweight Windows app for translating chat logs CN -> EN and EN -> CN.
+**Problem:** Current UI does not meet modern desktop standards (dense prototype chrome, inconsistent density, dated feed/chrome).
 
-## Optional Intel History add-on spec
+**Goal:** A cohesive visual system for the **main shell**, feed, tabs, dialogs, and Settings — not another partial Settings polish only.
 
-The first optional add-on is planned as **Intel History / Pilot Intelligence**. LAN Viewer and Argos offline translation remain native/core features; Intel History is optional because it stores long-term local intel and performs deeper analysis.
+| In scope | Out of scope for 1.0 |
+|----------|----------------------|
+| Typography, spacing, surfaces, elevation/borders | Full Tauri/web rewrite |
+| Main window chrome (header, status, feed) | Theme marketplace |
+| Shared `sb_ui` theme as single source of truth | Click-through game overlay |
+| Dark tactical aesthetic that still reads in fleet | Per-channel themes |
+| New screenshots for README/release | Pixel-perfect OS native controls |
 
-Planned scope includes local SQLite sightings, ESI-confirmed pilot tracking, Pilot Intelligence Cards, manual and auto flags, zKill enrichment, import/export intel packs, and a read-only Intel Query Service for UI and future LLM queries. See [`docs/INTEL_HISTORY_ADDON_SPEC.md`](docs/INTEL_HISTORY_ADDON_SPEC.md).
+**Acceptance (v0.7):**
 
+- One visual language across main feed, tabs, Pilot surfaces, Settings, and dialogs  
+- No “random hex / ad-hoc packing” on new surfaces  
+- README screenshot reflects the new look  
+- Visual review pass (before/after) required for the main shell  
 
-This roadmap is planned work, not a guarantee of exact delivery order. The current focus is keeping the app lightweight, portable, low-impact during gameplay, and useful for live chat/intel readability.
+**Approach:** Keep Python/Tk stack; invest in `sb_ui/theme` + layout components + main-shell redesign (same decision as the 2026-07 UI foundation: rebuild on foundation, don’t migrate frameworks for 1.0).
 
-## Add-ons foundation implemented
+---
 
-The first add-ons foundation has been added to the app. `Settings > Add-ons` now provides the native UI and local package plumbing for the future optional Intel History / Pilot Intelligence add-on: module folders, user-data folders, manifest inspection, local ZIP install validation, enable/disable state, uninstall-code-only behavior, and diagnostics visibility.
+### 2. Tabs that act like tabs
 
-Next work remains the actual Intel History engine: local SQLite sightings, Pilot Intelligence Cards, flags, zKill enrichment, import/export packs, and the Intel Query Service.
+**Problem:** Channel “tabs” / mobile channel bar do not behave like real tab controls (selection, order, close, overflow, unread, keyboard expectations).
 
+**Goal:** Channel switching feels like a normal multi-document tab strip (or a deliberate, polished compact strip that still **behaves** correctly).
 
-## Current v0.2 Baseline
+| Required behavior |
+|-------------------|
+| Clear active / inactive / hover / unread states |
+| Click selects; active channel owns the feed view |
+| **All** stays pinned first when present |
+| Close channel, close others, close all (context menu) |
+| Drag reorder (persist `tab_order`) |
+| Overflow when many channels (scroll or overflow menu — pick one, implement fully) |
+| Long names truncate with tooltip / full name on hover |
+| Hidden-tab restore still works |
+| No layout jank when adding/removing channels during live monitor |
 
-- Portable Windows ZIP release.
-- No installer required.
-- Dynamic chatlog/channel discovery.
-- Active channels shown as tabs.
-- All Channels view.
-- Live-only monitoring by default; backfill is disabled by default.
-- DB-backed EVE localized ship/item translation where available.
-- Google free translation primary.
-- Argos Translate fallback planned/optional.
-- Auto -> EN translation for non-English text.
-- EN -> CN translation mode.
-- System highlighting in yellow.
-- Ship/asset highlighting in red.
-- ESS highlighting in light blue.
-- Always-on-top support.
-- Font size/font selection support.
-- Timestamp toggle.
-- Custom app icon.
-- GitHub release with SHA256 checksums.
+**Acceptance (v0.7):**
 
-- v0.2 UI cleanup: header color legend hidden to keep the live monitor header focused on version, tabs, and status.
+- Manual smoke: open many channels, reorder, close, restore, unread badges, All vs single channel  
+- No tab-bar reflow bugs that steal clicks from the feed  
 
-## v0.2.1 - UI Hotfix and Interaction Polish
+---
 
-Goal: make the current app feel less prototype-like and remove obvious UI friction.
+### 3. Pilot intel as a first-class feature
 
-Planned items:
+**Problem:** Pilot Info / Intel History still feel like add-on-adjacent extras, not a core fleet tool.
 
-- Fix tab UX/jank.
-- Improve tab active state, hover state, close buttons, and spacing.
-- Keep All Channels pinned first when multiple channels are open.
-- Add better handling for long channel names and many open tabs.
-- Add right-click tab menu:
-  - Close Channel
-  - Close Other Channels
-  - Close All Channels
-  - Copy Channel Name
-- Add right-click feed row menu.
-- Add nice copy/paste actions:
-  - Copy visible line
-  - Copy original line
-  - Copy translated line
-  - Copy sender
-  - Copy systems
-  - Copy ships/assets
-  - Copy URLs
-- Add auto-link URL support for HTTP/HTTPS links.
-- Add startup/error log improvements so launch failures are easy to diagnose.
-- Preserve live-only/no-backfill behavior.
+**Goal:** Pilot intelligence is a **primary product surface**, not a bolted-on card.
 
-## v0.2 - Translation Catalog and DB Updates
+| First-class means |
+|-------------------|
+| Obvious entry points from feed (click / right-click) with reliable targeting |
+| Dedicated Pilot / Intel area in IA (menu and/or Settings nav — not buried only under Add-ons) |
+| Coherent model: local snapshot + flags + sightings + zKill sync story |
+| Intel History treated as core capability in v0.7 (may still use add-on package plumbing, but product language is first-class) |
+| Empty, loading, error, and offline states are designed, not afterthoughts |
+| Hot-drop / watchlist flags visible and explainable in the feed |
 
-Goal: make translation setup easier and avoid requiring users to manually provide the large EVE translation DB.
+**Likely work packages:**
 
-Planned items:
+- Product IA: “Pilot Intel” in menus/Settings; reduce “optional add-on only” messaging for default-bundled history  
+- Pilot Info card quality (already redesigned once — lift to match new look-and-feel)  
+- Intel History reliability: sightings, flags, DNT, auto hot-drop tuning in Settings  
+- Import/export intel packs (if needed for “first-class”; otherwise polish path + clear data location)  
+- Help topics updated for Pilot Intel as a primary workflow  
 
-- Add GitHub-based translation catalog update support.
-- Check for updated compact EVE translation catalog from GitHub.
-- Download catalog updates automatically after user confirmation.
-- Verify downloaded catalog with SHA256 before replacing the local catalog.
-- Backup previous catalog before updating.
-- Show catalog version/status in Health/About.
-- Keep full `translations.db` import as an advanced/manual option.
-- Add translation cache viewer/clearer.
-- Add manual phrase override support for EVE slang.
-- Improve protected terms so Google/Argos do not corrupt systems, ships, names, URLs, counts, or ISK values.
-- Add source labels for DB, Google, Argos, cache, and manual overrides.
+**Acceptance (v0.7):**
 
-Preferred catalog approach:
+- New user can open pilot intel from the feed without reading add-on docs  
+- One roam-session smoke: sighting → flag → reopen card → zKill sync path understood  
+- Bundled by default on portable installs (already true for code; make **product** match)  
 
-```text
-data/eve_catalog.json
-data/catalog_manifest.json
-data/eve_catalog.previous.json
-```
+---
 
-The normal release should use a compact catalog, not the full large SQLite DB.
+### 4. LAN phone viewer = replicate the tool display
 
-## v0.2.x - Feed Interaction Polish
+**Problem:** Planned LAN viewer must not be a plain-text dump; it must **mirror what the desktop tool shows**.
 
-Goal: make the feed faster and more practical during gameplay.
+**Goal:** Optional LAN web viewer for phone/tablet/second PC that streams the **same rendered feed** the operator sees (theme, highlights, translation mode, filters, channel selection as practical).
 
-Planned items:
+| Required behavior |
+|-------------------|
+| Opt-in only; Stop Sharing is obvious |
+| LAN-only bind; tokenized URL by default; QR + copy URL |
+| Read-only; no remote control, no settings/tokens/logs exposure |
+| **Visual parity:** feed background, text, timestamps, sender, systems/ships/pilots/ESS/links, bold/highlight styles from Appearance |
+| Respect Recognition Rules / exclusions so highlights match desktop |
+| Same translation-facing text the tool shows (visible line / translated-only policy) |
+| Channel filter: at least mirror active tab or simple channel picker on phone |
+| Bounded recent buffer; SSE or equivalent; works offline from internet (LAN only) |
+| Theme updates when Appearance changes (reload or live CSS variables) |
 
-- Auto-link URLs in the feed.
-- Link styling with underline/light-blue text.
-- Hover URL preview in the status bar.
-- Left-click to open links.
-- Right-click to open/copy links.
-- Safety option for external link confirmation.
-- Search within visible feed.
-- Copy clean intel line.
-- Copy selected structured entities.
-- Optional original-on-hover for translated text.
+**Acceptance (v0.7):**
 
+- Side-by-side: desktop feed vs phone browser look “the same tool”  
+- Enable → scan QR → see live rows; disable → clients stop  
+- Security warning shown once when enabling  
 
-## v0.3 implementation note
+**Implementation note:** Prefer semantic spans / theme JSON export (already sketched in older LAN notes). May require finishing `RenderRow` span data so the browser can style like Tk tags.
 
-Optional ESI/OAuth foundation has been implemented with ESI disabled by default, localhost OAuth callback on `127.0.0.1:8080`, cache-first SQLite lookups, 30-day positive TTL, negative caching, right-click refresh/ignore actions, background resolver queue, and no live-feed blocking. Future v0.3.x work can refine entity highlighting and add richer correction UI.
+---
 
-## v0.3 - ESI Entity Recognition
+## Supporting work (enables v0.7 / 1.0)
 
-Goal: improve character, corporation, and alliance detection using EVE ESI while keeping the app responsive.
+Not headline features, but required so the cut is shippable:
 
-Planned items:
+| Support item | Why |
+|--------------|-----|
+| Release CI (portable ZIP + SHA256) | Trust; no half-shipped releases |
+| Update-check vs real Latest tag | Already burned by missing v0.6 once |
+| Pre-release visual + live smoke checklist | Look-and-feel and tabs need eyes |
+| Extract remaining ESI/parse hotspots if they block UI work | Safer main-shell rewrite |
+| Diagnostic export (no secrets) | Support during redesign |
+| Keep translation/phrase quality loops | Feed content quality still matters under new chrome |
 
-- Optional ESI support for character name detection.
-- Corporation and alliance detection.
-- Local ESI entity cache.
-- Rate limiting and negative caching.
-- Background-only resolver queue.
-- Offline fallback when ESI is unavailable.
-- Manual corrections/ignore list for false positives.
+**Explicitly post-v0.7 (unless pulled in later):**
 
-Potential cache location:
+- Offline Argos helper process  
+- Intel Query / LLM  
+- Code signing (aim if cheap; not a v0.7 pillar — document AV story)  
+- Tauri/v3 rewrite  
+- Cloud relay / accounts  
 
-```text
-cache/esi_entities.sqlite
-```
+---
 
-Important rule:
+## Version ladder
 
-```text
-ESI lookups must never block live chat rendering.
-```
+| Version | Theme | Ships |
+|---------|--------|--------|
+| **v0.7** | **The four pillars** | (1) full look & feel, (2) tabs that act like tabs, (3) pilot intel first-class, (4) LAN phone viewer with display parity — all in one public cut |
+| **v0.8+** | **Harden & extend** | Live feedback fixes, release CI, translation quality loops, optional Argos helper, signing story |
+| **v1.0** | **Recommendable** | Stabilization, automated release path, smoke gates, docs/help aligned, no open P0 UI/trust bugs |
 
-## v0.3.x - Intel Awareness
+**Decision:** v0.7 is not “shell only.” It delivers the full set of 1.0 pillars above in one release train. Internal sequencing still builds look/tabs before LAN so the phone viewer clones the new UI.
 
-Goal: make Signal Bridge more useful as an intel reader, not just a translator.
+---
 
-Planned items:
+## v0.7 execution order (internal)
 
-- Intel classification:
-  - hostile
-  - clear
-  - movement
-  - ESS
-  - cyno
-  - bubble
-  - fleet
-  - camp
-- Watchlist alerts for systems, pilots, ships, or keywords.
-- Optional sound alerts.
-- Tab flash on watched terms.
-- Better count/time parsing such as `+5`, `x3`, `4:30`, and `229m`.
-- zKill/EVEWho lookup actions from right-click menus.
+1. **Visual system design** — theme tokens, type scale, density; reference for main shell + tabs + pilot + Settings  
+2. **Tabs behavior rewrite** — real tab model (select, unread, close, reorder, overflow, All pinned), then skin  
+3. **Main shell + feed + Settings restyle** — apply tokens end-to-end  
+4. **Pilot intel first-class** — product IA, feed entry, history/flags/card coherent on new chrome  
+5. **LAN phone viewer** — opt-in stream; theme + highlights + visible lines match desktop  
+6. **v0.7 ship gate** — visual review, live smoke (tabs / pilot / LAN / translate), portable ZIP + README screenshot + CHANGELOG
 
-## v0.4 - Settings and UX Polish
+---
 
-Goal: centralize configuration and improve overlay usability.
+## Out of scope for this roadmap revision
 
-Planned items:
+- Re-listing every completed v0.2–v0.6 item (see `CHANGELOG.md`)  
+- Argos re-enable as a 1.0 gate  
+- Rewriting the app outside Python/Tk for 1.0  
 
-- Proper Settings dialog.
-- Theme editor.
-- Configurable highlight colors.
-- Opacity slider.
-- Lock window position.
-- Remember window location/monitor.
-- Better compact/overlay mode.
-- Diagnostics export bundle that avoids including chat logs unless the user explicitly opts in.
+---
 
-## v0.5 - Distribution, Trust, and Release Automation
+## Decision log
 
-Goal: make public releases safer and more professional.
-
-Planned items:
-
-- GitHub Actions build pipeline.
-- Reproducible release ZIP builds.
-- Automatic SHA256 generation.
-- Release notes from CHANGELOG.
-- Optional VirusTotal scan link/check.
-- App version/update check.
-- Code signing path to reduce SmartScreen/AV warnings.
-
-Current AV-conscious choices:
-
-- No UPX packing.
-- No installer.
-- No admin rights.
-- Heavy ML packages excluded from the default build.
-- Portable ZIP release.
-- SHA256 checksums published.
-
-
-
-## Planned Feed Interaction / Diagnostics Work
-
-These items are planned next after the tab polish pass. They should preserve the current live-only/no-backfill behavior.
-
-### Feed right-click row menu
-
-Add a context menu on chat feed rows with actions for fast gameplay use.
-
-Planned actions:
-
-- Copy visible line
-- Copy original line
-- Copy translated line
-- Copy sender
-- Copy systems
-- Copy ships/assets
-- Copy URLs
-
-### Nice copy/paste behavior
-
-Copy actions should be clean and predictable:
-
-- Visible line copies exactly what the user sees in the feed.
-- Original line copies the raw parsed chat text before translation/display replacement.
-- Translated line copies the translated/display text.
-- Sender, systems, ships/assets, and URLs copy only those extracted parts.
-- Copy actions should work from right-click and later keyboard shortcuts where safe.
-
-### Auto-link URL support
-
-HTTP/HTTPS links in chat rows should be detected and made clickable.
-
-Planned URL behavior:
-
-- Detect `http://` and `https://` links.
-- Style links visibly in the feed.
-- Open links with the system default browser.
-- Provide right-click options to open or copy a URL.
-- Avoid unsafe/non-web protocols by default.
-
-### Startup/error log improvements
-
-Launch failures should be easy to diagnose on non-dev Windows machines.
-
-Planned diagnostics:
-
-- Write startup logs to the portable `logs/` folder.
-- Capture uncaught exceptions with tracebacks.
-- Add an easy way to open logs from the app or package folder.
-- Keep release mode windowed/no-console while still preserving useful logs.
-
-### Live-only behavior must be preserved
-
-Backfill should remain disabled by default:
-
-- Existing chatlog files are snapshotted at current end position.
-- Opening a tab should not replay old private chats.
-- New rows appended after monitoring starts should be shown normally.
-
-## v1.0 Target
-
-Before calling the app v1.0, the goal is to have:
-
-- Stable Windows 10/11 portable build.
-- No hard-coded channels or user paths.
-- Polished tabs and feed interactions.
-- Live-only monitoring by default.
-- Stable translation modes.
-- GitHub catalog updater.
-- Settings dialog.
-- Right-click/copy/link support.
-- Startup logs and recovery.
-- Clear public release process.
-- Better AV/signing story.
-
-## Guiding Principles
-
-- Keep the app lightweight.
-- Keep gameplay impact low.
-- Never block live chat rendering.
-- Keep network features optional or clearly visible.
-- Prefer local EVE data for EVE terms.
-- Use machine translation only for normal free text.
-- Avoid surprising users with old/private chat backfill.
-
-- Fixed ESI public lookup to use cache-friendly `universe/ids` exact-name resolution and reduced automatic lookup noise to protect ESI rates.
-
-- Default ESI behavior updated: public cache-first entity recognition is enabled by default, while OAuth/location-aware features remain opt-in.
-
-### Completed v0.3 refinement
-- Message-body ESI character candidate detection with system/catalog/link/count exclusion.
-- Translation protection for confirmed character names so player names are not translated in EN -> CN mode.
-- Color split: ships orange, ESI characters red, non-ship catalog assets/modules purple.
-- ESS highlight boundary fix completed: standalone ESS only, no mid-word tagging.
-- Feed readability polish completed: clearer sans-serif chat font and improved lowercase pilot-handle ESI detection with plural ship exclusions.
-- ESI cache policy updated: negative ESI answers use a 90-day TTL.
-- ESI usability refinement completed: visible last-check diagnostics and character exclusion list for false positives/bad names.
-- ESI exclusion refinement completed: common individual words such as Link/Jump/Fleet/Gate/ISK/Ship are excluded from character detection and local DB checks.
-- ESI UI rendering fix completed: cached/resolved characters hydrate onto rows so logs and screen stay consistent.
-- ESI action diagnostics improved: menu checks now show dialogs/logs instead of silently queueing work.
-- Live monitor reliability hotfix completed: monitor parsing no longer performs blocking online translation before emitting rows.
-- Live monitor DB-stall hotfix completed: runtime monitor uses compact catalog-only enrichment and avoids large SQLite translation DB lookups.
-- Feed-render stability hotfix completed: ESS highlighting is Tcl-safe and render errors are logged without stopping queue draining.
-- Feed readability hotfix completed: neutral sender names and extra common-word highlight exclusions (`Red`, `enemy`).
-- ESI interaction hotfix completed: selected text can be explicitly added as an ESI character and applied to existing rows.
-- ESI detection refinement: adjacent chat-name chunks are now split into exact candidates, including uppercase pilot names.
-- Exclusion list generalized: one list now suppresses all recognition/highlight colors, not only ESI characters.
-- Appearance/display options completed: theme presets, font/color/bold/background controls, preview, reset defaults, and opacity slider.
-- Ongoing alias tuning: added shorthand ship aliases for Stabber and Caracal Navy Issue from real intel usage.
-- Appearance polish completed: color swatches are shown beside editable hex codes.
-- Mobile-style default layout completed: first launch now uses a narrow/tall side-panel window.
-
-### Completed v0.3 display/accessibility polish
-- Default window layout is now narrow/tall for side-panel use.
-- Appearance / Display Options is implemented with presets, font controls, opacity, swatches plus hex codes, per-category colors, bold toggles, optional background rectangles, and live preview.
-- General Exclusion List is implemented and applies globally to recognition/highlight rules.
-
-### Future display ideas
-- Optional import/export theme files.
-- Optional per-channel appearance presets.
-- More colorblind-friendly preset tuning after user feedback.
-- Possible click-through overlay mode later, but not planned until normal transparency/overlay use is stable.
-- Default exclusion bundling completed: current General Exclusion List entries are shipped as seeded defaults.
-- ESI starter-cache bundling completed: verified local character entities are shipped as seeded defaults.
-
-- Completed: bundle starter free-text translation cache for faster first-run/offline reuse of known translations.
-- Completed: initial manual review/curation pass for bundled starter translation cache.
-- Completed: Appearance dialog fixed footer for mobile-style layouts.
-- Completed: non-destructive channel add workflow and automatic newly active channel tabs.
-- Completed: compact one-line mobile channel bar replacing stacked tab rows.
-### Completed: Settings Center
-
-- Centralized most app configuration into a dedicated Settings Center with sidebar navigation.
-- Added pages for General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support.
-- Reduced menu clutter by keeping menus focused on runtime actions and shortcuts into Settings.
-
-Future settings polish:
-
-- Inline editing for channel lists and exclusions directly inside the Settings Center.
-- Import/export profile bundles for appearance, exclusions, and starter data.
-- More detailed live monitor diagnostics inside the Diagnostics page.
-## Must-Have Planned Feature: LAN Web Viewer / Phone View
-
-Signal Bridge should support an optional local LAN web viewer so the app output can be viewed from another device on the same network, such as a phone, tablet, laptop, or second PC.
-
-### User Goal
-
-When enabled, Signal Bridge should serve a lightweight read-only webpage that mirrors the live feed. The app should display:
-
-- a local network URL, for example `http://192.168.x.x:port/`,
-- a QR code that can be scanned from a phone,
-- basic connection/status information,
-- a clear Stop Sharing button.
-
-This lets users keep the main app on the EVE machine while reading translated intel from another screen or phone on the same LAN.
-
-### Required Behavior
-
-- Disabled by default.
-- User must explicitly enable LAN sharing.
-- Bind to LAN only when enabled; no public internet service by default.
-- Show the exact URL and QR code in the app.
-- Stream live feed rows to connected browsers.
-- Preserve the same selected view/filter when practical, or provide simple browser-side channel filtering.
-- Keep the webpage lightweight and mobile-friendly.
-- Work on phones and other PCs on the same LAN.
-- Continue working if internet is down, because it is local network only.
-- Stop the web server cleanly when disabled or when the app exits.
-
-### Security / Privacy Requirements
-
-- Clearly warn that anyone on the same LAN with the URL can view the feed unless a protection option is enabled.
-- Prefer a random session token in the URL by default, for example `http://192.168.x.x:port/?token=...`.
-- Optional PIN/passphrase protection later.
-- Do not expose cache files, settings, logs, ESI tokens, or local filesystem paths through the webpage.
-- Read-only viewer only for the first version; no remote control from the phone.
-- Localhost/LAN only; no cloud relay.
-
-### Suggested UI Location
-
-Add this under the Settings Center:
-
-```text
-Settings > Settings... > LAN Web Viewer
-```
-
-Controls:
-
-- Enable LAN Web Viewer
-- Port setting, default automatic or `8765`
-- Show URL
-- Show QR code
-- Copy URL
-- Regenerate token
-- Stop Sharing
-- Connected clients count
-
-Add a quick menu shortcut later if useful:
-
-```text
-Tools > LAN Web Viewer...
-```
-
-### Suggested Implementation
-
-- Use Python standard library or a very small dependency-free HTTP/WebSocket/SSE server.
-- Prefer Server-Sent Events for simple live feed streaming if adequate.
-- Serve a static mobile-friendly HTML page from memory.
-- Keep only a bounded recent-feed buffer, for example last 200-500 rendered rows.
-- Send new feed rows to connected clients as JSON.
-- Reuse existing sanitized/rendered row data; do not expose raw private internals.
-- Generate QR code locally if a small bundled QR implementation is acceptable; otherwise use a simple dependency-light QR module during packaging.
-
-### First Release Scope
-
-Version target: future `v0.4` or `v0.3.x` if small enough.
-
-Initial version should include:
-
-- start/stop LAN viewer,
-- URL display,
-- QR code display,
-- mobile-friendly live feed page,
-- read-only streaming,
-- tokenized URL,
-- basic diagnostics/logging.
-
-Do not include remote control, public internet relay, account login, or ESI/token management through the web page in the first version.
-### LAN Web Viewer Theme Matching Requirement
-
-The LAN Web Viewer should visually match the desktop Signal Bridge feed as closely as practical.
-
-Required behavior:
-
-- Reuse the current app appearance settings for the browser view.
-- Match normal feed text color, background color, font family, font size, and opacity-friendly contrast where practical.
-- Match per-category styles for systems, ESI characters, ships, modules/assets, ESS, translation text, timestamps, links, and sender neutrality.
-- Respect user choices for color, bold, and background highlight styles.
-- Respect General Exclusion List behavior so hidden/excluded terms are not highlighted in the browser view either.
-- Keep the browser view mobile-friendly even when using the same theme.
-- Provide a browser fallback theme if a local font is unavailable on the phone.
-- Include a refresh/sync mechanism so changing Appearance settings in the app updates or reloads the web viewer theme.
-
-Suggested implementation:
-
-- Export the active appearance settings as a small theme JSON object for the web page.
-- Convert Signal Bridge text-tag styles into CSS classes, for example `.system`, `.esi-character`, `.ship`, `.asset`, `.ess`, `.translation`, `.timestamp`, `.link`.
-- Send feed rows with semantic spans instead of only plain text so the browser can apply the same colors/backgrounds.
-- Use CSS variables generated from the app theme, such as `--feed-bg`, `--text-fg`, `--system-fg`, and `--ship-bg`.
-- Keep the first version read-only; theme sync should not allow remote settings edits.
-
-### Intel History add-on MVP foundation — started
-- Initial add-on package skeleton exists under `addons/intel-history`.
-- Same-EXE guarded loader, event bridge, SQLite sighting storage, dedupe, and health/status display are implemented.
-- Next milestones: Pilot Intelligence Card v0.1, manual flags, Hot Drop Risk auto flag, zKill enrichment, import/export packs, and Intel Query Service / LLM entry point.
-
-- Completed first Pilot Info Card and Manual Flags feed slices: feed right-click opens compact pilot summaries, supports manual flag editing/quick flag actions, renders compact badges beside flagged pilots, and Do Not Track prevents future local history recording. Next milestones: richer threat reasons, auto Hot Drop Risk flags, zKill enrichment, import/export intel packs, and Intel Query Service / LLM entry point.
-
-- Completed Intel History Auto Hot Drop Risk v0.1: high-confidence cyno ship classes create temporary explainable flags.
-- Future tuning: expose Hot Drop Risk ship classes/duration in settings, add optional watch-only classes such as HICs/Covert Ops, and add dismiss/convert controls for auto flags.
-- Completed first UI polish pass covering window chrome/icons, dialog placement, Pilot Info header/date cleanup, context-aware right-click menus, and translation-toggle redraw responsiveness. Remaining polish includes deeper contrast audit, Argos preferred-engine/status flow, more iconography, and optional zKill card integration.
-
-
-### Settings flow polish
-- Added Translation settings controls for preferred engine and fallback mode: Auto, Argos Offline, Google Online, Google then Argos, Argos then Google, Offline only, and Online only.
-- Added visible Argos runtime/model status, Install / Repair Argos, Refresh Argos Status, and Test Translation controls.
-- Simplified the ESI settings page by replacing noisy raw cache output with friendly recognition, OAuth, known entity, exclusion, negative-answer, and last-check status rows.
-- Added an About / Support donation section with copy buttons for the in-game ISK recipient and donation message.
-
-
-### Argos safe-mode update
-- Temporarily disabled direct in-process Argos status probing, install/repair, and translation calls after the current Argos runtime path was found to hang/crash the Tk app.
-- Translation defaults now stay on Auto/Google (`online-only`) until Argos is reintroduced through a safe optional add-on/offline package flow with isolated install, model checks, and translation execution.
-- Settings still explains the disabled Argos state instead of silently hanging.
-
-### UI hang hardening and local data refresh
-- Hardened feed redraw so rendering never performs blocking machine translation, network calls, or offline MT work on the Tk UI thread.
-- `Translated only` and redraw now show only precomputed row translations instead of triggering live translation work during display.
-- Synced current local General Exclusion List and local translation cache into bundled starter data files with refreshed SHA256 checksums.
-- This keeps the app responsive and improves first-run defaults without overwriting existing user cache/settings.
-
-### Feed text normalization polish
-- Normalized common shorthand `clr` to `clear` in visible feed/copy-visible text.
-- Removed noisy display punctuation `(`, `)`, and `*` from rendered feed text while keeping raw stored chat rows unchanged.
-
-### Right-click Pilot Info targeting fix
-- Fixed context-menu targeting so Pilot Info and pilot flag actions use the exact clicked pilot text span, not the sender or first ESI entity on the row.
-- Right-clicking systems, ships/items, or generic row text no longer falls back to Pilot Info for the sender.
-- Added stricter clicked-span detection for multi-word pilot names such as `Bigus Dingus DOI`.
-- Diagnostics foundation: structured logs, UI stall watchdog, redraw/queue timing, and richer Settings > Diagnostics summaries are now in place; next diagnostics work can add per-row translation/entity/right-click decision traces and diagnostic bundle export.
-- Diagnostic tracing expanded with feed-row translation decisions, entity recognition summaries, and click-context traces. Future work: diagnostic ZIP export and deeper ESI/Intel History traces.
-- Completed first pass of the segmentation/render-safety refactor: structured row segments, separated multi-event intel display, segment diagnostics, and render path safety. Next work: chunked redraw and deeper segment/entity quality tuning.
-- Refined segmentation display to keep normal rows chat-like and reserve split rendering for multi-event rows.
-- Added LLM-friendly architecture foundation: project map, invariants, contracts, fixture checks, and maintainability-first refactor guidance.
-- Completed first pass of chunked/cancellable redraw; continue monitoring diagnostics for remaining queue/render stalls.
-- Began RenderRow/render-model extraction by moving feed display-line decisions into a pure helper behind fixture checks.
-- Added safe background free-text translation queue as the first translation-job pipeline step.
-- Added Pilot Info v2 local snapshot UI and manual zKill sync as a step toward richer pilot intelligence.
-- Pilot Info follow-up: tactical zKill priority, No Visual/status normalization, and fixed-footer scrollable card layout are now implemented in source.
-
-- Alias workflow: continue improving user-editable ship/system aliases, bad translation cleanup, and safe canonical display in the live feed.
-
-- Alias workflow: keep alias replacement fast and render-safe with cached user/manual rules, canonical system display, and diagnostics for slow alias rendering.
-
-- Alias workflow: continue validating multilingual intel where Latin system/ship shorthand is adjacent to Chinese characters or punctuation.
-- Completed MVP groundwork for cache-first translation management: manual exact overrides, dedicated cache page, local-first lookup, fallback controls, and failed-translation cooldowns. Phrase-level editing remains a future refinement.
-- Refined Translation Cache Manager usability with split original/translated views, live filtering, and inline auto-save editing for manual fixes.
-- Continue improving Chinese shorthand/entity correction coverage from live intel samples.
-- Continue expanding curated Chinese localized ship/version alias coverage from live intel samples and translation artifacts.
-- Continue improving CJK tokenization so catalog-known Chinese ship names resolve reliably inside mixed intel lines.
-- Maintain catalog-driven localized ship alias extraction with a small curated shorthand layer for player slang.
-
-- Translation Cache UX: completed a focused editor usability pass so translation corrections can be made from visible Original/English edit boxes instead of a debug-style cache list.
-
-- Pilot Intelligence: completed a focused accuracy pass for ID-first Pilot Info opening and more robust zKill sync/display diagnostics.
-
+| Date | Decision |
+|------|----------|
+| 2026-07-10 | Path to 1.0 centers on: (1) full look-and-feel, (2) real tabs, (3) pilot intel first-class, (4) LAN phone viewer with display parity |
+| 2026-07-10 | **All four pillars are the v0.7 scope** (single public cut); 0.8+ hardens; 1.0 is recommendable/stability |
+| 2026-07-10 | **Theme: Void Tactical (Mockup A)** approved; Amber Fleet (B) rejected — spec `docs/superpowers/specs/2026-07-10-v0.7-void-tactical-theme.md` |
+| 2026-07-10 | Framework stays Tk + `sb_ui` for 0.7/1.0; no Tauri migration as the vehicle for the visual update |
+| 2026-07-02 | Earlier UI foundation (Settings shell, components) remains the base to extend — main shell was not fully modernized yet |

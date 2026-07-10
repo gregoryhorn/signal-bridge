@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=430, initial-scale=1" />
+  <title>Signal Bridge v0.7 — Theme mockup A (Void Tactical)</title>
+  <style>
+    /* Theme A — Void Tactical
+       Space-ops side panel: deep navy void, cool cyan scan accent,
+       entity colors for fleet readability. Not generic dashboard green.
+    */
+    :root {
+      --bg-void: #070a0f;
+      --bg-chrome: #0c121a;
+      --bg-surface: #121a24;
+      --bg-elevated: #182230;
+      --bg-feed: #0a0e14;
+      --border: #243041;
+      --border-strong: #334155;
+      --text: #e8eef6;
+      --text-secondary: #9aa8b8;
+      --text-muted: #6b7a8c;
+      --accent: #3d9cf0;
+      --accent-soft: rgba(61, 156, 240, 0.14);
+      --accent-line: #5ec8ff;
+      --success: #5ddea0;
+      --warning: #e8c547;
+      --danger: #f07178;
+      --entity-system: #f0d060;
+      --entity-ship: #f0a060;
+      --entity-pilot: #ff7b72;
+      --entity-link: #79c0ff;
+      --entity-clear: #7ee787;
+      --entity-count: #c4b5fd;
+      --tab-active-bg: #1a2838;
+      --radius: 6px;
+      --radius-sm: 4px;
+      --font-ui: "Segoe UI", system-ui, sans-serif;
+      --font-feed: "Segoe UI", system-ui, sans-serif;
+      --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1d24;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 32px;
+      font-family: var(--font-ui);
+      color: var(--text);
+    }
+
+    .stage-label {
+      position: absolute;
+      top: 16px;
+      left: 24px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8b95a5;
+    }
+
+    /* Window chrome */
+    .app {
+      width: 430px;
+      height: 720px;
+      background: var(--bg-void);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 24px 64px rgba(0,0,0,0.55),
+        0 0 80px rgba(61, 156, 240, 0.06);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .titlebar {
+      height: 32px;
+      background: var(--bg-chrome);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 10px 0 12px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .titlebar .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #3a4555;
+    }
+    .titlebar .title {
+      flex: 1;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .titlebar .win-btns { display: flex; gap: 6px; color: var(--text-muted); font-size: 10px; }
+
+    .menubar {
+      height: 28px;
+      background: var(--bg-chrome);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .menubar span {
+      font-size: 11px;
+      color: var(--text-secondary);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .menubar span.hi {
+      color: var(--text);
+      background: var(--accent-soft);
+    }
+
+    .header {
+      background: var(--bg-chrome);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px 8px;
+      flex-shrink: 0;
+    }
+    .header-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .brand {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+    .brand em {
+      font-style: normal;
+      color: var(--accent-line);
+      font-weight: 500;
+      font-size: 11px;
+      margin-left: 6px;
+      opacity: 0.9;
+    }
+    .status-pill {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--success);
+      background: rgba(93, 222, 160, 0.1);
+      border: 1px solid rgba(93, 222, 160, 0.25);
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    /* Real tabs */
+    .tabs {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 4px;
+      background: var(--bg-chrome);
+    }
+    .tab {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px 9px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      cursor: default;
+      max-width: 120px;
+      white-space: nowrap;
+    }
+    .tab .name { overflow: hidden; text-overflow: ellipsis; }
+    .tab.inactive:hover {
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.03);
+    }
+    .tab.active {
+      color: var(--text);
+      background: var(--tab-active-bg);
+      font-weight: 600;
+    }
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 8px; right: 8px; bottom: 0;
+      height: 2px;
+      background: var(--accent-line);
+      border-radius: 2px 2px 0 0;
+      box-shadow: 0 0 8px rgba(94, 200, 255, 0.55);
+    }
+    .badge {
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+    }
+    .tab .x {
+      opacity: 0.35;
+      font-size: 12px;
+      line-height: 1;
+      margin-left: 2px;
+    }
+    .tab.active .x { opacity: 0.55; }
+    .tab-overflow {
+      margin-left: auto;
+      padding: 6px 10px 8px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Feed */
+    .feed {
+      flex: 1;
+      background: var(--bg-feed);
+      overflow: hidden;
+      padding: 8px 0 8px 10px;
+      font-family: var(--font-feed);
+      font-size: 12.5px;
+      line-height: 1.55;
+      position: relative;
+    }
+    .feed::before {
+      /* subtle left scan edge */
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, transparent, var(--accent-line), transparent);
+      opacity: 0.25;
+    }
+    .row {
+      padding: 3px 12px 3px 6px;
+      border-radius: 3px;
+    }
+    .row:hover { background: rgba(255,255,255,0.025); }
+    .ts {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-right: 6px;
+    }
+    .sender { color: var(--text-secondary); }
+    .sep { color: var(--text-muted); margin: 0 4px; }
+    .system { color: var(--entity-system); font-weight: 600; }
+    .ship { color: var(--entity-ship); font-weight: 600; }
+    .pilot { color: var(--entity-pilot); font-weight: 600; }
+    .link { color: var(--entity-link); text-decoration: underline; text-underline-offset: 2px; }
+    .clear { color: var(--entity-clear); }
+    .count { color: var(--entity-count); font-weight: 600; }
+    .body { color: var(--text); }
+    .translated {
+      display: block;
+      margin: 1px 0 4px 52px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      border-left: 2px solid var(--border);
+      padding-left: 8px;
+    }
+
+    .statusbar {
+      height: 26px;
+      background: var(--bg-chrome);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 10px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .statusbar .dot-live {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+    }
+    .statusbar .grow { flex: 1; }
+    .statusbar .accent-txt { color: var(--accent-line); }
+
+    /* Legend card next to mock */
+    .legend {
+      width: 280px;
+      background: #12151c;
+      border: 1px solid #2a3140;
+      border-radius: 10px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    .legend h1 {
+      font-size: 14px;
+      font-weight: 650;
+      margin-bottom: 4px;
+    }
+    .legend .sub {
+      font-size: 11px;
+      color: #8b95a5;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    .legend h2 {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #6b7a8c;
+      margin: 14px 0 8px;
+    }
+    .swatch-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 5px 0;
+      font-size: 11px;
+      color: #c5cdd8;
+    }
+    .sw {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+    }
+    .hex {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #6b7a8c;
+      margin-left: auto;
+    }
+    .bullets {
+      font-size: 11px;
+      color: #9aa8b8;
+      line-height: 1.5;
+      padding-left: 14px;
+    }
+    .bullets li { margin: 4px 0; }
+    .tag {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-line);
+      background: var(--accent-soft);
+      border: 1px solid rgba(61,156,240,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage-label">Signal Bridge · v0.7 theme proposal · Mockup A “Void Tactical”</div>
+
+  <div class="app" id="app">
+    <div class="titlebar">
+      <div class="dot"></div>
+      <div class="title">Signal Bridge</div>
+      <div class="win-btns">— □ ×</div>
+    </div>
+    <div class="menubar">
+      <span>File</span>
+      <span>Channels</span>
+      <span class="hi">Pilot Intel</span>
+      <span>Settings</span>
+      <span>View</span>
+      <span>Help</span>
+    </div>
+    <div class="header">
+      <div class="header-row">
+        <div class="brand">Signal Bridge<em>v0.7</em></div>
+        <div class="status-pill">● Monitoring</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active"><span class="name">All</span></div>
+        <div class="tab inactive"><span class="name">Corp</span><span class="badge">3</span><span class="x">×</span></div>
+        <div class="tab inactive"><span class="name">Fleet</span><span class="x">×</span></div>
+        <div class="tab inactive"><span class="name">Local</span><span class="x">×</span></div>
+        <div class="tab-overflow">›</div>
+      </div>
+    </div>
+    <div class="feed">
+      <div class="row">
+        <span class="ts">21:04</span><span class="sender">Elko Black</span><span class="sep">›</span>
+        <span class="system">WBR5-R</span> <span class="clear">clear</span>
+      </div>
+      <div class="row">
+        <span class="ts">21:04</span><span class="sender">Ace Hog</span><span class="sep">›</span>
+        <span class="system">TVN-FM</span> <span class="sep">·</span>
+        <span class="pilot">Natsumi</span> <span class="sep">·</span>
+        <span class="ship">Blitz</span>
+      </div>
+      <div class="row">
+        <span class="ts">21:05</span><span class="sender">Zebi-lafrite</span><span class="sep">›</span>
+        <span class="system">T-GCGL</span> <span class="count">15+</span>
+        <span class="ship">Astero</span> <span class="ship">Blitz</span>
+      </div>
+      <div class="translated">15+ in T-GCGL — Astero, Blitz…</div>
+      <div class="row">
+        <span class="ts">21:05</span><span class="sender">Blood sharp</span><span class="sep">›</span>
+        <span class="system">VI2K-J</span> <span class="sep">·</span>
+        <span class="pilot">Alathema Ahashion</span>
+      </div>
+      <div class="row">
+        <span class="ts">21:06</span><span class="sender">Youlele</span><span class="sep">›</span>
+        <span class="system">P3EN-E</span> <span class="sep">·</span>
+        <span class="pilot">Norrin Radd</span> <span class="sep">·</span>
+        <span class="ship">Flycatcher</span> <span class="ship">Sabre</span>
+      </div>
+      <div class="row">
+        <span class="ts">21:06</span><span class="sender">Larghetas</span><span class="sep">›</span>
+        <span class="pilot">charly5</span> <span class="count">+2</span> in
+        <span class="system">YMJG-4</span>
+      </div>
+      <div class="row">
+        <span class="ts">21:07</span><span class="sender">Mikhail OneWish</span><span class="sep">›</span>
+        <span class="count">+15</span> <span class="ship">Osprey Navy Issue</span>s in pm
+      </div>
+      <div class="row">
+        <span class="ts">21:07</span><span class="sender">Zebi-lafrite</span><span class="sep">›</span>
+        <span class="link">https://dscan.info/v/8fdb…</span>
+        <span class="system">T-GCGL</span>
+      </div>
+      <div class="row">
+        <span class="ts">21:08</span><span class="sender">Elko Black</span><span class="sep">›</span>
+        <span class="system">8TPX-N</span> <span class="sep">·</span>
+        <span class="pilot">Shadow Demon King</span>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span class="dot-live"></span>
+      <span>live</span>
+      <span class="grow"></span>
+      <span class="accent-txt">LAN off</span>
+      <span>4 ch</span>
+      <span>Auto→EN</span>
+    </div>
+  </div>
+
+  <aside class="legend">
+    <div class="tag">Proposal A</div>
+    <h1>Void Tactical</h1>
+    <p class="sub">Modern side-panel for EVE fleet intel: layered void surfaces, cyan scan accent, high-contrast entity colors. Tabs act like real tabs.</p>
+
+    <h2>Surfaces</h2>
+    <div class="swatch-row"><span class="sw" style="background:#070a0f"></span> Void bg<span class="hex">#070A0F</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#0c121a"></span> Chrome<span class="hex">#0C121A</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#121a24"></span> Surface<span class="hex">#121A24</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#0a0e14"></span> Feed<span class="hex">#0A0E14</span></div>
+
+    <h2>Accent & type</h2>
+    <div class="swatch-row"><span class="sw" style="background:#3d9cf0"></span> Accent<span class="hex">#3D9CF0</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#5ec8ff"></span> Scan line<span class="hex">#5EC8FF</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#e8eef6"></span> Primary text<span class="hex">#E8EEF6</span></div>
+
+    <h2>Entities (feed)</h2>
+    <div class="swatch-row"><span class="sw" style="background:#f0d060"></span> System<span class="hex">#F0D060</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#f0a060"></span> Ship<span class="hex">#F0A060</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#ff7b72"></span> Pilot<span class="hex">#FF7B72</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#79c0ff"></span> Link<span class="hex">#79C0FF</span></div>
+    <div class="swatch-row"><span class="sw" style="background:#7ee787"></span> Clear / ok<span class="hex">#7EE787</span></div>
+
+    <h2>Signature</h2>
+    <ul class="bullets">
+      <li>Cyan underline on active tab + soft glow</li>
+      <li>Unread badges on inactive tabs</li>
+      <li>Mono timestamps; UI chrome Segoe</li>
+      <li>Pilot Intel first-class in menu</li>
+      <li>Status: live · LAN · channels · mode</li>
+    </ul>
+  </aside>
+</body>
+</html>

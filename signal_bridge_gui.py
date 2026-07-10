@@ -75,7 +75,9 @@ from sb_ui import components as sb_components
 from sb_ui import markdown_view as sb_markdown
 from sb_ui import theme as sb_theme
 from sb_ui import windows as sb_windows
+from sb_ui.feed import apply_base_feed_colors, default_feed_background, default_feed_foreground
 from sb_ui.settings_center import SettingsShell
+from sb_ui.shell import build_header_bar, build_main_layout, menu_colors
 from pathlib import Path
 from typing import Callable
 
@@ -2954,26 +2956,27 @@ def MonitorThread(outq, stop_event, status, channels, replay_today: bool = False
     )
 
 
+# Tab strip colors — Void Tactical (sb_ui.theme); keys kept for existing tab builders.
 TAB_THEME = {
-    "bar_bg": "#0b0f14",
-    "bar_border": "#162231",
-    "tab_bg": "#111821",
-    "tab_fg": "#c9d2dc",
-    "tab_active_bg": "#23405c",
-    "tab_active_fg": "#ffffff",
-    "tab_hover_bg": "#1a2b3c",
-    "tab_border": "#314257",
-    "tab_active_border": "#5ad7ff",
-    "tab_unread_bg": "#1b2735",
-    "tab_unread_fg": "#ffffff",
-    "unread_bg": "#ffb84d",
-    "unread_fg": "#0b0f14",
-    "alert_bg": "#ff5a5f",
-    "close_fg": "#ff8a8f",
+    "bar_bg": sb_theme.COLORS["bg"],
+    "bar_border": sb_theme.COLORS["border"],
+    "tab_bg": sb_theme.COLORS["bg_panel"],
+    "tab_fg": sb_theme.COLORS["fg_secondary"],
+    "tab_active_bg": sb_theme.COLORS["tab_active_bg"],
+    "tab_active_fg": sb_theme.COLORS["fg_bright"],
+    "tab_hover_bg": sb_theme.COLORS["bg_elevated"],
+    "tab_border": sb_theme.COLORS["border"],
+    "tab_active_border": sb_theme.COLORS["accent_line"],
+    "tab_unread_bg": sb_theme.COLORS["bg_elevated"],
+    "tab_unread_fg": sb_theme.COLORS["fg_bright"],
+    "unread_bg": sb_theme.COLORS["accent"],
+    "unread_fg": sb_theme.COLORS["fg_bright"],
+    "alert_bg": sb_theme.COLORS["error"],
+    "close_fg": sb_theme.COLORS["error"],
     "close_hover_bg": "#5c1f28",
-    "empty_fg": "#8b98a8",
-    "restore_bg": "#162231",
-    "restore_fg": "#9be28f",
+    "empty_fg": sb_theme.COLORS["fg_muted"],
+    "restore_bg": sb_theme.COLORS["bg_elevated"],
+    "restore_fg": sb_theme.COLORS["success"],
 }
 
 
@@ -3078,7 +3081,7 @@ class SignalBridgeGui:
         # Users can still resize freely, and their OS/window-manager placement persists normally.
         self.root.geometry("430x720")
         self.root.minsize(360, 420)
-        self.root.configure(bg="#0b0f14")
+        self.root.configure(bg=sb_theme.COLORS["bg"])
         self.always_on_top = tk.BooleanVar(value=bool(SETTINGS.get("always_on_top", True)))
         self.compact = tk.BooleanVar(value=bool(SETTINGS.get("compact_mode", True)))
         # When enabled, DB-localized Chinese ship names are shown as English only.
@@ -3210,8 +3213,9 @@ class SignalBridgeGui:
 
     def _build_menu(self):
         tk = self.tk
-        menubar = tk.Menu(self.root, bg="#111821", fg="#d7dde5", tearoff=False)
-        file_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        mc = menu_colors()
+        menubar = tk.Menu(self.root, bg=mc["bg"], fg=mc["fg"], tearoff=False)
+        file_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
         file_menu.add_command(label="Start Monitoring", command=self.start_monitor)
         file_menu.add_command(label="Stop Monitoring", command=self.stop_monitor)
         file_menu.add_separator()
@@ -3220,7 +3224,7 @@ class SignalBridgeGui:
         file_menu.add_command(label="Exit", command=self.on_exit)
         menubar.add_cascade(label="File", menu=file_menu)
 
-        channels_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        channels_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
         channels_menu.add_command(label="Channel Settings...", command=lambda: self.show_settings_center("Channels"))
         channels_menu.add_command(label="Add / Open Channels...", command=self.choose_channels)
         channels_menu.add_command(label="Restore Hidden Tabs...", command=self.restore_hidden_tabs_dialog)
@@ -3228,7 +3232,15 @@ class SignalBridgeGui:
         channels_menu.add_command(label="Close All Active Channels", command=self.close_selected_channels)
         menubar.add_cascade(label="Channels", menu=channels_menu)
 
-        settings_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        # Pilot Intel first-class (v0.7 product IA); full page work continues in Phase C.
+        pilot_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
+        pilot_menu.add_command(label="Pilot Recognition Rules...", command=lambda: self.show_settings_center("Recognition Rules"))
+        pilot_menu.add_command(label="Add-ons / Intel History...", command=lambda: self.show_settings_center("Add-ons"))
+        pilot_menu.add_separator()
+        pilot_menu.add_command(label="Help: Pilot Info...", command=lambda: self.show_help_center("Pilot Info"))
+        menubar.add_cascade(label="Pilot Intel", menu=pilot_menu)
+
+        settings_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
         settings_menu.add_command(label="Settings...", command=self.show_settings_center)
         settings_menu.add_separator()
         settings_menu.add_command(label="Appearance...", command=lambda: self.show_settings_center("Appearance"))
@@ -3238,7 +3250,7 @@ class SignalBridgeGui:
         settings_menu.add_command(label="Add-ons...", command=lambda: self.show_settings_center("Add-ons"))
         menubar.add_cascade(label="Settings", menu=settings_menu)
 
-        view_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        view_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
         view_menu.add_checkbutton(label="Always on Top", variable=self.always_on_top, command=self.apply_topmost)
         view_menu.add_checkbutton(label="Show Timestamps", variable=self.show_timestamps, command=self.persist_and_redraw)
         view_menu.add_checkbutton(label="Show Channel Names", variable=self.show_channel_names, command=self.persist_and_redraw)
@@ -3246,14 +3258,14 @@ class SignalBridgeGui:
         view_menu.add_command(label="Appearance Settings...", command=lambda: self.show_settings_center("Appearance"))
         menubar.add_cascade(label="View", menu=view_menu)
 
-        tools_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        tools_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
         tools_menu.add_command(label="Manual ESI Character Check...", command=self.manual_esi_check_dialog)
         tools_menu.add_command(label="Copy Diagnostics", command=self.copy_diagnostics)
         tools_menu.add_command(label="Open Logs Folder", command=self.open_logs_folder)
         tools_menu.add_command(label="Open Chatlog Folder", command=self.open_folder)
         menubar.add_cascade(label="Tools", menu=tools_menu)
 
-        help_menu = tk.Menu(menubar, tearoff=False, bg="#111821", fg="#d7dde5")
+        help_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
         help_menu.add_command(label="Help Topics...", command=self.show_help_center)
         help_menu.add_separator()
         help_menu.add_command(label="Check for Updates", command=lambda: self.check_for_updates(manual=True))
@@ -3264,26 +3276,23 @@ class SignalBridgeGui:
         self.root.config(menu=menubar)
 
     def _build_widgets(self):
-        tk = self.tk
-        top = tk.Frame(self.root, bg="#111821")
-        top.pack(fill="x")
-        self.title_label = tk.Label(top, text=f"{APP_NAME} v{APP_VERSION}", bg="#111821", fg="#d7dde5", font=("Consolas", 11, "bold"), padx=8, pady=5)
-        self.title_label.pack(side="left")
-        # Color legend intentionally hidden; colors are documented in Help/About and should not clutter the header.
-        self.mode_label = tk.Label(top, text="", bg="#111821", fg="#5ad7ff", font=("Segoe UI", 9), padx=8)
-        self.status_label = tk.Label(top, text="Idle", bg="#111821", fg="#8b98a8", font=("Segoe UI", 9), padx=8)
-        self.status_label.pack(side="right")
-        self.tab_bar = tk.Frame(self.root, bg=TAB_THEME["bar_bg"], padx=6, pady=4)
-        self.tab_bar.pack(fill="x")
+        layout = build_main_layout(self.root, create_feed=True, feed_font=self.feed_font())
+        chrome = build_header_bar(
+            layout.header_host,
+            title=f"{APP_NAME} v{APP_VERSION}",
+            status="Idle",
+        )
+        chrome.frame.pack(fill="x")
+        self.title_label = chrome.title_label
+        self.mode_label = chrome.mode_label
+        self.status_label = chrome.status_label
+        # Color legend intentionally hidden; colors are documented in Help/About.
+
+        self.tab_bar = layout.tabs_host
         self.tab_bar.bind("<Configure>", self.on_tab_bar_configure)
         self.update_channel_tabs()
-        frame = tk.Frame(self.root, bg="#0b0f14")
-        frame.pack(fill="both", expand=True)
-        self.text = tk.Text(frame, relief="flat", wrap="word", font=self.feed_font(), padx=8, pady=8, undo=False)
-        scroll = tk.Scrollbar(frame, orient="vertical", command=self.text.yview)
-        self.text.configure(yscrollcommand=scroll.set)
-        self.text.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+
+        self.text = layout.feed_text
         self.configure_feed_tags()
         self.text.bind("<Button-3>", self.show_feed_context_menu)
         self.text.configure(state="disabled")
@@ -3866,9 +3875,15 @@ class SignalBridgeGui:
         return opts
 
     def configure_feed_tags(self):
-        bg = self.safe_color(self.appearance.get("background", "#070b10"), "#070b10")
-        fg = self.safe_color(self.appearance.get("foreground", "#d7dde5"), "#d7dde5")
-        self.text.configure(bg=bg, fg=fg, insertbackground=fg, font=self.feed_font())
+        bg = self.safe_color(
+            self.appearance.get("background", default_feed_background()),
+            default_feed_background(),
+        )
+        fg = self.safe_color(
+            self.appearance.get("foreground", default_feed_foreground()),
+            default_feed_foreground(),
+        )
+        apply_base_feed_colors(self.text, bg=bg, fg=fg, font=self.feed_font())
         for tag in STYLE_TAGS:
             self.text.tag_configure(tag, **self.tag_options(tag))
         for tag in ("time", "sender", "system", "asset", "module", "ess", "link", "esi", "error"):

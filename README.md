@@ -84,7 +84,7 @@ Signal Bridge v0.5 starts new portable installs from clean runtime/cache data wh
 - Use **Settings > Filters** for keyword/sender filters and Local spam controls.
 - Use **Settings > Recognition Rules** (or Tools > Recognition Rules) for ignored pilots, highlight exclusions, and noise words.
 - Use `Help > Check for Updates` to manually check the latest GitHub release.
-- See [ROADMAP.md](ROADMAP.md) for planned work including LAN viewer, UI polish, automation, signing, and Intel History improvements.
+- See [ROADMAP.md](ROADMAP.md): **v0.7** targets full look-and-feel, real tabs, pilot intel as first-class, and LAN phone viewer with desktop display parity (all four in one cut).
 
 ## Optional Intel History add-on
 

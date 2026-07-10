@@ -1,5 +1,9 @@
 ## Unreleased
 
+- **v0.7 plan:** four pillars (look & feel, real tabs, pilot intel first-class, LAN phone viewer) documented in `docs/superpowers/plans/2026-07-10-v0.7-four-pillars.md` with mandatory modular file splits (`sb_ui/shell`, `sb_tabs`, `sb_ui/tabs`, `sb_pilot`, `sb_ui/pilot`, `sb_lan`, `web_lan`).
+- **Theme (approved):** Void Tactical (Mockup A) — tokens in `sb_ui/theme.py`, spec `docs/superpowers/specs/2026-07-10-v0.7-void-tactical-theme.md`, mockup `docs/images/signal-bridge-v0.7-theme-mockup-a.png`.
+- **Shell extract:** `sb_ui/shell` (header + layout slots), `sb_ui/feed` base colors; main window wired through builders; **Pilot Intel** menu cascade added; tab strip colors follow Void Tactical.
+
 ## v0.6 - 2026-07-10
 
 ### Modular contracts, backlog, Settings, Pilot Info
