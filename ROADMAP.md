@@ -1,6 +1,8 @@
-## v0.7 in progress (modular contracts + backlog)
+## Next packaging cut (after merge)
 
-Branch: `feature/contracts-and-backlog`. Target contracts are runtime modules under `sb_contracts/`. Subsystem logic for channels, monitor/backlog, filters/spam, translation detect, highlight, and appearance defaults lives in isolated `sb_*` modules. Phase 3.2–3.7 product items and the Settings per-page design pass are implemented in source. Remaining: merge/release, manual live smoke, optional APP_VERSION cut when packaging.
+Branch `feature/contracts-and-backlog` is **merge-ready** (modular contracts, backlog features, Settings design pass, Pilot Info redesign, EVE phrase promotions). Details: `docs/superpowers/MERGE_PREP.md` and `CHANGELOG.md` Unreleased.
+
+After merge to `main`, a public cut still needs: live smoke (optional), **APP_VERSION** bump, portable ZIP + checksums, `GITHUB_RELEASE.md` / README download links.
 
 ## v0.6 release note
 

@@ -5,7 +5,8 @@ Signal Bridge is currently shipped from the Python/Tk source tree in this reposi
 ## Current live app
 
 - Main app / Tk shell: `signal_bridge_gui.py`
-- Current release line: **v0.6 shipped**; **v0.7 modular backlog** on branch `feature/contracts-and-backlog`
+- Current public release: **v0.6**
+- Merge candidate: branch `feature/contracts-and-backlog` → `main` (see `docs/superpowers/MERGE_PREP.md`); no APP_VERSION bump until packaging
 - Portable packaging: PyInstaller-based Windows ZIP scripts/docs in this repo
 - Runtime logs: `logs/`
 - Local runtime add-ons: `modules/` (not committed)
@@ -49,7 +50,7 @@ EVE chatlog file
 | Text helpers | `sb_text.py` | Strip/truncate without mojibake |
 | Render helpers | `signal_bridge_render_model.py` | Pure visible lines |
 | Settings store | `sb_settings.py` | Typed `SettingsStore` |
-| UI foundation | `sb_ui/*` | theme, components (`danger_card`, …), windows, settings shell, filters page |
+| UI foundation | `sb_ui/*` | theme, components, windows, settings shell, filters page, **pilot_info** card |
 | Intel History | `addons/intel-history` | Optional add-on, fail-isolated |
 | Help | `sb_help.py` + `docs/help/` | Offline topics (10), including Filters |
 | Contracts docs | `docs/contracts/` | Specs; runtime under `sb_contracts/` |

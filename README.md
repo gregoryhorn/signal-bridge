@@ -30,16 +30,21 @@ No installer is required. The ZIP is the standalone portable package; keep the e
 SHA256 checksums are published beside the portable ZIP as `SignalBridge-v0.6-win64-portable.zip.sha256` and `SignalBridge.exe.sha256`.
 
 
-## Unreleased development (source / PR)
+## Unreleased (merge candidate — still **0.6** until packaging)
 
-Shipped **v0.6** remains the public release. Current mainline development (see `CHANGELOG.md` Unreleased and the open PR) adds modular internals and feed hygiene **without a version bump yet**:
+Shipped GitHub release remains **v0.6**. The `main` merge candidate (see `CHANGELOG.md` Unreleased and [PR #1](https://github.com/gregoryhorn/signal-bridge/pull/1)) adds the following **without an APP_VERSION bump**:
 
-- Settings **Filters** (keyword/sender) and Local spam rate limits
-- Optional **startup backlog** window on Start Monitoring (default still live-only)
-- **Auto → EN** multi-language detection (CJK and other non-English via Google auto)
-- Purple **module** highlighting off by default; ships always use ship color
-- Settings nav **Recognition Rules** (was Exclusions); design-pass layout cleanup
-- Pure contracts under `sb_contracts/` and isolated `sb_*` modules for channels, monitor, filters, translation detect, highlight, appearance
+- Settings **Filters** (keyword/sender) and Local spam rate limits  
+- Optional **startup backlog** on Start Monitoring (default still live-only)  
+- **Auto → EN** multi-language detection; English names kept after CJK lines  
+- Curated **EVE phrase overrides** + `scripts/promote_eve_translations.py`  
+- Settings **Recognition Rules** nav (was Exclusions); full Settings design pass  
+- Compact **Pilot Info** card (threat ribbon, less wasted space)  
+- Purple **module** highlighting off by default; ships use ship color  
+- Modular `sb_*` / `sb_contracts` / `sb_ui` layout; portable default DB path  
+- Updated app icon (transparent 1024 source → multi-size ICO)  
+
+Merge prep notes: `docs/superpowers/MERGE_PREP.md`.
 
 ## v0.6 UI foundation and help update
 
@@ -66,7 +71,7 @@ Signal Bridge v0.5 starts new portable installs from clean runtime/cache data wh
 - **Filters** (keyword/sender) and Local spam / ASCII-art rate limiting under Settings > Filters.
 - Solar systems, pilots/characters, ships, optional modules, ESS, URLs, and tactical intel are highlighted separately (module purple off by default).
 - Optional ESI-backed entity detection with local SQLite cache and background-only lookups; new portable installs start with an empty ESI cache.
-- Pilot Info cards with character ID, zKill link/sync, recent local history, manual flags, and optional Intel History add-on support.
+- Compact Pilot Info cards (threat ribbon, local snapshot, cache-first zKill sync, flags, optional Intel History).
 - Intel History add-on code is bundled in the portable app by default, with local data stored under the app folder.
 - Appearance controls for font, opacity, themes, highlight colors, timestamp visibility, and compact side-panel layout.
 - Diagnostics, logs, health/about status, update checks, and local-only settings.

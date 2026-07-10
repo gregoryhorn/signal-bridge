@@ -1,3 +1,23 @@
+# Signal Bridge release notes
+
+## Next cut (draft — after `feature/contracts-and-backlog` merges)
+
+**Do not publish until APP_VERSION is bumped.** Source is still labeled **0.6** until packaging.
+
+Planned highlights (from CHANGELOG Unreleased):
+
+- Modular `sb_*` / `sb_contracts` architecture; portable default DB path  
+- Settings Filters + spam controls; optional startup backlog  
+- Multi-language Auto→EN; CJK lines keep trailing English names  
+- EVE phrase promotions + `scripts/promote_eve_translations.py`  
+- Settings design pass; Recognition Rules nav  
+- Compact Pilot Info redesign  
+- Module purple off by default; refreshed app icon  
+
+See `docs/superpowers/MERGE_PREP.md` for merge and packaging steps.
+
+---
+
 # Signal Bridge v0.6
 
 ## Release summary
