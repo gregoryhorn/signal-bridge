@@ -21,6 +21,33 @@ def test_original_not_character_candidate():
     assert is_probable_character_candidate("translation") is False
 
 
+def test_people_not_character_candidate():
+    assert is_probable_character_candidate("people") is False
+    assert is_probable_character_candidate("People") is False
+    assert is_probable_character_candidate("players") is False
+    db = EveDb(__import__("signal_bridge_gui", fromlist=["DB_PATH"]).DB_PATH, use_sqlite=False)
+    line = "3 people on gate"
+    systems, assets, localized, counts, links, intent = extract_intel(line, db)
+    row = Row(
+        "Corp",
+        "2026-01-01 12:00:00",
+        "Tester",
+        line,
+        systems,
+        assets,
+        localized,
+        counts,
+        links,
+        intent,
+        "",
+        "",
+        "none",
+        "x.log",
+    )
+    cands = [c.casefold() for c in esi_message_candidates_for_row(row)]
+    assert "people" not in cands
+
+
 def test_original_not_in_esi_candidates():
     db = EveDb(__import__("signal_bridge_gui", fromlist=["DB_PATH"]).DB_PATH, use_sqlite=False)
     line = "the original ship was wrong"

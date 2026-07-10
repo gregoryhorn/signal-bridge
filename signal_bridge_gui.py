@@ -1924,6 +1924,10 @@ COMMON_ESI_NOISE = {
     "wait", "hold", "coming", "gone", "left", "right", "north", "south", "east", "west",
     "class", "level", "grade", "type", "types", "item", "items", "module", "modules",
     "capital", "supercarrier", "titan", "fax", "dread", "carrier", "ratting", "mining",
+    # Generic people-words (not pilot names)
+    "people", "person", "persons", "player", "players", "guy", "guys", "dude", "dudes",
+    "man", "men", "woman", "women", "friend", "friends", "group", "groups", "member", "members",
+    "hostiles", "friendlies", "blues", "neutrals", "reds",
 }
 NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",
