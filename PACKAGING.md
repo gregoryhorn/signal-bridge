@@ -56,8 +56,9 @@ The v0.6 portable package keeps the v0.5 clean-data rules and must also include 
 
 The v0.6 portable package must:
 
-- Include full `docs/help/` (10 topics; see `sb_help.HELP_TOPICS`).
+- Include full `docs/help/` (topics in `sb_help.HELP_TOPICS`, including LAN Phone Viewer).
 - Include `data/phrase_overrides.json` and `data/eve_phrase_promotions.json`.
+- Include `web_lan/` for the optional LAN phone viewer static shell.
 - Use `assets/signal_bridge_icon.ico` (regenerated from `signal_bridge_icon_true_transparent_1024.png`).
 - Keep `docs/contracts/` and `docs/superpowers/` as developer docs (optional in the end-user ZIP; `build_portable.ps1` currently copies all of `docs/`).
 - Still exclude local `cache/`, `logs/`, `config/`, tokens, and runtime state.

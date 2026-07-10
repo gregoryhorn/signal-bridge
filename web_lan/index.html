@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Signal Bridge · LAN</title>
+  <link rel="stylesheet" href="styles.css" id="base-css" />
+  <link rel="stylesheet" href="api/theme.css" id="theme-css" />
+</head>
+<body>
+  <header class="chrome">
+    <div class="brand">Signal Bridge <span class="ver">LAN</span></div>
+    <div class="status" id="status">connecting…</div>
+  </header>
+  <div class="filters">
+    <label>
+      Channel
+      <select id="channel">
+        <option value="__ALL__">All</option>
+      </select>
+    </label>
+  </div>
+  <main id="feed" class="feed" aria-live="polite"></main>
+  <footer class="chrome foot">
+    <span id="count">0 rows</span>
+    <span id="clients"></span>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

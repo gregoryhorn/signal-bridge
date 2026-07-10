@@ -249,6 +249,7 @@ def test_all_settings_page_renderers_run(tk_root, app):
         _render_settings_aliases = gui.SignalBridgeGui._render_settings_aliases
         _render_settings_addons = gui.SignalBridgeGui._render_settings_addons
         _render_settings_pilot_intel = gui.SignalBridgeGui._render_settings_pilot_intel
+        _render_settings_lan = gui.SignalBridgeGui._render_settings_lan
         # Translation cache page is large; still smoke it
         _render_settings_translation_cache = gui.SignalBridgeGui._render_settings_translation_cache
 
@@ -256,6 +257,27 @@ def test_all_settings_page_renderers_run(tk_root, app):
             pass
 
         def show_help_center(self, _topic=None):
+            pass
+
+        lan_enabled = tk.BooleanVar(value=False)
+        lan_port = tk.IntVar(value=8765)
+        lan_token = "test-token"
+        lan_server = type("LS", (), {"client_count": staticmethod(lambda: 0)})()
+        lan_url_var = None
+
+        def lan_public_url(self):
+            return ""
+
+        def toggle_lan_viewer(self):
+            pass
+
+        def regen_lan_token(self):
+            pass
+
+        def copy_lan_url(self):
+            pass
+
+        def apply_lan_port(self):
             pass
 
     g = FakeGui()
@@ -268,6 +290,7 @@ def test_all_settings_page_renderers_run(tk_root, app):
         ("EVE Catalog", g._render_settings_catalog),
         ("ESI", g._render_settings_esi),
         ("Pilot Intel", g._render_settings_pilot_intel),
+        ("LAN Viewer", g._render_settings_lan),
         ("Recognition Rules", g._render_settings_exclusions),
         ("Cache & Data", g._render_settings_cache_data),
         ("Diagnostics", g._render_settings_diagnostics),
@@ -283,6 +306,7 @@ def test_all_settings_page_renderers_run(tk_root, app):
         renderer(body, shell)
         created.append(name)
         body.destroy()
-    assert len(created) == 15
+    assert len(created) == 16
     assert "Recognition Rules" in created
     assert "Pilot Intel" in created
+    assert "LAN Viewer" in created

@@ -51,6 +51,12 @@ Copy-Item .\CHANGELOG.md .\dist\SignalBridge\CHANGELOG.md -Force
 Copy-Item .\ROADMAP.md .\dist\SignalBridge\ROADMAP.md -Force
 Copy-Item .\ISSUES.md .\dist\SignalBridge\ISSUES.md -Force
 Copy-Item .\docs .\dist\SignalBridge\docs -Recurse -Force
+if (Test-Path .\web_lan) {
+  Copy-Item .\web_lan .\dist\SignalBridge\web_lan -Recurse -Force
+  if (Test-Path .\dist\SignalBridge\_internal) {
+    Copy-Item .\web_lan .\dist\SignalBridge\_internal\web_lan -Recurse -Force
+  }
+}
 Copy-Item .\data\eve_catalog.json,.\data\catalog_manifest.json,.\data\phrase_overrides.json,.\data\eve_phrase_promotions.json,.\data\user_aliases.json,.\data\default_recognition_rules.json,.\data\default_recognition_rules.json.sha256,.\data\default_translation_cache.json,.\data\default_translation_cache.json.sha256 -Destination .\dist\SignalBridge\data -Force
 
 $Compressed = $false

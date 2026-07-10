@@ -6,7 +6,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_manifest_has_ten_topics_with_files_present():
-    assert len(sb_help.HELP_TOPICS) == 10
+    assert len(sb_help.HELP_TOPICS) == 11
     for title, filename in sb_help.HELP_TOPICS:
         assert title and filename.endswith(".md")
         assert (sb_help.help_dir(REPO_ROOT) / filename).is_file(), f"missing {filename}"

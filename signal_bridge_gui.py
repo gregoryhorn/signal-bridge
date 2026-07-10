@@ -81,6 +81,7 @@ from sb_ui.shell import build_header_bar, build_main_layout, menu_colors
 from sb_ui.tabs import TabStrip
 import sb_tabs
 from sb_tabs import TabStripState
+import sb_lan
 from pathlib import Path
 from typing import Callable
 
@@ -177,6 +178,10 @@ SETTINGS_SCHEMA = {
     "spam_repeat_sender_window_seconds": (int, 8),
     "spam_repeat_sender_max": (int, 3),
     "spam_ascii_art_filter": (bool, True),
+    "lan_enabled": (bool, False),
+    "lan_port": (int, 8765),
+    "lan_token": (str, ""),
+    "lan_host": (str, "0.0.0.0"),
 }
 
 MAIN_SETTINGS_STORE = SettingsStore(CONFIG_PATH, SETTINGS_SCHEMA, log=_settings_log)
@@ -3161,11 +3166,24 @@ class SignalBridgeGui:
         self._stall_threshold_seconds = 2.0
         self.intel_history_runtime: AddonRuntime | None = None
         self.intel_history_last_health: dict = {}
+        # LAN phone viewer (opt-in; off by default)
+        self.lan_enabled = self.tk.BooleanVar(value=bool(SETTINGS.get("lan_enabled", False)))
+        self.lan_port = self.tk.IntVar(value=int(SETTINGS.get("lan_port", 8765) or 8765))
+        if not str(SETTINGS.get("lan_token") or "").strip():
+            SETTINGS["lan_token"] = sb_lan.new_token()
+        self.lan_token = str(SETTINGS.get("lan_token") or "")
+        self.lan_server = sb_lan.LanServer()
+        self.lan_url_var = None
         write_log(f"Starting {APP_NAME} v{APP_VERSION}")
         record_event("app_start", version=APP_VERSION)
         self._build_menu()
         self._build_widgets()
         self.load_enabled_addons()
+        if bool(self.lan_enabled.get()):
+            try:
+                self.start_lan_viewer()
+            except Exception as exc:
+                write_log("LAN viewer auto-start failed", exc)
         self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
         self.root.after(150, self.drain_queue)
         threading.Thread(target=self.translation_worker, daemon=True).start()
@@ -4898,8 +4916,8 @@ class SignalBridgeGui:
     def show_settings_center(self, initial_page: str = "General"):
         pages = [
             "General", "Channels", "Appearance", "Translation", "Translation Cache", "Filters",
-            "EVE Catalog", "Aliases", "ESI", "Pilot Intel", "Recognition Rules", "Add-ons",
-            "Cache & Data", "Diagnostics", "About / Support",
+            "EVE Catalog", "Aliases", "ESI", "Pilot Intel", "LAN Viewer", "Recognition Rules",
+            "Add-ons", "Cache & Data", "Diagnostics", "About / Support",
         ]
         descriptions = {
             "General": "Window options, optional startup backlog, and folders.",
@@ -4912,6 +4930,7 @@ class SignalBridgeGui:
             "Aliases": "Ship and system shorthand replacements for the feed.",
             "ESI": "Optional pilot recognition, OAuth, and ESI cache.",
             "Pilot Intel": "Pilot cards, local history, flags, and zKill — core fleet workflow.",
+            "LAN Viewer": "Optional phone/LAN read-only feed mirror (tokenized URL).",
             "Recognition Rules": "Ignored pilots, highlight exclusions, and noise words.",
             "Add-ons": "Package install/enable for bundled modules (Intel History code).",
             "Cache & Data": "Starter files and local cache maintenance.",
@@ -4929,6 +4948,7 @@ class SignalBridgeGui:
             "Aliases": self._render_settings_aliases,
             "ESI": self._render_settings_esi,
             "Pilot Intel": self._render_settings_pilot_intel,
+            "LAN Viewer": self._render_settings_lan,
             "Recognition Rules": self._render_settings_exclusions,
             "Add-ons": self._render_settings_addons,
             "Cache & Data": self._render_settings_cache_data,
@@ -5226,6 +5246,10 @@ class SignalBridgeGui:
             "spam_control_enabled": bool(SETTINGS.get("spam_control_enabled", True)),
             "spam_local_channels_only": bool(SETTINGS.get("spam_local_channels_only", True)),
             "spam_ascii_art_filter": bool(SETTINGS.get("spam_ascii_art_filter", True)),
+            "lan_enabled": bool(self.lan_enabled.get()) if getattr(self, "lan_enabled", None) is not None else bool(SETTINGS.get("lan_enabled", False)),
+            "lan_port": int(self.lan_port.get()) if getattr(self, "lan_port", None) is not None else int(SETTINGS.get("lan_port", 8765) or 8765),
+            "lan_token": str(getattr(self, "lan_token", "") or SETTINGS.get("lan_token") or ""),
+            "lan_host": str(SETTINGS.get("lan_host") or "0.0.0.0"),
         })
         save_settings(SETTINGS)
 
@@ -6184,6 +6208,10 @@ class SignalBridgeGui:
     def on_exit(self):
         record_event("app_exit", uptime_seconds=int(time.time() - float(self.diagnostics.get("started_at", time.time()))))
         self.persist_settings()
+        try:
+            self.stop_lan_viewer()
+        except Exception:
+            pass
         if self.esi_resolver:
             self.esi_resolver.stop()
         try:
@@ -6192,6 +6220,118 @@ class SignalBridgeGui:
             pass
         self.stop_monitor()
         self.root.after(100, self.root.destroy)
+
+    def _lan_config(self) -> sb_lan.LanConfig:
+        token = str(getattr(self, "lan_token", "") or SETTINGS.get("lan_token") or "")
+        if not token:
+            token = sb_lan.new_token()
+            self.lan_token = token
+        try:
+            port = int(self.lan_port.get())
+        except Exception:
+            port = 8765
+        return sb_lan.LanConfig(
+            enabled=bool(self.lan_enabled.get()),
+            host=str(SETTINGS.get("lan_host") or "0.0.0.0"),
+            port=port,
+            token=token,
+        )
+
+    def lan_public_url(self) -> str:
+        if not bool(self.lan_enabled.get()):
+            return ""
+        try:
+            return self.lan_server.public_url()
+        except Exception:
+            cfg = self._lan_config()
+            return f"http://{sb_lan.discover_lan_ip()}:{cfg.port}/?token={cfg.token}"
+
+    def start_lan_viewer(self) -> str:
+        cfg = self._lan_config()
+        cfg = sb_lan.LanConfig(True, cfg.host, cfg.port, cfg.token)
+        self.lan_enabled.set(True)
+        self.lan_token = cfg.token
+        theme = sb_theme.export_theme_dict()
+        url = self.lan_server.start(cfg, theme=theme)
+        self.persist_settings()
+        self.set_status("LAN viewer sharing")
+        record_event("lan_viewer_start", port=cfg.port)
+        if getattr(self, "lan_url_var", None) is not None:
+            self.lan_url_var.set(url)
+        return url
+
+    def stop_lan_viewer(self) -> None:
+        try:
+            self.lan_server.stop()
+        except Exception:
+            pass
+        if getattr(self, "lan_enabled", None) is not None:
+            # do not force-clear user preference on exit-only stop; only clear if toggled off
+            pass
+        record_event("lan_viewer_stop")
+        if getattr(self, "lan_url_var", None) is not None:
+            self.lan_url_var.set(self.lan_public_url() or "(disabled)")
+
+    def toggle_lan_viewer(self) -> None:
+        if bool(self.lan_enabled.get()):
+            try:
+                self.start_lan_viewer()
+            except Exception as exc:
+                self.lan_enabled.set(False)
+                write_log("LAN viewer start failed", exc)
+                self.messagebox.showerror("LAN Viewer", f"Could not start LAN viewer:\n{exc}")
+        else:
+            self.stop_lan_viewer()
+            self.persist_settings()
+            self.set_status("LAN viewer stopped")
+            if getattr(self, "lan_url_var", None) is not None:
+                self.lan_url_var.set("(disabled)")
+
+    def regen_lan_token(self) -> None:
+        self.lan_token = sb_lan.new_token()
+        SETTINGS["lan_token"] = self.lan_token
+        if bool(self.lan_enabled.get()):
+            self.start_lan_viewer()
+        else:
+            self.persist_settings()
+        if getattr(self, "lan_url_var", None) is not None:
+            self.lan_url_var.set(self.lan_public_url() or "(disabled)")
+        self.set_status("LAN token regenerated")
+
+    def apply_lan_port(self) -> None:
+        self.persist_settings()
+        if bool(self.lan_enabled.get()):
+            self.start_lan_viewer()
+        self.set_status("LAN port updated")
+
+    def copy_lan_url(self) -> None:
+        url = self.lan_public_url()
+        if not url:
+            self.set_status("LAN viewer is disabled")
+            return
+        self.copy_to_clipboard(url)
+
+    def _render_settings_lan(self, body, shell=None):
+        from sb_ui.lan_page import render_lan_page
+        render_lan_page(
+            body,
+            self,
+            get_url=self.lan_public_url,
+            get_clients=lambda: self.lan_server.client_count() if bool(self.lan_enabled.get()) else 0,
+            on_toggle=self.toggle_lan_viewer,
+            on_regen_token=self.regen_lan_token,
+            on_copy_url=self.copy_lan_url,
+            on_apply_port=self.apply_lan_port,
+        )
+
+    def publish_lan_row(self, row: "Row", visible_text: str, row_id: str = "") -> None:
+        if not bool(getattr(self, "lan_enabled", None) and self.lan_enabled.get()):
+            return
+        try:
+            payload = sb_lan.payload_from_row_object(row, visible_text=visible_text, row_id=row_id)
+            self.lan_server.publish(payload)
+        except Exception as exc:
+            write_log("LAN publish failed", exc)
 
     def segment_display_lines(self, row: Row, translated_text: str) -> list[str]:
         return render_model.segment_display_lines(row, translated_text, normalize_feed_text)
@@ -7393,6 +7533,13 @@ class SignalBridgeGui:
             display_lines = list(rr.visible_lines)
         else:
             display_lines = self.row_visible_body_lines(row, parts)
+        # LAN mirror uses the same visible body text the desktop shows.
+        try:
+            lan_body = " ".join(display_lines).strip()
+            if lan_body:
+                self.publish_lan_row(row, lan_body, row_id=rr.row_id)
+        except Exception:
+            pass
         ts = row.received_at.split()[-1]
         if bool(self.show_timestamps.get()):
             self.text.insert("end", f"[{ts}] ", "time")
