@@ -53,6 +53,7 @@ EVE chatlog file
 | Intel History | `addons/intel-history` | Optional add-on, fail-isolated |
 | Help | `sb_help.py` + `docs/help/` | Offline topics (10), including Filters |
 | Contracts docs | `docs/contracts/` | Specs; runtime under `sb_contracts/` |
+| EVE phrase promotions | `data/eve_phrase_promotions.json` + `scripts/promote_eve_translations.py` | Promote durable EVE fixes; purge machine cache |
 | zKill helpers | `sb_zkill.py` | Ranking pure helpers |
 | Tests | `tests/` | pytest; pure modules + Tk widgets + settings page smoke |
 

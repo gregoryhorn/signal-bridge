@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "description": "Curated EVE Chinese/English phrase promotions. Sync into data/phrase_overrides.json and purge matching machine-cache rows with: python -X utf8 scripts/promote_eve_translations.py sync",
+  "promotions": [
+    {
+      "source": "本地低安超大洞",
+      "target": "local lowsec XL/C5-C6 hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE WH slang; promoted from MT cache"
+    },
+    {
+      "source": "低安超大洞",
+      "target": "lowsec XL/C5-C6 hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE WH slang; promoted from MT cache"
+    },
+    {
+      "source": "超大洞",
+      "target": "C5/C6 hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN EVE wormhole class slang"
+    },
+    {
+      "source": "旗舰技能",
+      "target": "capital skills",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE: 旗舰=capital not flagship"
+    },
+    {
+      "source": "旗舰",
+      "target": "capital",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE capital ship"
+    },
+    {
+      "source": "感知毅力",
+      "target": "Perception/Willpower",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE attributes"
+    },
+    {
+      "source": "毅力智力",
+      "target": "Willpower/Intelligence",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE attributes"
+    },
+    {
+      "source": "毅力加智力",
+      "target": "Willpower and Intelligence",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE attributes"
+    },
+    {
+      "source": "变形",
+      "target": "Morphite",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE mineral; MT said deformation"
+    },
+    {
+      "source": "脑浆",
+      "target": "cerebral accelerator",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN market slang; not literal brains"
+    },
+    {
+      "source": "吃脑子",
+      "target": "use cerebral accelerators",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN skill-training slang"
+    },
+    {
+      "source": "氪金",
+      "target": "PLEX/RMT spend",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Not krypton gold"
+    },
+    {
+      "source": "天蛇大航",
+      "target": "Serpentis supercarrier",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "MT said Great Voyage of the Serpent"
+    },
+    {
+      "source": "天蛇",
+      "target": "Serpentis",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "NPC pirate faction"
+    },
+    {
+      "source": "大航",
+      "target": "supercarrier",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN shorthand for supercarrier"
+    },
+    {
+      "source": "低安",
+      "target": "lowsec",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE security band"
+    },
+    {
+      "source": "高安",
+      "target": "highsec",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE security band"
+    },
+    {
+      "source": "虫洞",
+      "target": "wormhole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE WH"
+    },
+    {
+      "source": "洞后有建筑",
+      "target": "structure behind the hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "WH intel; not cave building"
+    },
+    {
+      "source": "小破船",
+      "target": "cheap small ship",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN slang"
+    },
+    {
+      "source": "小破卡",
+      "target": "budget carrier",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN slang often budget carrier"
+    },
+    {
+      "source": "击杀",
+      "target": "kill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Intel kill report keyword"
+    },
+    {
+      "source": "物品交换",
+      "target": "item exchange",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Trade/contract context"
+    },
+    {
+      "source": "能塌吗？",
+      "target": "can the hole collapse?",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "WH collapse intel with fullwidth ?"
+    },
+    {
+      "source": "能塌吗?",
+      "target": "can the hole collapse?",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "WH collapse intel"
+    },
+    {
+      "source": "能塌吗",
+      "target": "can the hole collapse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Wormhole collapse intel"
+    },
+    {
+      "source": "塌不了",
+      "target": "hole will not collapse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Wormhole collapse intel"
+    },
+    {
+      "source": "末日武器",
+      "target": "doomsday weapon",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Capital DD"
+    },
+    {
+      "source": "吉他脑浆",
+      "target": "Jita cerebral accelerators",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "吉他=Jita in CN EVE market talk"
+    }
+  ]
+}

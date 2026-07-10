@@ -36,6 +36,24 @@ When a machine translation is wrong for EVE, prefer promoting a fix into
 **phrase overrides** or a **manual correction**, then delete the bad machine-cache
 row so it cannot reappear until re-fetched.
 
+### Repeatable promote workflow (developers)
+
+Curated EVE promotions live in `data/eve_phrase_promotions.json`. Sync them into
+durable phrase overrides and purge matching machine-cache rows:
+
+```text
+python -X utf8 scripts/promote_eve_translations.py report
+python -X utf8 scripts/promote_eve_translations.py sync
+```
+
+- `report` — list machine-cache rows for review (flags rows already in promotions/overrides)
+- `sync` — merge promotions → `data/phrase_overrides.json`, purge matching machine cache
+- `purge` — only purge cache for promotion sources
+- `sync --update` — also refresh targets when a promotion changed
+- `sync --purge-all-overrides` — purge cache for every phrase-override source
+
+Restart Signal Bridge after `sync` so phrase overrides reload.
+
 Settings, page **Translation Cache** (Translation Corrections): edit English text
 for a phrase. Manual corrections win over engine output. Cleanup removes polluted
 machine rows without deleting manual overrides.

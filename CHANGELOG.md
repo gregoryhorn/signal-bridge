@@ -2,6 +2,7 @@
 
 - **Settings design pass:** shared `danger_card` / `labeled_spinbox`; General backlog section; Channels/Filters/Translation/Cache-Data/Catalog/ESI/Aliases/Add-ons layout cleanup; nav **Exclusions** renamed to **Recognition Rules** (legacy deep link accepted); page render smoke tests (no APP_VERSION bump).
 - **Docs:** README Unreleased notes; ARCHITECTURE/PROJECT_MAP/INVARIANTS; contract “implemented in” notes; Help Center Filters topic + updated Getting Started/Channels/Translation; distribution Settings page list.
+- **EVE translation hygiene:** curated promotions in `data/eve_phrase_promotions.json` with repeatable `scripts/promote_eve_translations.py` (`report` / `sync` / `purge`) to merge into phrase overrides and clear bad machine-cache rows.
 - **Contracts:** `sb_contracts/` pure types (RenderRow, IntelSegment, TranslationDecision, AddonEvent, diagnostic redaction); feed builds RenderRow; Intel History uses AddonEvent.
 - **Modules:** extracted `sb_paths`, `sb_diagnostics`, `sb_channels`, `sb_monitor`, `sb_translation`, `sb_filters`/`sb_spam`/`sb_feed_admit`, `sb_highlight`, `sb_appearance`, `sb_text` so features are not piled into the GUI file.
 - **Channels:** persisted active channels stay listed as waiting-for-log; catalog summary diagnostics.
