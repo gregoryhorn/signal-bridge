@@ -1,28 +1,59 @@
 # Translation
 
-Signal Bridge translates Chinese chat to English (or English to Chinese)
+Signal Bridge translates non-English chat to English (or English to Chinese)
 inline in the feed.
 
 ## Modes
 
-- **Auto -> EN**: detect Chinese lines and translate them to English.
+- **Auto -> EN**: translate non-English free text to English. Chinese (CJK) uses a Chinese source hint; other languages (for example Russian) use Google **auto** detect.
 - **EN -> CN**: translate English lines to Chinese.
-- **Translated only**: show only the translation instead of original plus translation.
+- **Translated only**: show only the translation (or a stable pending placeholder) instead of flashing original text.
 - **Translate free text**: also translate free-form chat, not just recognized intel terms.
 
 ## Engines and fallback
 
 Settings, page **Translation**:
 
-- Preferred engine: `auto`, `argos` (offline), or `google` (online).
-- Cache mode: `cache-first-auto` (use cached translations, fetch new ones as needed) or `cache-only` (never go online).
-- Fallback mode controls what happens when the preferred engine fails, including `offline-only`.
+- Preferred engine: `auto`, `argos` (offline, safety-gated), or `google` (online).
+- Cache mode: `cache-first-auto` or `cache-only`.
+- Fallback mode controls what happens when the preferred engine fails, including `offline-only` and `online-only`.
 
-Translation display never blocks the feed: redraws use cached results and
-new translations arrive in the background.
+Translation display never blocks the feed: redraws use cached or precomputed
+results and new translations arrive in the background.
 
 ## Fixing bad translations
 
-Settings, page **Translation Cache**, opens the Translation Corrections
-browser: one table of cached phrases where you can edit the primary
-English text directly. Corrections persist and win over engine output.
+Translation layers (highest trust first):
+
+1. **Phrase overrides** (`data/phrase_overrides.json`) — curated EVE Chinese/English
+   fixes shipped with the app. Not wiped by cache cleanup.
+2. **Manual corrections** (Settings → Translation Cache) — your saved overrides in
+   the local DB. Survive “clean machine cache”; deleted only if you delete that entry.
+3. **Machine cache** — Google/Argos results. Ephemeral; safe to clean; can be wrong
+   for EVE slang (ships, attributes, market talk).
+
+When a machine translation is wrong for EVE, prefer promoting a fix into
+**phrase overrides** or a **manual correction**, then delete the bad machine-cache
+row so it cannot reappear until re-fetched.
+
+### Repeatable promote workflow (developers)
+
+Curated EVE promotions live in `data/eve_phrase_promotions.json`. Sync them into
+durable phrase overrides and purge matching machine-cache rows:
+
+```text
+python -X utf8 scripts/promote_eve_translations.py report
+python -X utf8 scripts/promote_eve_translations.py sync
+```
+
+- `report` — list machine-cache rows for review (flags rows already in promotions/overrides)
+- `sync` — merge promotions → `data/phrase_overrides.json`, purge matching machine cache
+- `purge` — only purge cache for promotion sources
+- `sync --update` — also refresh targets when a promotion changed
+- `sync --purge-all-overrides` — purge cache for every phrase-override source
+
+Restart Signal Bridge after `sync` so phrase overrides reload.
+
+Settings, page **Translation Cache** (Translation Corrections): edit English text
+for a phrase. Manual corrections win over engine output. Cleanup removes polluted
+machine rows without deleting manual overrides.

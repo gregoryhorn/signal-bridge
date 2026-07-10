@@ -2,6 +2,8 @@
 
 A `TranslationDecision` explains whether a row/segment was translated, skipped, or handled by local catalog/cache.
 
+**Implemented in:** `sb_contracts/translation_decision.py`. Background translation results attach `row.translation_decision` off the render path.
+
 ## Proposed fields
 
 | Field | Type | Notes |

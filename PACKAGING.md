@@ -50,4 +50,14 @@ The v0.5 portable package must start with clean local runtime state. Include cur
 
 ## v0.6 UI/help package note
 
-The v0.6 portable package keeps the v0.5 clean-data rules and must also include `docs/help/` so the in-app Help Center is readable offline from the extracted ZIP.
+The v0.6 portable package keeps the v0.5 clean-data rules and must also include `docs/help/` so the in-app Help Center is readable offline from the extracted ZIP (all topics listed in `sb_help.HELP_TOPICS`, including Filters).
+
+## Post-modular-branch package note (next cut after merge)
+
+When packaging the Unreleased modular work:
+
+- Include full `docs/help/` (10 topics; see `sb_help.HELP_TOPICS`).
+- Include `data/phrase_overrides.json` and `data/eve_phrase_promotions.json`.
+- Use `assets/signal_bridge_icon.ico` (regenerated from `signal_bridge_icon_true_transparent_1024.png`).
+- `docs/contracts/` and `docs/superpowers/` are developer docs — optional in the end-user ZIP.
+- Still exclude local `cache/`, `logs/`, `config/`, tokens, and runtime state.

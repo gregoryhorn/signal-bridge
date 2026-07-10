@@ -33,11 +33,21 @@ These are hard rules for future maintenance. Do not break them without an explic
 - JSONL logs should be structured and append-only.
 - Every skipped translation/entity decision should have an explainable reason when practical.
 
+## Feed hygiene
+
+- Content/sender filters and spam limits run in the admit path before the feed stores or renders a row (`sb_feed_admit`).
+- Filter/spam decisions may log reason codes and counts; avoid logging full raw chat bodies by default.
+
 ## Add-ons
 
 - Add-ons must fail isolated.
-- Add-ons should receive narrow events/contracts, not arbitrary GUI internals.
+- Add-ons should receive narrow events/contracts (`sb_contracts.addon_event`), not arbitrary GUI internals.
 - Disabling an add-on should stop future processing without deleting user data by default.
+
+## Modules
+
+- Prefer small isolated `sb_*` / `sb_ui/*` modules for new logic.
+- Library modules must not import `signal_bridge_gui`.
 
 ## Packaging
 

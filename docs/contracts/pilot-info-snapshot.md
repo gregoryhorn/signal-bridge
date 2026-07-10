@@ -2,6 +2,8 @@
 
 Purpose: compact local/cache-first data used by the Pilot Info card. Opening the card must not call zKill, ESI, Google, Argos, or perform unbounded scans.
 
+**Implemented in:** `sb_contracts/pilot_info_snapshot.py` (`empty_pilot_info_snapshot`). Live Pilot Info still assembles data from ESI cache / Intel History / zKill cache; full snapshot builder is incremental.
+
 Required shape:
 
 ```json

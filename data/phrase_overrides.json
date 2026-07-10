@@ -2,6 +2,566 @@
   "schema_version": 1,
   "overrides": [
     {
+      "source": "Caracal-class naval version",
+      "target": "Caracal Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "Apocalypse-class naval type",
+      "target": "Omen Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Apocalypse class naval type",
+      "target": "Omen Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Undertaker-class naval type",
+      "target": "Exequror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Undertaker class naval type",
+      "target": "Exequror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Caldari Navy Hawkbill Class",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Osprey class naval version",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "Scythe-class fleet type",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Scythe class fleet type",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Apocalypse naval type",
+      "target": "Omen Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Undertaker naval type",
+      "target": "Exequror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Caldari Navy Hawkbill",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Curse level by level",
+      "target": "Curse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Scythe fleet type",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Black Crow-class",
+      "target": "Blackbird",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Assassin-class",
+      "target": "Assassin",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Assassin Class",
+      "target": "Assassin",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Stabber level",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Widmark-class",
+      "target": "Widow",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Widmark Class",
+      "target": "Widow",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Enyou class",
+      "target": "Enyo",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Astro Class",
+      "target": "Astero",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Ocato-class",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Ocato Class",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "加达里海军霍克比尔级",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "sky ladder",
+      "target": "Skyhook",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "Black Crow",
+      "target": "Blackbird",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Heka Class",
+      "target": "Hecate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "加达里海军霍克比尔",
+      "target": "Caldari Navy Hookbill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Stabber级",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "Sea fish",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "来人了才跳过来",
+      "target": "only jumps in when people arrive",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "送葬者级海军型",
+      "target": "Exequror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "Widmark",
+      "target": "Widow",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "本地低安超大洞",
+      "target": "local lowsec XL/C5-C6 hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Promoted from MT cache; 超大洞=large WH class"
+    },
+    {
+      "source": "小绿人突击队",
+      "target": "Little Green Men assault team",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "鱼鹰级海军型",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "狞獾级海军型",
+      "target": "Caracal Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "镰刀级舰队型",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "启示级海军型",
+      "target": "Omen Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "送葬者海军型",
+      "target": "Exequror Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "阿斯特罗级",
+      "target": "Astero",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "镰刀舰队型",
+      "target": "Scythe Fleet Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "启示海军型",
+      "target": "Omen Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction; catalog-verified"
+    },
+    {
+      "source": "在ess外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "在ESS外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "低安超大洞",
+      "target": "lowsec XL/C5-C6 hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Promoted from MT cache"
+    },
+    {
+      "source": "毅力加智力",
+      "target": "Willpower and Intelligence",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE attributes"
+    },
+    {
+      "source": "洞后有建筑",
+      "target": "structure behind the hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "WH intel; not cave building"
+    },
+    {
+      "source": "赫卡特级",
+      "target": "Hecate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "海鱼鹰级",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "ess外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "ESS外",
+      "target": "outside ESS",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "旗舰技能",
+      "target": "capital skills",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE: 旗舰=capital not flagship"
+    },
+    {
+      "source": "感知毅力",
+      "target": "Perception/Willpower",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE attributes"
+    },
+    {
+      "source": "毅力智力",
+      "target": "Willpower/Intelligence",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE attributes"
+    },
+    {
+      "source": "天蛇大航",
+      "target": "Serpentis supercarrier",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "MT said Great Voyage of the Serpent"
+    },
+    {
+      "source": "物品交换",
+      "target": "item exchange",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Trade/contract context better than exchange of goods"
+    },
+    {
+      "source": "末日武器",
+      "target": "doomsday weapon",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Capital DD"
+    },
+    {
+      "source": "吉他脑浆",
+      "target": "Jita cerebral accelerators",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "吉他=Jita in CN EVE market talk"
+    },
+    {
+      "source": "能塌吗？",
+      "target": "can the hole collapse?",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "WH collapse intel with fullwidth ?"
+    },
+    {
+      "source": "能塌吗?",
+      "target": "can the hole collapse?",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "WH collapse intel"
+    },
+    {
+      "source": "海狞獾",
+      "target": "Caracal Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User shorthand alias for Caracal Navy Issue"
+    },
+    {
+      "source": "黑鸦级",
+      "target": "Blackbird",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "海神级",
+      "target": "Poseidon",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "恩尤级",
+      "target": "Enyo",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "咒逐级",
+      "target": "Curse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "偷天沟",
+      "target": "Tengu",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "打泡泡",
+      "target": "bubble up",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
+    },
+    {
+      "source": "天梯级",
+      "target": "Skyhook",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Reported intel correction"
+    },
+    {
+      "source": "娜迦级",
+      "target": "Naga",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "洛基级",
+      "target": "Loki",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "短剑级",
+      "target": "Stabber",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese ship/version alias correction"
+    },
+    {
+      "source": "海鱼鹰",
+      "target": "Osprey Navy Issue",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Chinese shorthand/intel phrase correction"
+    },
+    {
+      "source": "超大洞",
+      "target": "C5/C6 hole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN EVE wormhole class slang"
+    },
+    {
+      "source": "吃脑子",
+      "target": "use cerebral accelerators",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN slang"
+    },
+    {
+      "source": "小破船",
+      "target": "cheap small ship",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN slang"
+    },
+    {
+      "source": "小破卡",
+      "target": "budget carrier",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "CN slang often for budget carrier (e.g. Thanatos)"
+    },
+    {
+      "source": "能塌吗",
+      "target": "can the hole collapse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Wormhole collapse intel"
+    },
+    {
+      "source": "塌不了",
+      "target": "hole will not collapse",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Wormhole collapse intel"
+    },
+    {
       "source": "红名",
       "target": "hostile/red",
       "direction": "zh-en",
@@ -27,71 +587,8 @@
       "note": "User shorthand alias; override MT dagger/Stiletto ambiguity"
     },
     {
-      "source": "海狞獾",
-      "target": "Caracal Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User shorthand alias for Caracal Navy Issue"
-    },
-    {
-      "source": "加达里海军霍克比尔级",
-      "target": "Caldari Navy Hookbill",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "黑鸦级",
-      "target": "Blackbird",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "海神级",
-      "target": "Poseidon",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "阿斯特罗级",
-      "target": "Astero",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "赫卡特级",
-      "target": "Hecate",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "恩尤级",
-      "target": "Enyo",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "咒逐级",
-      "target": "Curse",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
       "source": "流浪",
       "target": "Vagabond",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "偷天沟",
-      "target": "Tengu",
       "direction": "zh-en",
       "enabled": true,
       "note": "User correction"
@@ -104,29 +601,8 @@
       "note": "User correction"
     },
     {
-      "source": "打泡泡",
-      "target": "bubble up",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
       "source": "门口",
       "target": "gate",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "来人了才跳过来",
-      "target": "only jumps in when people arrive",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "小绿人突击队",
-      "target": "Little Green Men assault team",
       "direction": "zh-en",
       "enabled": true,
       "note": "User correction"
@@ -139,34 +615,6 @@
       "note": "User correction"
     },
     {
-      "source": "门",
-      "target": "gate",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "User correction"
-    },
-    {
-      "source": "鱼鹰级海军型",
-      "target": "Osprey Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Reported intel correction"
-    },
-    {
-      "source": "狞獾级海军型",
-      "target": "Caracal Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Reported intel correction"
-    },
-    {
-      "source": "天梯级",
-      "target": "Skyhook",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Reported intel correction"
-    },
-    {
       "source": "天梯",
       "target": "Skyhook",
       "direction": "zh-en",
@@ -174,281 +622,8 @@
       "note": "Reported intel correction"
     },
     {
-      "source": "sky ladder",
-      "target": "Skyhook",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Reported intel correction"
-    },
-    {
-      "source": "Caracal-class naval version",
-      "target": "Caracal Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Reported intel correction"
-    },
-    {
-      "source": "Osprey class naval version",
-      "target": "Osprey Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Reported intel correction"
-    },
-    {
-      "source": "镰刀级舰队型",
-      "target": "Scythe Fleet Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "镰刀舰队型",
-      "target": "Scythe Fleet Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Scythe-class fleet type",
-      "target": "Scythe Fleet Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Scythe class fleet type",
-      "target": "Scythe Fleet Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Scythe fleet type",
-      "target": "Scythe Fleet Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "启示级海军型",
-      "target": "Omen Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "启示海军型",
-      "target": "Omen Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "Apocalypse-class naval type",
-      "target": "Omen Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "Apocalypse class naval type",
-      "target": "Omen Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "Apocalypse naval type",
-      "target": "Omen Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "送葬者级海军型",
-      "target": "Exequror Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "送葬者海军型",
-      "target": "Exequror Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "Undertaker-class naval type",
-      "target": "Exequror Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "Undertaker class naval type",
-      "target": "Exequror Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "Undertaker naval type",
-      "target": "Exequror Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction; catalog-verified"
-    },
-    {
-      "source": "加达里海军霍克比尔",
-      "target": "Caldari Navy Hookbill",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Caldari Navy Hawkbill Class",
-      "target": "Caldari Navy Hookbill",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Caldari Navy Hawkbill",
-      "target": "Caldari Navy Hookbill",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "娜迦级",
-      "target": "Naga",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "洛基级",
-      "target": "Loki",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Black Crow-class",
-      "target": "Blackbird",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Black Crow",
-      "target": "Blackbird",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "短剑级",
-      "target": "Stabber",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Stabber level",
-      "target": "Stabber",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Stabber级",
-      "target": "Stabber",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Enyou class",
-      "target": "Enyo",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
       "source": "恩尤",
       "target": "Enyo",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Astro Class",
-      "target": "Astero",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Heka Class",
-      "target": "Hecate",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Curse level by level",
-      "target": "Curse",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Widmark-class",
-      "target": "Widow",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Widmark Class",
-      "target": "Widow",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Widmark",
-      "target": "Widow",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Assassin-class",
-      "target": "Assassin",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Assassin Class",
-      "target": "Assassin",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Ocato-class",
-      "target": "Osprey Navy Issue",
-      "direction": "zh-en",
-      "enabled": true,
-      "note": "Chinese ship/version alias correction"
-    },
-    {
-      "source": "Ocato Class",
-      "target": "Osprey Navy Issue",
       "direction": "zh-en",
       "enabled": true,
       "note": "Chinese ship/version alias correction"
@@ -461,53 +636,81 @@
       "note": "Chinese shorthand/intel phrase correction"
     },
     {
-      "source": "海鱼鹰",
-      "target": "Osprey Navy Issue",
+      "source": "旗舰",
+      "target": "capital",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "EVE capital ship"
     },
     {
-      "source": "海鱼鹰级",
-      "target": "Osprey Navy Issue",
+      "source": "变形",
+      "target": "Morphite",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "EVE mineral; MT said deformation"
     },
     {
-      "source": "Sea fish",
-      "target": "Osprey Navy Issue",
+      "source": "脑浆",
+      "target": "cerebral accelerator",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "CN market slang; not literal brains"
     },
     {
-      "source": "在ess外",
-      "target": "outside ESS",
+      "source": "氪金",
+      "target": "PLEX/RMT spend",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "Not krypton gold"
     },
     {
-      "source": "ess外",
-      "target": "outside ESS",
+      "source": "天蛇",
+      "target": "Serpentis",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "NPC pirate faction"
     },
     {
-      "source": "在ESS外",
-      "target": "outside ESS",
+      "source": "大航",
+      "target": "supercarrier",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "CN shorthand for supercarrier"
     },
     {
-      "source": "ESS外",
-      "target": "outside ESS",
+      "source": "低安",
+      "target": "lowsec",
       "direction": "zh-en",
       "enabled": true,
-      "note": "Chinese shorthand/intel phrase correction"
+      "note": "EVE security band"
+    },
+    {
+      "source": "高安",
+      "target": "highsec",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE security band"
+    },
+    {
+      "source": "虫洞",
+      "target": "wormhole",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "EVE WH"
+    },
+    {
+      "source": "击杀",
+      "target": "kill",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "Intel kill report keyword"
+    },
+    {
+      "source": "门",
+      "target": "gate",
+      "direction": "zh-en",
+      "enabled": true,
+      "note": "User correction"
     }
   ]
 }

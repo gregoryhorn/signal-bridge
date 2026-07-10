@@ -32,7 +32,7 @@ Bundled default exclusions are included in `data/default_exclusions.json` and ar
 Use **Settings > Settings...** for the main configuration UI. The Settings Center groups channels, appearance, translation, EVE catalog, ESI, exclusions, cache/data, diagnostics, and support into one window with a sidebar and fixed bottom action bar.
 ## Settings Center
 
-Open **Settings > Settings...** after extracting the portable ZIP. The Settings Center groups General, Channels, Appearance, Translation, EVE Catalog, ESI, Exclusions, Cache & Data, Diagnostics, and About / Support into one dedicated window.
+Open **Settings > Settings...** after extracting the portable ZIP. The Settings Center groups General, Channels, Appearance, Translation, Translation Cache, Filters, EVE Catalog, Aliases, ESI, Recognition Rules, Add-ons, Cache & Data, Diagnostics, and About / Support into one dedicated window.
 
 ## Current packaged data notes
 

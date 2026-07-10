@@ -1,6 +1,8 @@
 # Contract: RenderRow
 
-`RenderRow` is the future stable display contract consumed by the desktop feed and LAN viewer.
+`RenderRow` is the stable display contract consumed by the desktop feed (and future LAN viewer).
+
+**Implemented in:** `sb_contracts/render_row.py` (`build_render_row`). Feed `_render_row` builds a RenderRow; `spans` are still reserved for future click targeting.
 
 ## Proposed fields
 

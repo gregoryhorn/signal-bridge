@@ -2,6 +2,8 @@
 
 Diagnostic events are structured JSONL records written under `logs/`.
 
+**Implemented in:** `sb_diagnostics.py` + `sb_contracts/diagnostic_event.py` (`redact_context`, `make_diagnostic_event`).
+
 ## Common fields
 
 | Field | Type | Notes |

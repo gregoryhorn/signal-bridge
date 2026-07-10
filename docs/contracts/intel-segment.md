@@ -2,6 +2,8 @@
 
 `IntelSegment` is a structured piece of intel extracted from one chat row. One raw row may contain one or more segments.
 
+**Implemented in:** `sb_contracts/intel_segment.py` (contract shape + adapters). The GUI still builds legacy segment objects on rows; adapters convert duck-typed segments into the contract.
+
 ## Fields
 
 | Field | Type | Notes |

@@ -28,6 +28,49 @@ import signal_bridge_render_model as render_model
 from sb_settings import SettingsStore
 import sb_help
 import sb_zkill
+from sb_paths import (
+    APP_DIR,
+    CACHE_DIR,
+    CATALOG_MANIFEST_PATH,
+    CATALOG_PATH,
+    CATALOG_PREVIOUS_PATH,
+    CONFIG_DIR,
+    CONFIG_PATH,
+    DATA_DIR,
+    DEFAULT_DB_PATH,
+    DEFAULT_ESI_ENTITIES_PATH,
+    DEFAULT_EXCLUSIONS_PATH,
+    DEFAULT_RECOGNITION_RULES_PATH,
+    ERROR_LOG_PATH,
+    ESI_CACHE_PATH,
+    ESI_CONFIG_PATH,
+    ESI_TOKENS_PATH,
+    EVENT_LOG_PATH,
+    JOB_LOG_PATH,
+    LOG_DIR,
+    LOG_PATH,
+    MODEL_DIR,
+    MODULE_DATA_DIR,
+    MODULES_DIR,
+    PHRASE_OVERRIDES_PATH,
+    STALL_LOG_PATH,
+    TRANSLATION_CACHE_PATH,
+    USER_ALIASES_PATH,
+    USER_DIR,
+    ZKILL_CACHE_PATH,
+    ensure_app_dirs,
+)
+from sb_diagnostics import (
+    install_exception_logging,
+    record_error,
+    record_event,
+    write_jsonl,
+    write_log,
+)
+import sb_channels
+from sb_filters import FeedFilter, filters_to_settings, normalize_filters
+from sb_spam import SpamLimiter, SpamPolicy
+from sb_feed_admit import should_admit_row
 from sb_ui import components as sb_components
 from sb_ui import markdown_view as sb_markdown
 from sb_ui import theme as sb_theme
@@ -44,24 +87,8 @@ GITHUB_REPO_URL = "https://github.com/gregoryhorn/signal-bridge"
 ISSUE_REPORT_URL = "https://github.com/gregoryhorn/signal-bridge/issues"
 DONATION_TEXT = "If you like this app and want further development, donate me some ISK in game | Mizz Betty"
 ALL_CHANNELS_TAB = "__ALL_CHANNELS__"
-APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-USER_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
-CONFIG_DIR = USER_DIR / "config"
-CACHE_DIR = USER_DIR / "cache"
-MODEL_DIR = USER_DIR / "models" / "argos"
-LOG_DIR = USER_DIR / "logs"
-LOG_PATH = LOG_DIR / "signal_bridge.log"
-EVENT_LOG_PATH = LOG_DIR / "events.jsonl"
-ERROR_LOG_PATH = LOG_DIR / "errors.jsonl"
-STALL_LOG_PATH = LOG_DIR / "stalls.jsonl"
-JOB_LOG_PATH = LOG_DIR / "jobs.jsonl"
-CONFIG_PATH = CONFIG_DIR / "settings.json"
-DATA_DIR = USER_DIR / "data"
-MODULES_DIR = USER_DIR / "modules"
-MODULE_DATA_DIR = USER_DIR / "user_data" / "modules"
 INTEL_HISTORY_ADDON_ID = "intel-history"
 INTEL_HISTORY_ADDON_NAME = "Intel History / Pilot Intelligence"
-DEFAULT_DB_PATH = Path(r"D:\AI\Rift\signal-bridge-v2\signal-bridge-v3\src-tauri\bundle-resources\translations.db")
 POLL_SECONDS = 1.0
 MAX_CHUNK = 1024 * 1024
 MAX_ROWS = 600
@@ -70,19 +97,6 @@ REDRAW_BATCH_SIZE = 25
 GOOGLE_TRANSLATE_TIMEOUT = 2.5
 FREE_TRANSLATION_CACHE: dict[str, str] = {}
 ARGOS_STATUS_CACHE = {"checked": False, "runtime": False, "models": set(), "error": ""}
-CATALOG_PATH = DATA_DIR / "eve_catalog.json"
-CATALOG_MANIFEST_PATH = DATA_DIR / "catalog_manifest.json"
-CATALOG_PREVIOUS_PATH = DATA_DIR / "eve_catalog.previous.json"
-PHRASE_OVERRIDES_PATH = DATA_DIR / "phrase_overrides.json"
-USER_ALIASES_PATH = DATA_DIR / "user_aliases.json"
-DEFAULT_EXCLUSIONS_PATH = DATA_DIR / "default_exclusions.json"
-DEFAULT_RECOGNITION_RULES_PATH = DATA_DIR / "default_recognition_rules.json"
-DEFAULT_ESI_ENTITIES_PATH = DATA_DIR / "default_esi_entities.json"
-TRANSLATION_CACHE_PATH = CACHE_DIR / "translation_cache.sqlite"
-ZKILL_CACHE_PATH = CACHE_DIR / "zkill_cache.json"
-ESI_CONFIG_PATH = CONFIG_DIR / "esi_settings.json"
-ESI_TOKENS_PATH = CONFIG_DIR / "esi_tokens.json"
-ESI_CACHE_PATH = CACHE_DIR / "esi_cache.sqlite"
 ESI_DEFAULT_CLIENT_ID = "6d57a179c8764b3aa95cc956f7ad7050"
 ESI_CALLBACK_URL = "http://localhost:8080/callback"
 ESI_CALLBACK_HOST = "127.0.0.1"
@@ -150,6 +164,14 @@ SETTINGS_SCHEMA = {
     "esi_entity_recognition": (bool, True),
     "esi_oauth_enabled": (bool, False),
     "replay_on_start": (bool, False),
+    "backlog_minutes": (int, 10),
+    "feed_filters": (list, []),
+    "spam_control_enabled": (bool, True),
+    "spam_local_channels_only": (bool, True),
+    "spam_per_channel_max_per_minute": (int, 30),
+    "spam_repeat_sender_window_seconds": (int, 8),
+    "spam_repeat_sender_max": (int, 3),
+    "spam_ascii_art_filter": (bool, True),
 }
 
 MAIN_SETTINGS_STORE = SettingsStore(CONFIG_PATH, SETTINGS_SCHEMA, log=_settings_log)
@@ -343,102 +365,11 @@ class AddonRuntime:
 
 
 def make_intel_history_event(row) -> dict:
-    chars = []
-    for ent in getattr(row, "esi_entities", []) or []:
-        if ent.get("entity_type") != "character" or not ent.get("entity_id"):
-            continue
-        chars.append({
-            "entity_type": "character",
-            "entity_id": ent.get("entity_id"),
-            "name": ent.get("name") or ent.get("query") or "",
-            "query": ent.get("query") or ent.get("name") or "",
-            "corporation_id": ent.get("corporation_id"),
-            "corporation_name": ent.get("corporation_name") or "",
-            "alliance_id": ent.get("alliance_id"),
-            "alliance_name": ent.get("alliance_name") or "",
-            "confidence": ent.get("confidence") or "high",
-        })
-    return {
-        "type": "intel_row",
-        "timestamp": getattr(row, "received_at", "") or getattr(row, "time", "") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "channel": getattr(row, "channel", "") or "",
-        "sender": getattr(row, "sender", "") or "",
-        "text": getattr(row, "text", "") or "",
-        "systems": list(getattr(row, "systems", []) or []),
-        "ships": list(getattr(row, "ships", []) or getattr(row, "assets", []) or []),
-        "assets": list(getattr(row, "assets", []) or []),
-        "links": list(getattr(row, "links", []) or []),
-        "characters": chars,
-        "raw_text_available": False,
-    }
-
-
-def ensure_app_dirs() -> None:
-    for path in (CONFIG_DIR, CACHE_DIR, MODEL_DIR, LOG_DIR, DATA_DIR, MODULES_DIR, MODULE_DATA_DIR):
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
+    from sb_contracts.addon_event import row_to_addon_event
+    return row_to_addon_event(row)
 
 
 ensure_app_dirs()
-
-
-def write_log(message: str, exc: BaseException | None = None) -> None:
-    try:
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        ts = time.strftime("%Y-%m-%d %H:%M:%S")
-        with LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(f"[{ts}] {message}\n")
-            if exc is not None:
-                f.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
-                f.write("\n")
-    except Exception:
-        pass
-
-
-def _safe_json_value(value):
-    try:
-        json.dumps(value)
-        return value
-    except Exception:
-        return str(value)
-
-
-def write_jsonl(path: Path, event: dict) -> None:
-    try:
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        payload = {str(k): _safe_json_value(v) for k, v in dict(event).items()}
-        payload.setdefault("ts", time.strftime("%Y-%m-%dT%H:%M:%S%z"))
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
-    except Exception:
-        pass
-
-
-def record_event(event_type: str, **data) -> None:
-    payload = {"type": event_type, **data}
-    write_jsonl(EVENT_LOG_PATH, payload)
-
-
-def record_error(context: str, exc: BaseException | None = None, **data) -> None:
-    payload = {"type": "error", "context": context, **data}
-    if exc is not None:
-        payload.update({"error_type": type(exc).__name__, "error": str(exc)})
-    write_jsonl(ERROR_LOG_PATH, payload)
-
-
-def install_exception_logging() -> None:
-    def _hook(exc_type, exc, tb):
-        try:
-            LOG_DIR.mkdir(parents=True, exist_ok=True)
-            with LOG_PATH.open("a", encoding="utf-8") as f:
-                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Uncaught exception\n")
-                traceback.print_exception(exc_type, exc, tb, file=f)
-                f.write("\n")
-        finally:
-            sys.__excepthook__(exc_type, exc, tb)
-    sys.excepthook = _hook
 
 LIVE_INLINE = re.compile(r"^\[\s*(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*\]\s*(.+?)\s*(?:>|:)\s*(.+)$", re.I)
 HEADER_CHANNEL = re.compile(r"^Channel Name:\s*(.+)$", re.I)
@@ -450,7 +381,8 @@ NUMERIC_TOKEN_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?$")
 
 def is_numeric_or_decimal_token(term: str) -> bool:
     """Return True for plain numeric/security/range tokens that must never be systems."""
-    value = str(term or "").strip().strip("* ,;:()[]{}\"\'`")
+    from sb_text import strip_term_punctuation
+    value = strip_term_punctuation(term)
     if not value:
         return False
     return bool(NUMERIC_TOKEN_RE.fullmatch(value))
@@ -563,58 +495,27 @@ def is_header(line: str) -> bool:
 
 
 def channel_from_filename(path: Path) -> str:
-    return path.stem.split("_", 1)[0] or path.stem
+    return sb_channels.channel_from_filename(path)
 
 
 def channel_sort_key(name: str) -> str:
-    return re.sub(r"\s+", " ", str(name or "").strip()).casefold()
+    return sb_channels.channel_sort_key(name)
 
 
 def normalize_channel_name(name: str) -> str:
-    return re.sub(r"\s+", " ", str(name or "").strip())
+    return sb_channels.normalize_channel_name(name)
 
 
 def discover_channel_metadata(limit_files: int = 500) -> dict[str, dict]:
-    """Return recent chatlog-backed channel metadata keyed by display channel name.
-
-    Raw discovery reports what chatlog files currently exist. Higher-level UI
-    merges this with persisted active/hidden tabs so saved channels do not
-    vanish from Add/Open Channels after restart.
-    """
-    if not CHATLOG_DIR.exists():
-        return {}
-    channels: dict[str, dict] = {}
-    try:
-        files = sorted(CHATLOG_DIR.glob("*.txt"), key=lambda p: p.stat().st_mtime_ns, reverse=True)[:limit_files]
-    except Exception:
-        return {}
-    for path in files:
-        try:
-            channel = normalize_channel_name(channel_from_filename(path))
-            if not channel:
-                continue
-            st = path.stat()
-            info = channels.setdefault(channel, {"channel": channel, "last_seen_ns": 0, "files": 0, "latest_file": ""})
-            info["files"] = int(info.get("files", 0)) + 1
-            if st.st_mtime_ns >= int(info.get("last_seen_ns", 0)):
-                info["last_seen_ns"] = st.st_mtime_ns
-                info["latest_file"] = path.name
-        except OSError:
-            continue
-    return channels
+    return sb_channels.discover_channel_metadata(CHATLOG_DIR, limit_files)
 
 
 def discover_channels(limit_files: int = 500) -> list[str]:
-    channels = discover_channel_metadata(limit_files)
-    return [name for name, _ in sorted(channels.items(), key=lambda kv: kv[1].get("last_seen_ns", 0), reverse=True)]
+    return sb_channels.discover_channels(CHATLOG_DIR, limit_files)
 
 
 def default_channels() -> set[str]:
-    if DEFAULT_CHANNELS:
-        return set(DEFAULT_CHANNELS)
-    channels = discover_channels()
-    # Default to most recently active channel only; user can add/remove from Channels menu.
-    return set(channels[:1])
+    return sb_channels.default_channels(CHATLOG_DIR, DEFAULT_CHANNELS or None)
 
 
 def decode_bytes(data: bytes) -> str:
@@ -659,7 +560,8 @@ def candidate_terms(text: str) -> list[str]:
     for n in (4, 3, 2, 1):
         for i in range(0, max(0, len(words) - n + 1)):
             terms.append(" ".join(words[i:i+n]))
-    return unique([t.strip().strip("* ,.;:()[]{}\"'`€œ€€˜€™") for t in terms])
+    from sb_text import strip_term_punctuation
+    return unique([strip_term_punctuation(t) for t in terms])
 
 
 
@@ -701,7 +603,8 @@ class EveCatalog:
         return {"systems": len(self.systems), "types": len(self.types), "aliases": len(self.aliases), "market_groups": len(self.market_groups), "ship_names": len(self.ship_names)}
 
     def lookup_type(self, term: str) -> str | None:
-        key = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™").casefold()
+        from sb_text import strip_term_punctuation
+        key = strip_term_punctuation(term).casefold()
         if not key or len(key) < 2:
             return None
         return self.types.get(key) or self.aliases.get(key) or self.market_groups.get(key)
@@ -712,7 +615,8 @@ class EveCatalog:
         return self.systems.get(term.strip().casefold())
 
     def is_ship(self, term: str) -> bool:
-        key = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™").casefold()
+        from sb_text import strip_term_punctuation
+        key = strip_term_punctuation(term).casefold()
         canonical = self.lookup_type(term) or term
         return key in self.ship_names or canonical.casefold() in self.ship_names or self.alias_kinds.get(key) == "ship"
 
@@ -2386,11 +2290,31 @@ PHRASE_OVERRIDES = load_phrase_overrides()
 
 
 def apply_phrase_overrides(text: str, direction: str) -> tuple[str, bool]:
-    out = text; changed = False
-    for item in PHRASE_OVERRIDES:
-        src = str(item.get("source", "")); tgt = str(item.get("target", "")); idir = str(item.get("direction", "zh-en"))
+    """Apply curated phrase overrides (durable, not machine-cache).
+
+    Longer sources are applied first so compounds like 旗舰技能 are not
+    mangled by a shorter 旗舰 replacement.
+    """
+    out = text
+    changed = False
+    items = sorted(
+        PHRASE_OVERRIDES,
+        key=lambda item: len(str(item.get("source", "") or "")),
+        reverse=True,
+    )
+    for item in items:
+        src = str(item.get("source", ""))
+        tgt = str(item.get("target", ""))
+        idir = str(item.get("direction", "zh-en"))
         if src and tgt and idir in (direction, "auto", "any") and src in out:
-            out = out.replace(src, tgt); changed = True
+            out = out.replace(src, tgt)
+            changed = True
+    if changed:
+        # Avoid gluing English replacements to neighboring latin tokens: "?Buffering"
+        out = re.sub(r"([?!.,:;])([A-Za-z0-9])", r"\1 \2", out)
+        out = re.sub(r"([A-Za-z0-9])([\u3400-\u9fff\uf900-\ufaff])", r"\1 \2", out)
+        out = re.sub(r"([\u3400-\u9fff\uf900-\ufaff])([A-Za-z0-9])", r"\1 \2", out)
+        out = re.sub(r"[ \t]{2,}", " ", out).strip()
     return out, changed
 
 
@@ -2409,7 +2333,8 @@ class EveDb:
             self.con = None
 
     def lookup_type(self, term: str) -> str | None:
-        term = term.strip().strip("* ,.;:()[]{}\"'`â€œâ€â€˜â€™")
+        from sb_text import strip_term_punctuation
+        term = strip_term_punctuation(term)
         if not term or len(term) < 2:
             return None
         key = term.lower()
@@ -2649,45 +2574,7 @@ def build_intel_segments(text: str, systems: list[str], assets: list[str], local
     return segments
 
 
-def has_cjk(text: str) -> bool:
-    return any("\u3400" <= ch <= "\u9fff" for ch in text)
-
-
-def has_english_letters(text: str) -> bool:
-    return any(("A" <= ch <= "Z") or ("a" <= ch <= "z") for ch in text)
-
-
-def has_non_english_signal(text: str) -> bool:
-    ranges = (
-        (0x0370, 0x03FF),  # Greek
-        (0x0400, 0x052F),  # Cyrillic
-        (0x0590, 0x05FF),  # Hebrew
-        (0x0600, 0x06FF),  # Arabic
-        (0x0750, 0x077F),  # Arabic Supplement
-        (0x08A0, 0x08FF),  # Arabic Extended-A
-        (0x0900, 0x097F),  # Devanagari
-        (0x0980, 0x09FF),  # Bengali
-        (0x0A00, 0x0A7F),  # Gurmukhi
-        (0x0A80, 0x0AFF),  # Gujarati
-        (0x0B00, 0x0B7F),  # Oriya
-        (0x0B80, 0x0BFF),  # Tamil
-        (0x0C00, 0x0C7F),  # Telugu
-        (0x0C80, 0x0CFF),  # Kannada
-        (0x0D00, 0x0D7F),  # Malayalam
-        (0x0E00, 0x0E7F),  # Thai
-        (0x0E80, 0x0EFF),  # Lao
-        (0x3040, 0x30FF),  # Hiragana and Katakana
-        (0x3400, 0x9FFF),  # CJK
-        (0xAC00, 0xD7AF),  # Hangul
-        (0xF900, 0xFAFF),  # CJK Compatibility Ideographs
-    )
-    for ch in text:
-        code = ord(ch)
-        if code == 0xFFFD or code < 0x20 or 0x7F <= code <= 0x9F:
-            continue
-        if any(start <= code <= end for start, end in ranges):
-            return True
-    return False
+from sb_translation.detect import has_cjk, has_english_letters, has_non_english_signal, pick_google_source_lang
 
 
 def argos_runtime_status() -> dict:
@@ -2719,7 +2606,8 @@ def format_argos_status() -> str:
 
 
 def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") -> str | None:
-    text = text.strip()
+    from sb_translation.google_free import google_translate_free as _google_free
+    text = (text or "").strip()
     if not text:
         return None
     key = f"google|{source}|{target}|{text}"
@@ -2729,22 +2617,11 @@ def google_translate_free(text: str, source: str = "zh-CN", target: str = "en") 
     if cached:
         FREE_TRANSLATION_CACHE[key] = cached
         return cached
-    params = urllib.parse.urlencode({"client": "gtx", "sl": source, "tl": target, "dt": "t", "q": text})
-    url = "https://translate.googleapis.com/translate_a/single?" + params
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 SignalBridge/1.0"})
-        with urllib.request.urlopen(req, timeout=GOOGLE_TRANSLATE_TIMEOUT) as response:
-            payload = response.read().decode("utf-8", "replace")
-        data = json.loads(payload)
-        translated = "".join(part[0] for part in data[0] if part and part[0]).strip()
-        if translated:
-            FREE_TRANSLATION_CACHE[key] = translated
-            # Do not persist here: callers may pass protected placeholder work
-            # such as "SBX0 clear". Persistent cache writes are gated by the
-            # higher-level segment-aware translation pipeline.
-            return translated
-    except Exception:
-        return None
+    translated = _google_free(text, source=source, target=target, timeout=GOOGLE_TRANSLATE_TIMEOUT)
+    if translated:
+        FREE_TRANSLATION_CACHE[key] = translated
+        # Do not persist here: protected placeholder work is gated higher up.
+        return translated
     return None
 
 
@@ -2898,19 +2775,24 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
         return "", "not-needed"
     if direction == "en-zh" and not has_english_letters(text):
         return "", "not-needed"
+    from sb_translation.protect import reattach_untranslated_source_tokens, restore_protected_translation_tokens
     cache_text = translation_source_for_cache(text, direction)
     cached, label = translation_cache_lookup(cache_text, direction, preferred_engine, fallback_mode)
     if cached:
-        return cached, label
+        # Cache stores CJK-only segments; reattach English names left on the full line.
+        return reattach_untranslated_source_tokens(text, cached, cache_text), label
     if str(fallback_mode or "").lower() in {"cache-only", "offline-cache"}:
         return "", "cache-miss-offline"
     source, target, argos_source, argos_target = translation_langs_for_direction(direction)
     override_text, override_changed = apply_phrase_overrides(cache_text, direction)
     if override_changed and direction == "zh-en" and not has_non_english_signal(override_text):
-        return override_text.strip(), "phrase-override"
+        return reattach_untranslated_source_tokens(text, override_text.strip(), cache_text), "phrase-override"
     protected=[]; work=override_text; terms=[]
     terms.extend(systems); terms.extend(assets); terms.extend(counts); terms.extend(links); terms.extend(HTTP_LINK_RE.findall(text))
     if character_names: terms.extend(character_names)
+    # Protect latin tokens still present on the *full* line (not only the CJK cache segment)
+    if direction == "zh-en" and text:
+        terms.extend(re.findall(r"[A-Za-z][A-Za-z0-9'*.-]{1,}", text))
     terms.extend(re.findall(r"\b\d+(?:\.\d+)?\s*(?:isk|m|mil|b|bil|kk)\b", text, re.I))
     for ent in localized:
         terms.append(ent.get("original", "")); terms.append(ent.get("canonical", ""))
@@ -2928,16 +2810,15 @@ def translate_free_text_cached(text: str, systems: list[str], assets: list[str],
         if not translated:
             TRANSLATION_CACHE.record_failure(cache_text, target, engine, "empty result", cooldown_minutes)
             continue
-        out=translated
-        for token, original in protected:
-            out=re.sub(rf"\b{re.escape(token)}\b", original, out)
-        out=out.strip()
-        if out:
-            if TRANSLATION_CACHE.put_machine(
-                cache_text, source, target, out, engine, direction=direction, protected_terms=protected_terms
-            ):
-                return out, f"segment:{engine}-cached"
-            return out, f"segment:{engine}-uncached"
+        # Restore placeholders on the MT segment only; reattach full-line English after cache write
+        # so machine cache stays CJK-segment clean (e.g. 能塌吗 -> Can it collapse?).
+        mt_out = restore_protected_translation_tokens(translated, protected)
+        if mt_out:
+            cached_ok = TRANSLATION_CACHE.put_machine(
+                cache_text, source, target, mt_out, engine, direction=direction, protected_terms=protected_terms
+            )
+            display = reattach_untranslated_source_tokens(text, mt_out, cache_text)
+            return display, (f"segment:{engine}-cached" if cached_ok else f"segment:{engine}-uncached")
     return "", "fallback-failed"
 
 def translate_free_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str], direction: str = "zh-en", character_names: list[str] | None = None, preferred_engine: str = "auto", fallback_mode: str = "google-argos") -> str:
@@ -2947,8 +2828,8 @@ def translate_free_text(text: str, systems: list[str], assets: list[str], locali
     if direction == "zh-en":
         if not has_non_english_signal(text):
             return ""
-        # Google auto-detects Chinese, Russian, Spanish, etc. Argos fallback remains Chinese-only unless Google fails on CJK.
-        source, target = "auto", "en"
+        # CJK uses zh-CN; other non-English uses Google auto-detect (Russian, etc.).
+        source, target = pick_google_source_lang(text, "zh-en"), "en"
         argos_source, argos_target = "zh", "en"
     elif direction == "en-zh":
         if not has_english_letters(text):
@@ -3006,10 +2887,11 @@ def translate_free_text(text: str, systems: list[str], assets: list[str], locali
             break
     if not translated:
         return ""
-    out = translated
-    for token, original in protected:
-        out = re.sub(rf"\b{re.escape(token)}\b", original, out)
-    return out.strip()
+    from sb_translation.protect import reattach_untranslated_source_tokens, restore_protected_translation_tokens
+    out = restore_protected_translation_tokens(translated, protected)
+    if direction == "zh-en":
+        out = reattach_untranslated_source_tokens(text, out, translation_source_for_cache(text, direction))
+    return out
 
 
 def translate_free_chinese_text(text: str, systems: list[str], assets: list[str], localized: list[dict], counts: list[str], links: list[str]) -> str:
@@ -3043,101 +2925,33 @@ def parse_rows_from_text(text: str, fallback_channel: str, file_name: str, db: E
     return rows
 
 
-class MonitorThread(threading.Thread):
-    def __init__(self, outq: queue.Queue, stop_event: threading.Event, status: Callable[[str], None], channels: set[str], replay_today: bool = True):
-        super().__init__(daemon=True)
-        self.outq = outq
-        self.stop_event = stop_event
-        self.status = status
-        self.channels = set(channels)
-        self.replay_today = replay_today
-        self.offsets: dict[str, int] = {}
-        self.seen: set[tuple[str, str, str]] = set()
-        # Live monitoring must never block gameplay/chat display on the large optional translations.db.
-        # Use compact catalog-only lookups here; manual/self-test paths can still open SQLite explicitly.
-        self.db = EveDb(DB_PATH, use_sqlite=False)
+from sb_monitor import MonitorThread as _MonitorThreadImpl
 
-    def chat_files(self):
-        files: list[Path] = []
-        if self.channels:
-            for channel in sorted(self.channels):
-                files.extend(CHATLOG_DIR.glob(channel + "_*.txt"))
-        # Also watch discovered chatlogs so newly active channels can open tabs
-        # automatically without forcing the user through a destructive chooser.
-        try:
-            files.extend(CHATLOG_DIR.glob("*.txt"))
-        except Exception:
-            pass
-        return sorted(set(files), key=lambda p: p.stat().st_mtime_ns)
 
-    def emit_row(self, row: Row):
-        if row.channel not in self.channels:
-            self.channels.add(row.channel)
-            self.outq.put(("channel_discovered", row.channel))
-            write_log(f"Monitor discovered active channel={row.channel!r}")
-        key = (row.channel.lower(), row.sender.lower(), row.text.lower())
-        if key in self.seen:
-            return
-        self.seen.add(key)
-        self.outq.put(row)
-        write_log(f"Monitor emitted row channel={row.channel!r} sender={row.sender!r} text={row.text[:120]!r}")
-
-    def run(self):
-        try:
-            if not CHATLOG_DIR.exists():
-                self.status(f"Missing chatlog folder: {CHATLOG_DIR}")
-                return
-            if not CATALOG.loaded and not DB_PATH.exists():
-                self.status("Warning: no compact catalog or DB available")
-            if self.replay_today:
-                recent = sorted(self.chat_files(), key=lambda x: x.stat().st_mtime_ns, reverse=True)[:max(3, len(self.channels) * 3)]
-                replay_rows = []
-                for p in recent:
-                    try:
-                        text = decode_bytes(p.read_bytes())
-                    except OSError:
-                        continue
-                    replay_rows.extend(parse_rows_from_text(text, channel_from_filename(p), p.name, self.db, allow_free_translation=False)[-40:])
-                for row in replay_rows[-80:]:
-                    self.emit_row(row)
-            for p in self.chat_files():
-                try:
-                    self.offsets[str(p)] = p.stat().st_size
-                except OSError:
-                    pass
-            self.status(f"Monitoring live: {len(self.channels)} channel(s), existing files snapshotted; Catalog={'yes' if CATALOG.loaded else 'no'}")
-            while not self.stop_event.is_set():
-                for p in self.chat_files():
-                    sp = str(p)
-                    try:
-                        size = p.stat().st_size
-                    except OSError:
-                        continue
-                    old = self.offsets.get(sp, 0)
-                    if size < old:
-                        old = 0
-                    if size == old:
-                        self.offsets[sp] = size
-                        continue
-                    if size - old > MAX_CHUNK:
-                        old = max(0, size - MAX_CHUNK)
-                    try:
-                        with p.open("rb") as f:
-                            f.seek(old)
-                            data = f.read(size - old)
-                        self.offsets[sp] = size
-                    except OSError:
-                        continue
-                    rows = parse_rows_from_text(decode_bytes(data), channel_from_filename(p), p.name, self.db, allow_free_translation=False)
-                    if rows:
-                        write_log(f"Monitor read {len(rows)} row(s) from {p.name} bytes={size-old}")
-                    for row in rows:
-                        self.emit_row(row)
-                time.sleep(POLL_SECONDS)
-        except Exception:
-            self.status(traceback.format_exc())
-        finally:
-            self.db.close()
+def MonitorThread(outq, stop_event, status, channels, replay_today: bool = False, backlog_minutes: int | None = None):
+    """Factory wrapper preserving call sites; logic lives in sb_monitor."""
+    minutes = 0
+    if backlog_minutes is not None:
+        minutes = int(backlog_minutes or 0)
+    elif replay_today:
+        minutes = 24 * 60
+    return _MonitorThreadImpl(
+        outq,
+        stop_event,
+        status,
+        channels,
+        chatlog_dir=CHATLOG_DIR,
+        parse_rows=parse_rows_from_text,
+        channel_from_filename=channel_from_filename,
+        decode_bytes=decode_bytes,
+        make_db=lambda: EveDb(DB_PATH, use_sqlite=False),
+        write_log=write_log,
+        poll_seconds=POLL_SECONDS,
+        max_chunk=MAX_CHUNK,
+        backlog_minutes=minutes,
+        catalog_loaded=bool(CATALOG.loaded),
+        db_exists=bool(DB_PATH.exists()),
+    )
 
 
 TAB_THEME = {
@@ -3163,26 +2977,8 @@ TAB_THEME = {
 }
 
 
-DEFAULT_APPEARANCE = {
-    "preset": "Default Dark",
-    "font_family": "Segoe UI",
-    "font_size": 10,
-    "window_opacity": 1.0,
-    "background": "#070b10",
-    "foreground": "#d7dde5",
-    "highlight_backgrounds": False,
-    "time": {"foreground": "#778493", "bold": False, "background": ""},
-    "sender": {"foreground": "#d7dde5", "bold": False, "background": ""},
-    "system": {"foreground": "#ffd54a", "bold": True, "background": "#332900"},
-    "asset": {"foreground": "#ff9d2e", "bold": True, "background": "#332000"},
-    "module": {"foreground": "#b388ff", "bold": True, "background": "#241b35"},
-    "ess": {"foreground": "#5ad7ff", "bold": True, "background": "#0b2a33"},
-    "esi": {"foreground": "#ff5c5c", "bold": True, "background": "#351719"},
-    "translation": {"foreground": "#9be28f", "bold": False, "background": ""},
-    "muted": {"foreground": "#8b98a8", "bold": False, "background": ""},
-    "error": {"foreground": "#ff5a5f", "bold": True, "background": ""},
-    "link": {"foreground": "#5ad7ff", "bold": False, "background": "", "underline": True},
-}
+from sb_appearance import DEFAULT_APPEARANCE, STYLE_TAGS as APPEARANCE_STYLE_TAGS
+from sb_appearance import normalize_appearance as _normalize_appearance_pure
 
 APPEARANCE_PRESETS = {
     "Default Dark": {},
@@ -3221,7 +3017,7 @@ APPEARANCE_PRESETS = {
     },
 }
 
-STYLE_TAGS = ("time", "sender", "system", "asset", "module", "ess", "esi", "translation", "muted", "error", "link")
+STYLE_TAGS = APPEARANCE_STYLE_TAGS
 
 
 def tab_id_for_channel(channel: str) -> str:
@@ -3233,8 +3029,8 @@ def tab_label(tab_id: str) -> str:
 
 
 def short_tab_label(label: str, max_chars: int = 28) -> str:
-    label = str(label)
-    return label if len(label) <= max_chars else label[: max_chars - 1] + "â€¦"
+    from sb_text import truncate_label
+    return truncate_label(label, max_chars)
 
 
 
@@ -3265,9 +3061,17 @@ class SignalBridgeGui:
         self.root = tk.Tk()
         self.root.title(f"{APP_NAME} v{APP_VERSION}")
         try:
-            icon = APP_DIR / "assets" / "signal_bridge_icon.ico"
-            if icon.exists():
-                self.root.iconbitmap(str(icon))
+            ico = APP_DIR / "assets" / "signal_bridge_icon.ico"
+            png = APP_DIR / "assets" / "signal_bridge_icon_true_transparent_1024.png"
+            if ico.exists():
+                self.root.iconbitmap(str(ico))
+            # Prefer high-res PNG for title-bar/taskbar where Tk supports it.
+            if png.exists():
+                try:
+                    self._app_icon_photo = self.tk.PhotoImage(file=str(png))
+                    self.root.iconphoto(True, self._app_icon_photo)
+                except Exception as photo_exc:
+                    write_log(f"Root iconphoto failed: {photo_exc}")
         except Exception as exc:
             write_log(f"Root icon failed: {exc}")
         # Mobile-style default: narrow, tall layout suitable for side-panel/overlay use.
@@ -3430,7 +3234,7 @@ class SignalBridgeGui:
         settings_menu.add_command(label="Appearance...", command=lambda: self.show_settings_center("Appearance"))
         settings_menu.add_command(label="Aliases...", command=lambda: self.show_settings_center("Aliases"))
         settings_menu.add_command(label="ESI...", command=lambda: self.show_settings_center("ESI"))
-        settings_menu.add_command(label="Exclusions...", command=lambda: self.show_settings_center("Exclusions"))
+        settings_menu.add_command(label="Recognition Rules...", command=lambda: self.show_settings_center("Recognition Rules"))
         settings_menu.add_command(label="Add-ons...", command=lambda: self.show_settings_center("Add-ons"))
         menubar.add_cascade(label="Settings", menu=settings_menu)
 
@@ -3813,39 +3617,22 @@ class SignalBridgeGui:
         return f"{len(self.active_channels)} active channel(s), {len(self.hidden_tab_ids)} hidden tab(s)"
 
     def channel_catalog(self) -> dict[str, dict]:
-        discovered = discover_channel_metadata()
-        catalog: dict[str, dict] = {name: dict(info) for name, info in discovered.items()}
-        persisted = set(self.active_channels) | {c for c in self.tab_order if c != ALL_CHANNELS_TAB} | set(self.hidden_tab_ids)
-        for channel in persisted:
-            channel = normalize_channel_name(channel)
-            if not channel:
-                continue
-            catalog.setdefault(channel, {"channel": channel, "last_seen_ns": 0, "files": 0, "latest_file": ""})
-        for channel, info in catalog.items():
-            active = channel in self.active_channels
-            hidden = channel in self.hidden_tab_ids
-            discovered_now = channel in discovered
-            if active and discovered_now:
-                status = "tracking"
-            elif active:
-                status = "tracking, waiting for log"
-            elif hidden:
-                status = "hidden"
-            elif discovered_now:
-                status = "discovered"
-            else:
-                status = "saved, missing log"
-            info["active"] = active
-            info["hidden"] = hidden
-            info["discovered"] = discovered_now
-            info["status"] = status
-        return catalog
+        return sb_channels.build_channel_catalog(
+            chatlog_dir=CHATLOG_DIR,
+            active_channels=set(self.active_channels),
+            hidden_tab_ids=set(self.hidden_tab_ids),
+            tab_order=list(self.tab_order),
+            all_channels_tab=ALL_CHANNELS_TAB,
+        )
 
     def refresh_channel_status(self):
         catalog = self.channel_catalog()
-        discovered = len([c for c, info in catalog.items() if info.get("discovered")])
-        waiting = len([c for c, info in catalog.items() if info.get("active") and not info.get("discovered")])
-        self.set_status(f"Channels: {len(self.active_channels)} tracking, {discovered} discovered, {waiting} waiting for log, {len(self.hidden_tab_ids)} hidden")
+        summary = sb_channels.catalog_summary(catalog)
+        record_event("channel_catalog_summary", **summary)
+        self.set_status(
+            f"Channels: {summary['tracking']} tracking, {summary['discovered']} discovered, "
+            f"{summary['waiting']} waiting for log, {summary['hidden']} hidden"
+        )
 
     def choose_channels(self):
         tk = self.tk
@@ -4036,31 +3823,15 @@ class SignalBridgeGui:
                     else:
                         out[k] = v
             return out
-        appearance = copy.deepcopy(DEFAULT_APPEARANCE)
-        preset = None
+        appearance = _normalize_appearance_pure(None, settings=SETTINGS)
         if isinstance(raw, dict):
             preset = raw.get("preset")
             if preset in APPEARANCE_PRESETS:
                 appearance = merge(appearance, APPEARANCE_PRESETS[preset])
             appearance = merge(appearance, raw)
-        else:
-            appearance["font_family"] = SETTINGS.get("font_family", appearance["font_family"])
-            appearance["font_size"] = SETTINGS.get("font_size", appearance["font_size"])
-        try:
-            appearance["font_size"] = max(8, min(28, int(appearance.get("font_size", 10))))
-        except Exception:
-            appearance["font_size"] = 10
-        try:
-            appearance["window_opacity"] = max(0.55, min(1.0, float(appearance.get("window_opacity", 1.0))))
-        except Exception:
-            appearance["window_opacity"] = 1.0
-        for key in STYLE_TAGS:
-            if not isinstance(appearance.get(key), dict):
-                appearance[key] = copy.deepcopy(DEFAULT_APPEARANCE[key])
-            else:
-                base = copy.deepcopy(DEFAULT_APPEARANCE[key])
-                base.update(appearance[key])
-                appearance[key] = base
+            if "highlight_modules" not in raw:
+                appearance["highlight_modules"] = False
+        appearance = _normalize_appearance_pure(appearance, settings=SETTINGS)
         return appearance
 
     def feed_font(self, bold: bool = False):
@@ -4406,8 +4177,98 @@ class SignalBridgeGui:
     def show_alias_editor(self):
         self.show_settings_center("Aliases")
 
+    def _render_settings_filters(self, body, shell):
+        import uuid
+        from sb_ui import filters_page as sb_filters_page
+        tk = self.tk
+        spam_vars = {
+            "enabled": tk.BooleanVar(value=bool(SETTINGS.get("spam_control_enabled", True))),
+            "local_only": tk.BooleanVar(value=bool(SETTINGS.get("spam_local_channels_only", True))),
+            "ascii": tk.BooleanVar(value=bool(SETTINGS.get("spam_ascii_art_filter", True))),
+        }
+        spam_spin_vars = {
+            "max_per_min": tk.IntVar(value=int(SETTINGS.get("spam_per_channel_max_per_minute", 30) or 30)),
+            "repeat_window": tk.IntVar(value=int(SETTINGS.get("spam_repeat_sender_window_seconds", 8) or 8)),
+            "repeat_max": tk.IntVar(value=int(SETTINGS.get("spam_repeat_sender_max", 3) or 3)),
+        }
+
+        def list_lines():
+            lines = []
+            for f in self._feed_filters():
+                state = "on" if f.enabled else "off"
+                lines.append(f"[{state}] {f.kind}: {f.pattern} ({f.match_mode})")
+            return lines
+
+        def add_kind(kind: str):
+            title = "Keyword" if kind == "keyword" else "Sender"
+            value = self.simple_prompt(f"Add {title} filter", f"{title} to filter:")
+            if not value:
+                return
+            filters = self._feed_filters()
+            filters.append(FeedFilter(id=uuid.uuid4().hex[:12], kind=kind, pattern=value.strip(), enabled=True))
+            SETTINGS["feed_filters"] = filters_to_settings(filters)
+            save_settings(SETTINGS)
+
+        def remove_selected(selection):
+            if not selection:
+                return
+            filters = self._feed_filters()
+            idx = int(selection[0])
+            if 0 <= idx < len(filters):
+                filters.pop(idx)
+                SETTINGS["feed_filters"] = filters_to_settings(filters)
+                save_settings(SETTINGS)
+
+        sb_filters_page.render_filters_page(
+            body,
+            tk=tk,
+            filters_var_list=None,
+            spam_vars=spam_vars,
+            spam_spin_vars=spam_spin_vars,
+            on_add_keyword=lambda: add_kind("keyword"),
+            on_add_sender=lambda: add_kind("sender"),
+            on_remove_selected=remove_selected,
+            on_reload_list=list_lines,
+        )
+
+        def apply_spam():
+            SETTINGS["spam_control_enabled"] = bool(spam_vars["enabled"].get())
+            SETTINGS["spam_local_channels_only"] = bool(spam_vars["local_only"].get())
+            SETTINGS["spam_ascii_art_filter"] = bool(spam_vars["ascii"].get())
+            SETTINGS["spam_per_channel_max_per_minute"] = max(5, min(200, int(spam_spin_vars["max_per_min"].get() or 30)))
+            SETTINGS["spam_repeat_sender_window_seconds"] = max(2, min(120, int(spam_spin_vars["repeat_window"].get() or 8)))
+            SETTINGS["spam_repeat_sender_max"] = max(1, min(50, int(spam_spin_vars["repeat_max"].get() or 3)))
+            save_settings(SETTINGS)
+            self._spam_limiter()  # refresh policy
+            shell.set_status("Filters and spam settings saved.")
+
+        shell.set_apply_handler(apply_spam)
+
+    def simple_prompt(self, title: str, prompt: str) -> str:
+        tk = self.tk
+        win = tk.Toplevel(self.root)
+        self.polish_window(win, self.root, width=420, height=160, minsize=(360, 140), modal=True, title=title)
+        result = {"value": ""}
+        tk.Label(win, text=prompt, **sb_theme.label_kw()).pack(anchor="w", padx=10, pady=(10, 4))
+        entry = tk.Entry(win, **sb_theme.entry_kw())
+        entry.pack(fill="x", padx=10, pady=4)
+        entry.focus_set()
+        def ok():
+            result["value"] = entry.get().strip()
+            win.destroy()
+        def cancel():
+            result["value"] = ""
+            win.destroy()
+        btns = tk.Frame(win, bg=sb_theme.COLORS["bg"])
+        btns.pack(fill="x", padx=10, pady=8)
+        sb_components.primary_button(btns, "OK", command=ok).pack(side="right")
+        sb_components.action_button(btns, "Cancel", command=cancel).pack(side="right", padx=(0, 6))
+        win.bind("<Return>", lambda e: ok())
+        win.wait_window()
+        return result["value"]
+
     def _render_settings_general(self, body, shell):
-        c = sb_components.card(body, "App Behavior", "Common runtime options and folders.")
+        c = sb_components.card(body, "App Behavior", "Window and feed display options used every session.")
         sb_components.check(c, "Always on top", self.always_on_top, self.apply_topmost)
         sb_components.check(c, "Compact mode", self.compact, self.persist_settings)
         sb_components.check(c, "Check for updates on launch", self.check_updates_on_start, self.persist_settings)
@@ -4415,7 +4276,18 @@ class SignalBridgeGui:
         sb_components.check(c, "Show channel names in feed", self.show_channel_names, self.persist_and_redraw)
         sb_components.check(c, "Show channel names in All", self.show_channel_names_in_all, self.persist_and_redraw)
         sb_components.check(c, "Enable clickable hyperlinks", self.enable_hyperlinks, self.persist_and_redraw)
-        c2 = sb_components.card(body, "Folders")
+
+        bl = sb_components.card(
+            body,
+            "Startup backlog",
+            "Default is live-only (no history on Start Monitoring). Enable only when you want recent chat backfilled first.",
+        )
+        self.replay_on_start_var = self.tk.BooleanVar(value=bool(SETTINGS.get("replay_on_start", False)))
+        self.backlog_minutes_var = self.tk.IntVar(value=int(SETTINGS.get("backlog_minutes", 10) or 10))
+        sb_components.check(bl, "Ingest recent backlog on Start Monitoring", self.replay_on_start_var, self.persist_settings)
+        sb_components.labeled_spinbox(bl, "Backlog window (minutes):", self.backlog_minutes_var, from_=1, to=360)
+
+        c2 = sb_components.card(body, "Folders", "Chatlog folder is required for monitoring. App and logs folders help troubleshooting.")
         r = sb_components.action_row(c2)
         sb_components.action_button(r, "Choose Chatlog Folder...", self.choose_chatlog_folder)
         sb_components.action_button(r, "Open App Folder", self.open_app_folder)
@@ -4423,92 +4295,166 @@ class SignalBridgeGui:
         sb_components.info_label(c2, f"Current chatlogs: {CHATLOG_DIR}", muted=True)
 
     def _render_settings_channels(self, body, shell):
-        c = sb_components.card(body, "Channels", "Add channels without replacing existing ones. Hidden channels stay hidden until restored.")
+        c = sb_components.card(
+            body,
+            "Channels",
+            "Add channels without replacing existing ones. Hidden channels stay hidden until restored. Saved channels wait for new log files after restart.",
+        )
         catalog = self.channel_catalog()
         discovered_count = len([x for x in catalog.values() if x.get("discovered")])
         waiting_count = len([x for x in catalog.values() if x.get("active") and not x.get("discovered")])
-        sb_components.info_label(c, f"Tracking: {len(self.active_channels)} | Discovered: {discovered_count} | Waiting for log: {waiting_count} | Hidden: {len(self.hidden_tab_ids)}")
-        sb_components.info_label(c, f"Visible: {self.visible_channel}", muted=True)
+        sb_components.info_label(
+            c,
+            f"Tracking: {len(self.active_channels)} | Discovered: {discovered_count} | "
+            f"Waiting for log: {waiting_count} | Hidden: {len(self.hidden_tab_ids)}",
+        )
+        sb_components.info_label(c, f"Visible tab: {self.visible_channel}", muted=True)
         r = sb_components.action_row(c)
         sb_components.action_button(r, "Add / Open Channels...", self.choose_channels)
         sb_components.action_button(r, "Restore Hidden Tabs...", self.restore_hidden_tabs_dialog)
         sb_components.action_button(r, "Refresh Status", self.refresh_channel_status)
-        sb_components.action_button(r, "Close All Active", self.close_selected_channels)
-        sb_components.info_label(c, "Saved channels stay listed and continue waiting for new log files after restart. Live-only/no-backfill remains enabled.", muted=True)
+        danger = sb_components.danger_card(
+            body,
+            "Stop tracking",
+            "Close All Active clears the tracking set. Channels can be re-added from discovery.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Close All Active", self.close_selected_channels)
 
     def _render_settings_appearance(self, body, shell):
-        c = sb_components.card(body, "Appearance", "Customize fonts, colors, bold styling, highlight backgrounds, opacity, and presets.")
+        c = sb_components.card(
+            body,
+            "Appearance",
+            "Fonts, colors, opacity, and presets. Purple module highlighting is off by default for new installs.",
+        )
         sb_components.info_label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}")
-        sb_components.info_label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", muted=True)
+        modules_on = bool(self.appearance.get("highlight_modules", False)) if isinstance(self.appearance, dict) else False
+        sb_components.info_label(
+            c,
+            f"Preset: {self.appearance.get('preset', 'Default Dark')} | "
+            f"Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}% | "
+            f"Module purple: {'on' if modules_on else 'off'}",
+            muted=True,
+        )
         r = sb_components.action_row(c)
         sb_components.action_button(r, "Open Appearance Editor...", self.show_appearance_dialog)
         sb_components.action_button(r, "Increase Font", lambda: self.adjust_font_size(1))
         sb_components.action_button(r, "Decrease Font", lambda: self.adjust_font_size(-1))
 
     def _render_settings_catalog(self, body, shell):
-        c = sb_components.card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
-        sb_components.info_label(c, f"Catalog loaded: {CATALOG.loaded}")
-        sb_components.info_label(c, f"Version: {CATALOG.version}")
+        c = sb_components.card(
+            body,
+            "Status",
+            "Compact bundled catalog for systems, ships, assets, aliases, and protected terms on the live path.",
+        )
+        sb_components.info_label(c, f"Loaded: {'yes' if CATALOG.loaded else 'no'} | Version: {CATALOG.version}")
         sb_components.info_label(c, f"Counts: {CATALOG.counts()}", muted=True)
         sb_components.info_label(c, f"Path: {CATALOG_PATH}", muted=True)
         r = sb_components.action_row(c)
-        sb_components.action_button(r, "Aliases...", self.show_alias_editor)
-        sb_components.action_button(r, "Check Catalog Updates", self.check_catalog_updates)
-        sb_components.action_button(r, "Restore Previous Catalog", self.restore_previous_catalog)
+        sb_components.action_button(r, "Check for Updates", self.check_catalog_updates)
         sb_components.action_button(r, "Health Status", self.show_health)
+        r2 = sb_components.action_row(c)
+        sb_components.action_button(r2, "Edit Aliases…", lambda: shell.render_page("Aliases"))
+        danger = sb_components.danger_card(
+            body,
+            "Restore previous catalog",
+            "Replaces the active catalog with the last backup if one exists. Live recognition may change until the next update.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Restore Previous Catalog", self.restore_previous_catalog)
 
     def _render_settings_esi(self, body, shell):
-        c = sb_components.card(body, "ESI", "Optional cache-first background ESI recognition. Live monitoring works even when ESI is disabled.")
+        c = sb_components.card(
+            body,
+            "Recognition",
+            "Optional cache-first background ESI. Live monitoring works with ESI off. Network work never runs on the render path.",
+        )
         sb_components.check(c, "Enable public ESI entity recognition", self.esi_enabled, self.save_esi_ui_settings)
         sb_components.check(c, "Enable OAuth features", self.esi_oauth_enabled, self.save_esi_ui_settings)
-        stats = ESI_CACHE.stats(); status = ESI_CACHE.get_status()
-        sb_components.info_label(c, f"Recognition: {'Enabled' if self.esi_enabled.get() else 'Disabled'}")
-        sb_components.info_label(c, f"OAuth: {'Enabled' if self.esi_oauth_enabled.get() else 'Disabled'}")
-        sb_components.info_label(c, f"Known characters/entities: {stats.get('entities', 0)}", muted=True)
-        sb_components.info_label(c, f"Ignored/excluded terms: {stats.get('corrections', 0)}", muted=True)
-        sb_components.info_label(c, f"Recent negative answers: {stats.get('negative', 0)}", muted=True)
-        sb_components.info_label(c, f"Last ESI check: {status.get('last_check') or 'none'}", muted=True)
+        stats = ESI_CACHE.stats()
+        status = ESI_CACHE.get_status()
+        sb_components.info_label(
+            c,
+            f"Recognition: {'on' if self.esi_enabled.get() else 'off'} | "
+            f"OAuth: {'on' if self.esi_oauth_enabled.get() else 'off'}",
+        )
+        sb_components.info_label(
+            c,
+            f"Entities: {stats.get('entities', 0)} | Corrections: {stats.get('corrections', 0)} | "
+            f"Negative: {stats.get('negative', 0)} | Last check: {status.get('last_check') or 'none'}",
+            muted=True,
+        )
         r = sb_components.action_row(c)
-        sb_components.action_button(r, "ESI / OAuth Settings...", self.show_esi_settings)
-        sb_components.action_button(r, "Manual Character Check...", self.manual_esi_check_dialog)
-        sb_components.action_button(r, "Diagnostics", self.show_esi_diagnostics)
-        sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
+        sb_components.action_button(r, "ESI / OAuth Settings…", self.show_esi_settings)
+        sb_components.action_button(r, "Manual Character Check…", self.manual_esi_check_dialog)
+        r2 = sb_components.action_row(c)
+        sb_components.action_button(r2, "ESI Diagnostics", self.show_esi_diagnostics)
+        sb_components.action_button(r2, "Recognition Rules…", lambda: shell.render_page("Recognition Rules"))
+        danger = sb_components.danger_card(
+            body,
+            "Clear ESI cache",
+            "Removes cached entity lookups. Recognition Rules and OAuth tokens are not deleted here.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Clear ESI Cache", self.clear_esi_cache)
 
     def _render_settings_exclusions(self, body, shell):
-        c = sb_components.card(body, "Recognition & Highlight Exclusions", "Current exclusions stop pilot recognition and hide matching visual highlights. Future scoped rules will split pilot ignores, highlight exclusions, noise words, and chat filters.")
+        c = sb_components.card(
+            body,
+            "Recognition Rules",
+            "Scoped rules: ignored pilots, highlight exclusions, and parser noise words. Feed keyword/sender filters live under Filters.",
+        )
         try:
             pilot_rules = ESI_CACHE.list_exclusion_rules("pilot_ignore")
             highlight_rules = ESI_CACHE.list_exclusion_rules("highlight_exclude")
             noise_rules = ESI_CACHE.list_exclusion_rules("noise_word")
         except Exception:
             pilot_rules, highlight_rules, noise_rules = [], [], []
-        sb_components.info_label(c, f"Ignored pilots: {len(pilot_rules)} | Highlight exclusions: {len(highlight_rules)} | Noise words: {len(noise_rules)}")
+        sb_components.info_label(
+            c,
+            f"Ignored pilots: {len(pilot_rules)} | Highlight exclusions: {len(highlight_rules)} | Noise words: {len(noise_rules)}",
+        )
         sample = ", ".join((x.get("text") or "") for x in (pilot_rules + highlight_rules + noise_rules)[:12])
         if sample:
-            sb_components.info_label(c, sample + ("..." if len(pilot_rules) + len(highlight_rules) + len(noise_rules) > 12 else ""), muted=True)
+            more = len(pilot_rules) + len(highlight_rules) + len(noise_rules) > 12
+            sb_components.info_label(c, sample + ("…" if more else ""), muted=True)
         r = sb_components.action_row(c)
-        sb_components.action_button(r, "Open Scoped Rules...", self.show_esi_exclusion_list)
+        sb_components.action_button(r, "Open Recognition Rules...", self.show_esi_exclusion_list)
 
     def _render_settings_cache_data(self, body, shell):
-        c = sb_components.card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
+        c = sb_components.card(
+            body,
+            "Starter & local data",
+            "Bundled starter files seed new installs. Local caches grow while you use the app.",
+        )
         count, hits = TRANSLATION_CACHE.stats()
-        sb_components.info_label(c, f"Legacy starter exclusions disabled: {DEFAULT_EXCLUSIONS_PATH.name}")
-        sb_components.info_label(c, f"Starter recognition rules: {DEFAULT_RECOGNITION_RULES_PATH.exists()} | {DEFAULT_RECOGNITION_RULES_PATH.name}")
-        sb_components.info_label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}")
+        sb_components.info_label(c, f"Starter recognition rules: {DEFAULT_RECOGNITION_RULES_PATH.exists()} ({DEFAULT_RECOGNITION_RULES_PATH.name})")
+        sb_components.info_label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} ({DEFAULT_ESI_ENTITIES_PATH.name})")
         default_translation_cache_path = DATA_DIR / "default_translation_cache.json"
-        sb_components.info_label(c, f"Starter translation cache: {default_translation_cache_path.exists()} | {default_translation_cache_path.name}")
+        sb_components.info_label(c, f"Starter translation cache: {default_translation_cache_path.exists()} ({default_translation_cache_path.name})")
         sb_components.info_label(c, f"Local translation cache: {count} entries, {hits} hits", muted=True)
         sb_components.info_label(c, f"Local ESI cache: {ESI_CACHE.stats()}", muted=True)
         r = sb_components.action_row(c)
         sb_components.action_button(r, "Open App Folder", self.open_app_folder)
         sb_components.action_button(r, "Open Logs Folder", self.open_logs_folder)
-        sb_components.action_button(r, "Clear Translation Cache", self.clear_translation_cache)
-        sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
+
+        danger = sb_components.danger_card(
+            body,
+            "Clear caches",
+            "Clearing caches does not delete aliases, Recognition Rules, or manual translation corrections that live in overrides.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Clear Translation Cache", self.clear_translation_cache)
+        sb_components.action_button(dr, "Clear ESI Cache", self.clear_esi_cache)
 
     def _render_settings_diagnostics(self, body, shell):
         tk = self.tk
-        c = sb_components.card(body, "Diagnostics", "Copy this information when reporting bugs. UI stalls, slow redraws, and errors are logged as JSONL in the logs folder.")
-        txt = tk.Text(c, height=17, wrap="word", bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg"], relief="flat")
+        c = sb_components.card(
+            body,
+            "Diagnostics",
+            "Copy this when reporting bugs. Stalls, slow redraws, and errors also go to JSONL logs.",
+        )
+        txt = tk.Text(c, height=14, **sb_theme.text_kw())
         txt.pack(fill="both", expand=True, pady=4)
         txt.insert("1.0", self.settings_summary_text())
         txt.configure(state="disabled")
@@ -4529,20 +4475,68 @@ class SignalBridgeGui:
 
     def _render_settings_translation(self, body, shell):
         tk = self.tk
-        c = sb_components.card(body, "Translation", "Translation display is hardened so redraws never perform blocking network/offline MT work.")
-        sb_components.check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw); sb_components.check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
-        rr = sb_components.action_row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_schedule_redraw, **sb_theme.radio_kw()).pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_schedule_redraw, **sb_theme.radio_kw()).pack(side="left")
-        c_engine = sb_components.card(body, "Translation Engine", "Argos is offline/local when installed; Google is online and remains lightweight by default.")
+        c = sb_components.card(
+            body,
+            "Display",
+            "Redraw never blocks on network or offline MT. Free translation runs in the background.",
+        )
+        sb_components.check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw)
+        sb_components.check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
+        rr = sb_components.action_row(c)
+        tk.Radiobutton(
+            rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en",
+            command=self.persist_and_schedule_redraw, **sb_theme.radio_kw(),
+        ).pack(side="left", padx=(0, 10))
+        tk.Radiobutton(
+            rr, text="EN -> CN", variable=self.translation_direction, value="en-zh",
+            command=self.persist_and_schedule_redraw, **sb_theme.radio_kw(),
+        ).pack(side="left")
+        sb_components.info_label(c, "Auto → EN uses Chinese when CJK is present, otherwise Google auto-detect for other non-English text.", muted=True)
+
+        c_engine = sb_components.card(
+            body,
+            "Engine & cache",
+            "Google is the default online engine. Argos remains optional/offline and safety-gated.",
+        )
         sb_components.info_label(c_engine, "Preferred engine")
-        opt1 = tk.OptionMenu(c_engine, self.translation_preferred_engine, "auto", "argos", "google", command=lambda _=None: self.save_translation_engine_settings()); opt1.configure(**sb_theme.optionmenu_kw()); opt1.pack(anchor="w", pady=(0, 4))
+        opt1 = tk.OptionMenu(
+            c_engine, self.translation_preferred_engine, "auto", "argos", "google",
+            command=lambda _=None: self.save_translation_engine_settings(),
+        )
+        opt1.configure(**sb_theme.optionmenu_kw())
+        opt1.pack(anchor="w", pady=(0, 4))
         sb_components.info_label(c_engine, "Cache mode")
-        opt0 = tk.OptionMenu(c_engine, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt0.configure(**sb_theme.optionmenu_kw()); opt0.pack(anchor="w", pady=(0, 4))
+        opt0 = tk.OptionMenu(
+            c_engine, self.translation_cache_mode, "cache-first-auto", "cache-only",
+            command=lambda _=None: self.save_translation_engine_settings(),
+        )
+        opt0.configure(**sb_theme.optionmenu_kw())
+        opt0.pack(anchor="w", pady=(0, 4))
         sb_components.info_label(c_engine, "Fallback mode")
-        opt2 = tk.OptionMenu(c_engine, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt2.configure(**sb_theme.optionmenu_kw()); opt2.pack(anchor="w", pady=(0, 4))
-        tk.Label(c_engine, textvariable=self.argos_status_text, wraplength=640, justify="left", **sb_theme.label_kw(muted=True)).pack(anchor="w", fill="x", pady=2)
-        count, hits = TRANSLATION_CACHE.stats(); sb_components.info_label(c_engine, f"Translation cache: {count} entries, {hits} hits", muted=True)
-        r = sb_components.action_row(c_engine); sb_components.action_button(r, "Refresh Argos Status", self.refresh_argos_status); sb_components.action_button(r, "Install / Repair Argos", self.install_argos_models); sb_components.action_button(r, "Test Translation", self.test_translation_engine)
-        r2 = sb_components.action_row(c_engine); sb_components.action_button(r2, "Open Translation Cache...", lambda: shell.render_page("Translation Cache")); sb_components.action_button(r2, "Cache Status", self.show_translation_cache); sb_components.action_button(r2, "Clear Cache", self.clear_translation_cache); sb_components.action_button(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+        opt2 = tk.OptionMenu(
+            c_engine, self.translation_fallback_mode,
+            "online-only", "google-argos", "argos-google", "offline-only", "cache-only",
+            command=lambda _=None: self.save_translation_engine_settings(),
+        )
+        opt2.configure(**sb_theme.optionmenu_kw())
+        opt2.pack(anchor="w", pady=(0, 4))
+        tk.Label(
+            c_engine, textvariable=self.argos_status_text, wraplength=640, justify="left",
+            **sb_theme.label_kw(muted=True),
+        ).pack(anchor="w", fill="x", pady=2)
+        count, hits = TRANSLATION_CACHE.stats()
+        sb_components.info_label(c_engine, f"Translation cache: {count} entries, {hits} hits", muted=True)
+        r = sb_components.action_row(c_engine)
+        sb_components.action_button(r, "Refresh Argos Status", self.refresh_argos_status)
+        sb_components.action_button(r, "Install / Repair Argos", self.install_argos_models)
+        sb_components.action_button(r, "Test Translation", self.test_translation_engine)
+        r2 = sb_components.action_row(c_engine)
+        sb_components.action_button(r2, "Open Translation Corrections…", lambda: shell.render_page("Translation Cache"))
+        sb_components.action_button(r2, "Cache Status", self.show_translation_cache)
+        sb_components.action_button(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+        danger = sb_components.danger_card(body, "Clear translation cache", "Machine cache only; manual corrections are preserved by the cleaner path.")
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Clear Cache", self.clear_translation_cache)
 
     def _render_settings_translation_cache(self, body, shell):
         tk = self.tk
@@ -4806,115 +4800,214 @@ class SignalBridgeGui:
     def _render_settings_aliases(self, body, shell):
         tk = self.tk
         aliases_state = {"items": [dict(x) for x in USER_ALIASES]}
-        c = sb_components.card(body, "Ship & System Aliases", "Aliases replace shorthand or bad translation artifacts with the canonical name in the visible feed and recognition. Use this for ship and system aliases only.")
-        sb_components.info_label(c, f"Stored at: {USER_ALIASES_PATH}", muted=True)
-        form = tk.Frame(c, bg=sb_theme.COLORS["bg"]); form.pack(fill="x", pady=4)
-        alias_var = tk.StringVar(); canonical_var = tk.StringVar(); kind_var = tk.StringVar(value="ship"); enabled_var = tk.BooleanVar(value=True); note_var = tk.StringVar()
-        left = tk.Frame(form, bg=sb_theme.COLORS["bg"]); left.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        right = tk.Frame(form, bg=sb_theme.COLORS["bg"]); right.pack(side="left", fill="x", expand=True)
-        sb_components.info_label(left, "Alias seen in chat", muted=True); tk.Entry(left, textvariable=alias_var, **sb_theme.entry_kw()).pack(fill="x")
-        sb_components.info_label(right, "Canonical display name", muted=True); tk.Entry(right, textvariable=canonical_var, **sb_theme.entry_kw()).pack(fill="x")
-        opts = tk.Frame(c, bg=sb_theme.COLORS["bg"]); opts.pack(fill="x", pady=4)
-        kind_menu = tk.OptionMenu(opts, kind_var, "ship", "system"); kind_menu.configure(**sb_theme.optionmenu_kw()); kind_menu.pack(side="left", padx=(0, 8))
+        c = sb_components.card(
+            body,
+            "Ship & system aliases",
+            "Replace chat shorthand with the canonical ship or system name in the feed. Not for pilots (use Recognition Rules / ESI).",
+        )
+        sb_components.info_label(c, f"{len(aliases_state['items'])} alias(es) · {USER_ALIASES_PATH.name}", muted=True)
+        form = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        form.pack(fill="x", pady=4)
+        alias_var = tk.StringVar()
+        canonical_var = tk.StringVar()
+        kind_var = tk.StringVar(value="ship")
+        enabled_var = tk.BooleanVar(value=True)
+        note_var = tk.StringVar()
+        left = tk.Frame(form, bg=sb_theme.COLORS["bg"])
+        left.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        right = tk.Frame(form, bg=sb_theme.COLORS["bg"])
+        right.pack(side="left", fill="x", expand=True)
+        sb_components.info_label(left, "Alias seen in chat", muted=True)
+        tk.Entry(left, textvariable=alias_var, **sb_theme.entry_kw()).pack(fill="x")
+        sb_components.info_label(right, "Canonical display name", muted=True)
+        tk.Entry(right, textvariable=canonical_var, **sb_theme.entry_kw()).pack(fill="x")
+        opts = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        opts.pack(fill="x", pady=4)
+        kind_menu = tk.OptionMenu(opts, kind_var, "ship", "system")
+        kind_menu.configure(**sb_theme.optionmenu_kw())
+        kind_menu.pack(side="left", padx=(0, 8))
         tk.Checkbutton(opts, text="Enabled", variable=enabled_var, **sb_theme.check_kw()).pack(side="left")
+        sb_components.info_label(opts, "Note", muted=True)
         tk.Entry(opts, textvariable=note_var, **sb_theme.entry_kw()).pack(side="left", fill="x", expand=True, padx=(8, 0))
-        list_frame = tk.Frame(c, bg=sb_theme.COLORS["bg"]); list_frame.pack(fill="both", expand=True, pady=6)
-        lb = tk.Listbox(list_frame, height=12, **sb_theme.listbox_kw())
+        list_frame = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        list_frame.pack(fill="both", expand=True, pady=6)
+        lb = tk.Listbox(list_frame, height=10, **sb_theme.listbox_kw())
         lb.pack(side="left", fill="both", expand=True)
-        lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview); lb_scroll.pack(side="right", fill="y"); lb.configure(yscrollcommand=lb_scroll.set)
+        lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview)
+        lb_scroll.pack(side="right", fill="y")
+        lb.configure(yscrollcommand=lb_scroll.set)
+
         def fmt_alias(entry):
             status = "on" if entry.get("enabled", True) else "off"
-            return f"[{entry.get('kind','ship')}/{status}] {entry.get('alias','')}  ->  {entry.get('canonical','')}"
+            return f"[{entry.get('kind', 'ship')}/{status}] {entry.get('alias', '')}  →  {entry.get('canonical', '')}"
+
         def reload_list():
             lb.delete(0, "end")
             for entry in aliases_state["items"]:
                 lb.insert("end", fmt_alias(entry))
+
         def selected_index():
             sel = lb.curselection()
             return int(sel[0]) if sel else None
+
         def load_selected(_event=None):
             idx = selected_index()
-            if idx is None: return
+            if idx is None:
+                return
             entry = aliases_state["items"][idx]
-            alias_var.set(entry.get("alias", "")); canonical_var.set(entry.get("canonical", "")); kind_var.set(entry.get("kind", "ship")); enabled_var.set(bool(entry.get("enabled", True))); note_var.set(entry.get("note", ""))
+            alias_var.set(entry.get("alias", ""))
+            canonical_var.set(entry.get("canonical", ""))
+            kind_var.set(entry.get("kind", "ship"))
+            enabled_var.set(bool(entry.get("enabled", True)))
+            note_var.set(entry.get("note", ""))
+
         def persist_aliases():
             save_user_aliases(aliases_state["items"])
             reload_user_aliases()
             self.redraw_feed()
             self.set_status("Aliases saved and feed refreshed")
+
         def add_or_update():
-            entry = normalize_user_alias_entry({"alias": alias_var.get(), "canonical": canonical_var.get(), "kind": kind_var.get(), "enabled": enabled_var.get(), "note": note_var.get()})
+            entry = normalize_user_alias_entry({
+                "alias": alias_var.get(),
+                "canonical": canonical_var.get(),
+                "kind": kind_var.get(),
+                "enabled": enabled_var.get(),
+                "note": note_var.get(),
+            })
             if not entry:
-                self.messagebox.showwarning("Aliases", "Alias and canonical name are required."); return
+                self.messagebox.showwarning("Aliases", "Alias and canonical name are required.")
+                return
             idx = selected_index()
             if idx is None:
                 aliases_state["items"].append(entry)
             else:
                 aliases_state["items"][idx] = entry
-            persist_aliases(); reload_list()
+            persist_aliases()
+            reload_list()
+
         def delete_selected():
             idx = selected_index()
-            if idx is None: return
+            if idx is None:
+                return
             del aliases_state["items"][idx]
-            persist_aliases(); reload_list(); alias_var.set(""); canonical_var.set(""); note_var.set("")
+            persist_aliases()
+            reload_list()
+            alias_var.set("")
+            canonical_var.set("")
+            note_var.set("")
+
         def test_alias():
-            sample = alias_var.get().strip()
-            if not sample: sample = "Apocalypse Navy"
+            sample = alias_var.get().strip() or "Apocalypse Navy"
             kind = kind_var.get()
             hit = CATALOG.lookup_system(sample) if kind == "system" else CATALOG.lookup_type(sample)
             self.messagebox.showinfo("Alias Test", f"{sample}\n=> {hit or 'no match'}")
+
         btns = sb_components.action_row(c)
-        sb_components.action_button(btns, "Add / Update", add_or_update); sb_components.action_button(btns, "Delete", delete_selected); sb_components.action_button(btns, "Test", test_alias); sb_components.action_button(btns, "Reload", lambda: (aliases_state.update(items=[dict(x) for x in reload_user_aliases()]), reload_list()))
+        sb_components.action_button(btns, "Add / Update", add_or_update)
+        sb_components.action_button(btns, "Test", test_alias)
+        sb_components.action_button(btns, "Reload", lambda: (aliases_state.update(items=[dict(x) for x in reload_user_aliases()]), reload_list()))
+        danger = sb_components.danger_card(body, "Remove alias", "Deletes the selected alias from the list and saves immediately.")
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Delete selected", delete_selected)
         lb.bind("<<ListboxSelect>>", load_selected)
         reload_list()
 
     def _render_settings_addons(self, body, shell):
-        c = sb_components.card(body, "Add-ons", "Optional add-ons keep Signal Bridge lightweight. LAN Viewer and Argos remain native/core features; Intel History is the first planned optional add-on.")
-        sb_components.info_label(c, f"Modules folder: {MODULES_DIR}", muted=True)
-        sb_components.info_label(c, f"Module data folder: {MODULE_DATA_DIR}", muted=True)
-        ih = self.intel_history_status(); manifest = ih.get("manifest") or {}
-        c2 = sb_components.card(body, INTEL_HISTORY_ADDON_NAME, "Planned optional module for local pilot memory, Pilot Intelligence Cards, flags, zKill enrichment, import/export packs, and future LLM query support.")
+        c = sb_components.card(
+            body,
+            "Add-ons foundation",
+            "Optional modules keep the core app light. Intel History is bundled for portable installs; you can still disable it.",
+        )
+        sb_components.info_label(c, f"Code: {MODULES_DIR}", muted=True)
+        sb_components.info_label(c, f"Data: {MODULE_DATA_DIR}", muted=True)
+        ih = self.intel_history_status()
+        manifest = ih.get("manifest") or {}
+        c2 = sb_components.card(
+            body,
+            INTEL_HISTORY_ADDON_NAME,
+            "Local pilot sightings and flags. Fails isolated — never blocks the live feed.",
+        )
         sb_components.info_label(c2, f"Status: {self.intel_history_status_label()}")
         if ih.get("installed"):
-            sb_components.info_label(c2, f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}", muted=True)
+            sb_components.info_label(
+                c2,
+                f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}",
+                muted=True,
+            )
             health = self.current_intel_history_health()
             if health:
-                sb_components.info_label(c2, f"Health: pilots {health.get('pilots', 0)} | sightings {health.get('sightings', 0)} | queue {health.get('queue_size', 0)}", muted=True)
+                sb_components.info_label(
+                    c2,
+                    f"Health: pilots {health.get('pilots', 0)} | sightings {health.get('sightings', 0)} | queue {health.get('queue_size', 0)}",
+                    muted=True,
+                )
                 sb_components.info_label(c2, f"Last sighting: {health.get('last_sighting', 'none')}", muted=True)
                 if health.get("last_error") and health.get("last_error") != "none":
                     sb_components.info_label(c2, f"Last error: {str(health.get('last_error'))[:160]}", fg=sb_theme.COLORS["error"])
-            sb_components.info_label(c2, f"Code: {ih.get('code_dir')}", muted=True)
-            sb_components.info_label(c2, f"Data: {ih.get('data_dir')}", muted=True)
         else:
-            sb_components.info_label(c2, "Not installed. Install the official Intel History add-on ZIP when available.", muted=True)
+            sb_components.info_label(c2, "Not installed. Use Install from ZIP for the official package.", muted=True)
         enabled_var = self.tk.BooleanVar(value=bool(ih.get("enabled")))
-        sb_components.check(c2, "Enable Intel History", enabled_var, lambda v=enabled_var: self.set_intel_history_enabled(bool(v.get())))
+        sb_components.check(
+            c2,
+            "Enable Intel History",
+            enabled_var,
+            lambda v=enabled_var: self.set_intel_history_enabled(bool(v.get())),
+        )
         r = sb_components.action_row(c2)
-        sb_components.action_button(r, "Install from ZIP...", self.install_intel_history_addon_from_file)
+        sb_components.action_button(r, "Install from ZIP…", self.install_intel_history_addon_from_file)
         sb_components.action_button(r, "Details", self.show_intel_history_details)
         sb_components.action_button(r, "Open Data Folder", self.open_intel_history_data_folder)
         if ih.get("installed"):
-            sb_components.action_button(r, "Uninstall Code", self.uninstall_intel_history_addon_code)
-        sb_components.info_label(c2, "MVP guardrails: same SignalBridge.exe, local SQLite data, ESI-confirmed pilots by default, no live-feed blocking.", muted=True)
+            danger = sb_components.danger_card(
+                body,
+                "Uninstall add-on code",
+                "Removes module code only. Local SQLite data under user_data is kept by default.",
+            )
+            dr = sb_components.action_row(danger)
+            sb_components.action_button(dr, "Uninstall Code", self.uninstall_intel_history_addon_code)
 
     def show_settings_center(self, initial_page: str = "General"):
-        pages = ["General", "Channels", "Appearance", "Translation", "Translation Cache", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
-        descriptions = {"General": "Core app behavior and folders.", "Channels": "Manage active, hidden, and discovered EVE chat channels.", "Appearance": "Fonts, colors, highlight styling, and transparency.", "Translation": "Translation direction, free text, phrase overrides, and cache.", "Translation Cache": "Translation Corrections: fix visible translations and manage cache-first overrides.", "EVE Catalog": "Compact catalog status and updates.", "Aliases": "View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI": "Optional background character/entity recognition and OAuth.", "Exclusions": "Scoped Recognition Rules for ignored pilots, highlight exclusions, and noise words.", "Add-ons": "Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data": "Bundled starter data and local cache actions.", "Diagnostics": "Health information for troubleshooting.", "About / Support": "Version, update, and support information."}
+        pages = [
+            "General", "Channels", "Appearance", "Translation", "Translation Cache", "Filters",
+            "EVE Catalog", "Aliases", "ESI", "Recognition Rules", "Add-ons", "Cache & Data",
+            "Diagnostics", "About / Support",
+        ]
+        descriptions = {
+            "General": "Window options, optional startup backlog, and folders.",
+            "Channels": "Track, restore, and stop monitoring EVE chat channels.",
+            "Appearance": "Fonts, colors, opacity, and highlight toggles.",
+            "Translation": "Display mode, engines, and cache shortcuts.",
+            "Translation Cache": "Correct live translations and manage cache-backed rows.",
+            "Filters": "Keyword/sender filters and Local spam rate limits.",
+            "EVE Catalog": "Bundled catalog status and updates.",
+            "Aliases": "Ship and system shorthand replacements for the feed.",
+            "ESI": "Optional pilot recognition, OAuth, and ESI cache.",
+            "Recognition Rules": "Ignored pilots, highlight exclusions, and noise words.",
+            "Add-ons": "Optional modules such as Intel History.",
+            "Cache & Data": "Starter files and local cache maintenance.",
+            "Diagnostics": "Copy-friendly health summary and log access.",
+            "About / Support": "Version window, help topics, and support links.",
+        }
         renderers = {
             "General": self._render_settings_general,
             "Channels": self._render_settings_channels,
             "Appearance": self._render_settings_appearance,
             "Translation": self._render_settings_translation,
             "Translation Cache": self._render_settings_translation_cache,
+            "Filters": self._render_settings_filters,
             "EVE Catalog": self._render_settings_catalog,
             "Aliases": self._render_settings_aliases,
             "ESI": self._render_settings_esi,
-            "Exclusions": self._render_settings_exclusions,
+            "Recognition Rules": self._render_settings_exclusions,
             "Add-ons": self._render_settings_addons,
             "Cache & Data": self._render_settings_cache_data,
             "Diagnostics": self._render_settings_diagnostics,
             "About / Support": self._render_settings_about,
         }
+        # Back-compat: old deep links / call sites may still pass "Exclusions".
+        if initial_page == "Exclusions":
+            initial_page = "Recognition Rules"
 
         def apply_settings() -> bool:
             self.persist_settings()
@@ -4975,6 +5068,7 @@ class SignalBridgeGui:
         opacity_var = tk.DoubleVar(value=float(self.appearance.get("window_opacity", 1.0)) * 100.0)
         preset_var = tk.StringVar(value=str(self.appearance.get("preset", "Default Dark")))
         bg_enabled = tk.BooleanVar(value=bool(self.appearance.get("highlight_backgrounds", False)))
+        modules_enabled = tk.BooleanVar(value=bool(self.appearance.get("highlight_modules", False)))
         try:
             import tkinter.font as tkfont
             families = sorted(set(tkfont.families(self.root)))
@@ -5001,6 +5095,8 @@ class SignalBridgeGui:
                  highlightthickness=0, length=230).grid(row=2, column=1, sticky="ew", padx=(8, 18), pady=3)
         tk.Checkbutton(top, text="Background highlight rectangles", variable=bg_enabled,
                        **sb_theme.check_kw()).grid(row=2, column=2, columnspan=2, sticky="w", pady=3)
+        tk.Checkbutton(top, text="Highlight modules/assets (purple)", variable=modules_enabled,
+                       **sb_theme.check_kw()).grid(row=3, column=0, columnspan=4, sticky="w", pady=3)
         top.columnconfigure(1, weight=1)
 
         grid = tk.LabelFrame(body, text="Highlight Colors", bg=sb_theme.COLORS["bg"], fg=sb_theme.COLORS["fg"], padx=8, pady=6)
@@ -5010,6 +5106,7 @@ class SignalBridgeGui:
         tk.Label(grid, text="Bold", **sb_theme.label_kw(muted=True), font=sb_theme.font(9, bold=True)).grid(row=0, column=4, sticky="w", pady=(0, 4))
         tk.Label(grid, text="Background", **sb_theme.label_kw(muted=True), font=sb_theme.font(9, bold=True)).grid(row=0, column=5, columnspan=3, sticky="w", pady=(0, 4))
         rows = [("time","Timestamp"),("sender","Sender"),("system","Systems"),("esi","Characters / ESI"),("asset","Ships"),("module","Modules / Assets"),("ess","ESS"),("translation","Translation"),("link","Links")]
+        # Module purple off by default; expose toggle near color table.
         swatches: list[tk.Widget] = []
         def normalized_color(value: str, fallback: str = "#070b10") -> str:
             value = (value or "").strip()
@@ -5075,6 +5172,7 @@ class SignalBridgeGui:
             app["font_size"] = max(8, min(28, int(size_var.get())))
             app["window_opacity"] = max(0.55, min(1.0, float(opacity_var.get()) / 100.0))
             app["highlight_backgrounds"] = bool(bg_enabled.get())
+            app["highlight_modules"] = bool(modules_enabled.get())
             for key, data in vars.items():
                 app.setdefault(key, {})
                 app[key]["foreground"] = data["foreground"].get().strip() or DEFAULT_APPEARANCE[key]["foreground"]
@@ -5139,14 +5237,14 @@ class SignalBridgeGui:
                 if isinstance(v, dict) and isinstance(base.get(k), dict): base[k].update(v)
                 else: base[k] = copy.deepcopy(v)
             base["preset"] = name
-            fam_var.set(base.get("font_family", "Segoe UI")); size_var.set(int(base.get("font_size", 10))); opacity_var.set(float(base.get("window_opacity", 1.0))*100); bg_enabled.set(bool(base.get("highlight_backgrounds", False)))
+            fam_var.set(base.get("font_family", "Segoe UI")); size_var.set(int(base.get("font_size", 10))); opacity_var.set(float(base.get("window_opacity", 1.0))*100); bg_enabled.set(bool(base.get("highlight_backgrounds", False))); modules_enabled.set(bool(base.get("highlight_modules", False)))
             for key, data in vars.items():
                 st = base.get(key, DEFAULT_APPEARANCE[key])
                 data["foreground"].set(st.get("foreground", "#d7dde5")); data["bold"].set(bool(st.get("bold", False))); data["background"].set(st.get("background", ""))
             update_swatches()
             update_preview()
         update_swatches()
-        for v in (fam_var, size_var, opacity_var, bg_enabled):
+        for v in (fam_var, size_var, opacity_var, bg_enabled, modules_enabled):
             try: v.trace_add("write", lambda *_: update_preview())
             except Exception: pass
         for data in vars.values():
@@ -5192,7 +5290,12 @@ class SignalBridgeGui:
             "auto_open_new_channels": True,
             "auto_switch_to_new_channel": False,
             "max_tab_rows": int(SETTINGS.get("max_tab_rows", 3) or 3),
-            "replay_on_start": False,
+            "replay_on_start": bool(getattr(self, "replay_on_start_var", None).get()) if getattr(self, "replay_on_start_var", None) is not None else bool(SETTINGS.get("replay_on_start", False)),
+            "backlog_minutes": int(getattr(self, "backlog_minutes_var", None).get()) if getattr(self, "backlog_minutes_var", None) is not None else int(SETTINGS.get("backlog_minutes", 10) or 10),
+            "feed_filters": list(SETTINGS.get("feed_filters") or []),
+            "spam_control_enabled": bool(SETTINGS.get("spam_control_enabled", True)),
+            "spam_local_channels_only": bool(SETTINGS.get("spam_local_channels_only", True)),
+            "spam_ascii_art_filter": bool(SETTINGS.get("spam_ascii_art_filter", True)),
         })
         save_settings(SETTINGS)
 
@@ -5911,9 +6014,20 @@ class SignalBridgeGui:
         if not self.active_channels:
             self.set_status("No channels selected; use Channels > Choose / Open Channels...")
             return
-        self.monitor = MonitorThread(self.queue, self.stop_event, self.set_status, set(self.active_channels), replay_today=False)
+        backlog_minutes = 0
+        if bool(SETTINGS.get("replay_on_start", False)):
+            backlog_minutes = max(1, min(360, int(SETTINGS.get("backlog_minutes", 10) or 10)))
+        self.monitor = MonitorThread(
+            self.queue,
+            self.stop_event,
+            self.set_status,
+            set(self.active_channels),
+            backlog_minutes=backlog_minutes,
+        )
         self.monitor.start()
-        write_log(f"Monitor starting live-only for {len(self.active_channels)} channel(s); replay_today=False")
+        write_log(
+            f"Monitor starting for {len(self.active_channels)} channel(s); backlog_minutes={backlog_minutes}"
+        )
         self.set_status("Starting monitor...")
 
     def stop_monitor(self):
@@ -6569,394 +6683,8 @@ class SignalBridgeGui:
 
 
     def show_pilot_info_card(self, profile: dict):
-        tk = self.tk
-        pilot = profile.get("pilot") or {}
-        pilot_id = int(pilot.get("pilot_id") or 0)
-        name = pilot.get("name") or "Unknown Pilot"
-        opened = time.time()
-        win = tk.Toplevel(self.root)
-        self.polish_window(win, self.root, width=720, height=620, minsize=(640, 520), title=f"Pilot Info - {name}")
-        header = tk.Frame(win, bg="#111821", padx=10, pady=7)
-        header.pack(fill="x")
-        actions = tk.Frame(win, bg="#111821", padx=8, pady=6)
-        actions.pack(fill="x", side="bottom")
-        scroll_outer = tk.Frame(win, bg="#0b0f14")
-        scroll_outer.pack(fill="both", expand=True)
-        canvas = tk.Canvas(scroll_outer, bg="#0b0f14", highlightthickness=0)
-        vscroll = tk.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=vscroll.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        body = tk.Frame(canvas, bg="#0b0f14", padx=8, pady=6)
-        body_window = canvas.create_window((0, 0), window=body, anchor="nw")
-        def _sync_scroll(_event=None):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-        def _sync_width(event):
-            try: canvas.itemconfigure(body_window, width=event.width)
-            except Exception: pass
-        def _update_scrollbar(_event=None):
-            try:
-                canvas.configure(scrollregion=canvas.bbox("all"))
-                bbox = canvas.bbox("all")
-                needs = bool(bbox and (bbox[3] - bbox[1]) > canvas.winfo_height() + 2)
-                mapped = bool(vscroll.winfo_ismapped())
-                if needs and not mapped:
-                    vscroll.pack(side="right", fill="y")
-                elif not needs and mapped:
-                    vscroll.pack_forget()
-            except Exception:
-                pass
-        def _on_mousewheel(event):
-            try:
-                bbox = canvas.bbox("all")
-                if bbox and (bbox[3] - bbox[1]) > canvas.winfo_height() + 2:
-                    delta = -1 * int((event.delta / 120) if getattr(event, "delta", 0) else 0)
-                    canvas.yview_scroll(delta, "units")
-            except Exception:
-                pass
-        body.bind("<Configure>", lambda e: (_sync_scroll(e), _update_scrollbar(e)))
-        canvas.bind("<Configure>", lambda e: (_sync_width(e), _update_scrollbar(e)))
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        def _unbind_mousewheel_once(event):
-            try:
-                if event.widget is win:
-                    canvas.unbind_all("<MouseWheel>")
-            except Exception:
-                pass
-        win.bind("<Destroy>", _unbind_mousewheel_once)
-
-        def clean_value(value, empty="—"):
-            text = str(value or "").strip()
-            return text if text and text != "-" else empty
-
-        def count_label(value):
-            try:
-                n = int(value or 0)
-            except Exception:
-                n = 0
-            return f" ×{n}" if n > 1 else ""
-
-        def is_no_visual(value) -> bool:
-            return is_pilot_status_term(value)
-
-        def normalized_ship_status(row: dict) -> tuple[str, str]:
-            raw = str((row or {}).get("ship_name") or "").strip()
-            kind = pilot_info_term_kind(raw)
-            if kind == "status":
-                return "Unknown", "No visual"
-            if kind == "signal":
-                return "Unknown", raw.title() if raw.casefold() == "cyno" else raw
-            if kind == "empty":
-                return "Unknown", ""
-            return raw, ""
-
-        def status_counts() -> dict[str, int]:
-            out: dict[str, int] = {}
-            for r0 in profile.get("recent_sightings", []) or []:
-                _ship, status = normalized_ship_status(r0)
-                if status and not is_pilot_signal_term(status):
-                    out[status] = out.get(status, 0) + int(r0.get("duplicate_count") or 1)
-            return out
-
-        def signal_counts() -> dict[str, int]:
-            out: dict[str, int] = {}
-            for r0 in profile.get("recent_sightings", []) or []:
-                _ship, status = normalized_ship_status(r0)
-                if status and is_pilot_signal_term(status):
-                    out[status.title() if status.casefold() == "cyno" else status] = out.get(status, 0) + int(r0.get("duplicate_count") or 1)
-            for x in profile.get("top_ships", []) or []:
-                name0 = str(x.get("name") or "").strip()
-                if is_pilot_signal_term(name0):
-                    out[name0.title() if name0.casefold() == "cyno" else name0] = max(out.get(name0, 0), int(x.get("reports") or x.get("sightings") or 1))
-            return out
-
-        def filtered_top_ships() -> list[dict]:
-            out = []
-            for x in profile.get("top_ships", []) or []:
-                name0 = x.get("name")
-                if pilot_info_term_kind(name0) != "ship":
-                    continue
-                out.append(x)
-            return out
-
-        def parse_ztime(value: str):
-            import datetime as _dt
-            raw = str(value or "").replace("T", " ").replace("Z", "").strip()
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
-                try:
-                    return _dt.datetime.strptime(raw[:19], fmt)
-                except Exception:
-                    pass
-            return None
-
-        def zkill_priority(zks: dict, current_ship: str) -> tuple[str, str, list[str]]:
-            import datetime as _dt
-            if zks.get("status") != "synced":
-                return "NONE", "zKill not synced", []
-            events = zks.get("recent_events") or []
-            if not events:
-                return "QUIET", "No recent zKill activity", []
-            now_dt = _dt.datetime.utcnow()
-            high, med = [], []
-            cur = str(current_ship or "").strip().casefold()
-            for ev in events:
-                ev_time = parse_ztime(ev.get("time"))
-                ship = str(ev.get("ship") or "").strip()
-                if ev_time:
-                    age_days = (now_dt.date() - ev_time.date()).days
-                    if age_days <= 0:
-                        high.append(f"{ev.get('type','event')} today")
-                    elif age_days <= 7:
-                        med.append(f"{ev.get('type','event')} this week")
-                if cur and cur != "unknown" and ship and ship.casefold() == cur:
-                    high.append(f"same ship: {ship}")
-            if high:
-                return "HIGH", high[0], sorted(set(high + med))[:4]
-            if med:
-                return "MED", med[0], sorted(set(med))[:4]
-            return "LOW", "Older zKill activity", []
-
-        def fmt_isk(value):
-            try:
-                n = float(value or 0)
-            except Exception:
-                return "—"
-            if n >= 1_000_000_000:
-                return f"{n/1_000_000_000:.1f}b ISK"
-            if n >= 1_000_000:
-                return f"{n/1_000_000:.0f}m ISK"
-            return f"{n:.0f} ISK"
-
-        def chip(parent, text, bg="#1c2835", fg="#d7dde5"):
-            tk.Label(parent, text=str(text), bg=bg, fg=fg, padx=6, pady=2).pack(side="left", padx=(0, 4), pady=2)
-
-        def section(parent, title_text):
-            f = tk.Frame(parent, bg="#0f1722", padx=8, pady=6)
-            f.pack(fill="x", pady=(0, 6))
-            tk.Label(f, text=title_text, bg=f.cget("bg"), fg="#f2f5f8", font=(self.font_family.get(), int(self.font_size.get()), "bold")).pack(anchor="w")
-            return f
-
-        def label(parent, text, color="#d7dde5"):
-            tk.Label(parent, text=str(text), bg=parent.cget("bg"), fg=color, justify="left", wraplength=620).pack(anchor="w")
-
-        def button(parent, text, command):
-            tk.Button(parent, text=text, command=command, bg="#1c2835", fg="#d7dde5", activebackground="#263544", activeforeground="#ffffff", relief="flat").pack(side="left", padx=3, pady=2)
-
-        def active_flags():
-            return [f for f in profile.get("flags", []) if int(f.get("active", 0) or 0)]
-
-        def latest_row():
-            recent = profile.get("recent_sightings", []) or []
-            return recent[0] if recent else {}
-
-        def render_header():
-            for child in header.winfo_children(): child.destroy()
-            corp = clean_value(pilot.get("corp_name"), "Unknown corporation")
-            alliance = clean_value(pilot.get("alliance_name"), "No alliance")
-            last = latest_row()
-            zks = self.get_zkill_summary(pilot_id)
-            tk.Label(header, text=name, bg="#111821", fg="#f2f5f8", font=(self.font_family.get(), max(13, int(self.font_size.get()) + 3), "bold"), wraplength=650, justify="left").pack(anchor="w")
-            meta = f"{corp} · {alliance}"
-            tk.Label(header, text=meta, bg="#111821", fg="#8b98a8", justify="left", wraplength=650).pack(anchor="w")
-            tk.Label(header, text=f"Character ID: {pilot_id}  zKill: https://zkillboard.com/character/{pilot_id}/", bg="#111821", fg="#8b98a8", justify="left", wraplength=650).pack(anchor="w")
-            last_bits = f"Last: {self.friendly_datetime(last.get('timestamp')) if last else 'unknown'} · {clean_value(last.get('system_name'))} · {profile.get('report_count', 0)} reports · zKill: {zks.get('status','not_synced').replace('_',' ')}"
-            tk.Label(header, text=last_bits, bg="#111821", fg="#5ad7ff", justify="left", wraplength=650).pack(anchor="w", pady=(3, 0))
-
-        def clear_body():
-            for child in body.winfo_children(): child.destroy()
-
-        def refresh_profile():
-            nonlocal profile, pilot
-            fresh = self.intel_history_call("get_pilot_profile", pilot_id=pilot_id)
-            if fresh and fresh.get("found"):
-                profile = fresh
-                pilot = profile.get("pilot") or pilot
-            render_summary()
-
-        def render_summary():
-            clear_body(); render_header()
-            flags = active_flags()
-            strip = tk.Frame(body, bg="#0b0f14"); strip.pack(fill="x", pady=(0, 4))
-            if flags:
-                for f in flags[:5]: chip(strip, ((f.get("icon") or "") + " " + (f.get("label") or f.get("flag") or "")).strip(), "#392333", "#ffd1dc")
-            else:
-                chip(strip, "No active flags", "#14202d", "#8b98a8")
-            for x in (profile.get("top_systems") or [])[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#24351a", "#ffe16a")
-            for x in filtered_top_ships()[:2]: chip(strip, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
-            for sig, n in list(signal_counts().items())[:2]: chip(strip, f"{sig} ×{n}", "#3a1f14", "#ff9d5a")
-            for st, n in list(status_counts().items())[:1]: chip(strip, f"{st} ×{n}", "#162433", "#a7c7e7")
-
-            last = latest_row()
-            sbox = section(body, "Summary")
-            grid = tk.Frame(sbox, bg=sbox.cget("bg")); grid.pack(fill="x", pady=(2, 0))
-            items = [
-                ("Reports", profile.get("report_count", 0)),
-                ("First", self.friendly_datetime(pilot.get("first_seen"))),
-                ("Last", self.friendly_datetime(pilot.get("last_seen"))),
-                ("System", clean_value(last.get("system_name"))),
-                ("Ship", normalized_ship_status(last)[0]),
-                ("Status", normalized_ship_status(last)[1] or "—"),
-            ]
-            for i, (k, v) in enumerate(items):
-                tk.Label(grid, text=f"{k}: ", bg=grid.cget("bg"), fg="#8b98a8").grid(row=i//2, column=(i%2)*2, sticky="w", padx=(0, 2))
-                tk.Label(grid, text=str(v), bg=grid.cget("bg"), fg="#d7dde5").grid(row=i//2, column=(i%2)*2+1, sticky="w", padx=(0, 14))
-
-            abox = section(body, "Recent Activity")
-            recent = profile.get("recent_sightings", []) or []
-            if not recent:
-                label(abox, "No local sightings yet.", "#8b98a8")
-            else:
-                for r0 in recent[:4]:
-                    tm = self.friendly_datetime(r0.get("timestamp")).replace("Today ", "")
-                    sysname = clean_value(r0.get("system_name"))
-                    ship, status = normalized_ship_status(r0)
-                    cnt = count_label(r0.get("duplicate_count", 1))
-                    tail = f"  {status}" if status else ""
-                    label(abox, f"{tm:<10}  {sysname:<8}  {ship}{tail}{cnt}")
-
-            tbox = section(body, "Patterns")
-            row1 = tk.Frame(tbox, bg=tbox.cget("bg")); row1.pack(fill="x")
-            tk.Label(row1, text="Ships:", bg=row1.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
-            ships = filtered_top_ships()[:4]
-            if ships:
-                for x in ships: chip(row1, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#2d2214", "#ffb469")
-            else: chip(row1, "Unknown", "#14202d", "#8b98a8")
-            row_status = tk.Frame(tbox, bg=tbox.cget("bg")); row_status.pack(fill="x")
-            tk.Label(row_status, text="Status:", bg=row_status.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
-            statuses = status_counts()
-            if statuses:
-                for name0, n in list(statuses.items())[:4]: chip(row_status, f"{name0} ×{n}", "#162433", "#a7c7e7")
-            else: chip(row_status, "None", "#14202d", "#8b98a8")
-            row_signal = tk.Frame(tbox, bg=tbox.cget("bg")); row_signal.pack(fill="x")
-            tk.Label(row_signal, text="Signals:", bg=row_signal.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
-            signals = signal_counts()
-            if signals:
-                for name0, n in list(signals.items())[:4]: chip(row_signal, f"{name0} ×{n}", "#3a1f14", "#ff9d5a")
-            else: chip(row_signal, "None", "#14202d", "#8b98a8")
-            row2 = tk.Frame(tbox, bg=tbox.cget("bg")); row2.pack(fill="x")
-            tk.Label(row2, text="Systems:", bg=row2.cget("bg"), fg="#8b98a8", width=8, anchor="w").pack(side="left")
-            systems = (profile.get("top_systems") or [])[:4]
-            if systems:
-                for x in systems: chip(row2, f"{x.get('name')} ×{x.get('reports') or x.get('sightings') or 1}", "#24351a", "#ffe16a")
-            else: chip(row2, "None", "#14202d", "#8b98a8")
-
-            zbox = section(body, "zKill")
-            zks = self.get_zkill_summary(pilot_id)
-            if zks.get("status") == "synced":
-                pri, pri_text, pri_notes = zkill_priority(zks, normalized_ship_status(latest_row())[0])
-                tags = ", ".join(pri_notes or zks.get("danger_tags") or []) or "none"
-                scopes = zks.get("zkill_scopes") or {}
-                scope_text = f" | source: kills={scopes.get('kills','?')} losses={scopes.get('losses','?')}" if scopes else ""
-                label(zbox, f"{pri}: {pri_text} | Synced {self.friendly_datetime(zks.get('synced_at'))} | Kills: {zks.get('recent_kills_30d', 0)} | Losses: {zks.get('recent_losses_30d', 0)}{scope_text}", "#ffb3b3" if pri == "HIGH" else ("#ffe16a" if pri == "MED" else "#d7dde5"))
-                label(zbox, f"ISK: destroyed {fmt_isk(zks.get('isk_destroyed_30d'))}, lost {fmt_isk(zks.get('isk_lost_30d'))} | Signals: {tags}", "#8b98a8")
-
-                events = zks.get("recent_events") or []
-                recent_kills = zks.get("recent_kills")
-                if recent_kills is None:
-                    recent_kills = sb_zkill.rank_kills(events, 5)
-                recent_losses = zks.get("recent_losses")
-                if recent_losses is None:
-                    recent_losses = sb_zkill.pick_losses(events, 5)
-
-                def zkill_event_row(parent, ev, accent):
-                    row_frame = tk.Frame(parent, bg=parent.cget("bg"))
-                    row_frame.pack(fill="x", anchor="w")
-                    tm = self.friendly_datetime(ev.get("time")).replace("Today ", "")
-                    gang = sb_zkill.gang_label(int(ev.get("participants") or 0))
-                    text = f"{tm}  {clean_value(ev.get('ship'), 'Unknown')}  {fmt_isk(ev.get('value'))}  [{gang}]"
-                    tk.Label(row_frame, text=text, bg=row_frame.cget("bg"), fg=accent, justify="left").pack(side="left")
-                    km_id = int(ev.get("killmail_id") or 0)
-                    if km_id:
-                        link = tk.Label(row_frame, text="zkill ↗", bg=row_frame.cget("bg"), fg="#5ad7ff", cursor="hand2")
-                        link.pack(side="left", padx=(8, 0))
-                        link.bind("<Button-1>", lambda _e, k=km_id: webbrowser.open(f"https://zkillboard.com/kill/{k}/"))
-
-                tk.Label(zbox, text="Recent kills (small gang first)", bg=zbox.cget("bg"), fg="#7ee787", font=(self.font_family.get(), max(8, int(self.font_size.get()) - 1), "bold")).pack(anchor="w", pady=(4, 0))
-                if recent_kills:
-                    for ev in recent_kills:
-                        zkill_event_row(zbox, ev, "#d7dde5")
-                else:
-                    label(zbox, "No recent kills.", "#8b98a8")
-                tk.Label(zbox, text="Recent losses", bg=zbox.cget("bg"), fg="#ffb3b3", font=(self.font_family.get(), max(8, int(self.font_size.get()) - 1), "bold")).pack(anchor="w", pady=(4, 0))
-                if recent_losses:
-                    for ev in recent_losses:
-                        zkill_event_row(zbox, ev, "#d7dde5")
-                else:
-                    label(zbox, "No recent losses.", "#8b98a8")
-            elif zks.get("status") == "syncing":
-                label(zbox, "Syncing zKill in background...", "#5ad7ff")
-            elif zks.get("status") == "failed":
-                label(zbox, f"Sync failed: {zks.get('last_error','unknown')}", "#ff8f8f")
-            else:
-                label(zbox, "Not synced. Use Sync zKill for cached 30-day kill/loss summary.", "#8b98a8")
-
-            self.diagnostics["last_pilot_card_open_ms"] = int((time.time() - opened) * 1000)
-            record_event("pilot_card_rendered", pilot_id=pilot_id, duration_ms=self.diagnostics["last_pilot_card_open_ms"], reports=profile.get("report_count", 0))
-
-        def render_sightings():
-            clear_body(); render_header()
-            c = section(body, "Recent Sightings")
-            for r0 in profile.get("recent_sightings", [])[:25]:
-                ship, status = normalized_ship_status(r0)
-                tail = f"  {status}" if status else ""
-                label(c, f"{self.friendly_datetime(r0.get('timestamp'))}  {clean_value(r0.get('system_name'))}  {ship}{tail}{count_label(r0.get('duplicate_count', 1))}  [{r0.get('source','local')}]")
-            if not profile.get("recent_sightings"): label(c, "No local sightings yet.", "#8b98a8")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "< Back", render_summary)
-
-        def render_flags():
-            clear_body(); render_header()
-            c = section(body, "Edit Manual Flags")
-            choices = [("Watchlist", "★"), ("FC", "FC"), ("Scout", "Scout"), ("Hot Dropper", "🔥"), ("High Threat", "⚠"), ("Extreme Threat", "☠"), ("Friendly", ""), ("Do Not Track", "DNT")]
-            current = {f.get("label") or f.get("flag") for f in active_flags() if f.get("source") == "manual"}
-            vars = []
-            for label_text, icon in choices:
-                var = tk.BooleanVar(value=label_text in current)
-                tk.Checkbutton(c, text=f"{icon} {label_text}".strip(), variable=var, bg=c.cget("bg"), fg="#d7dde5", selectcolor="#0b0f14", activebackground=c.cget("bg"), activeforeground="#ffffff").pack(anchor="w")
-                vars.append((label_text, icon, var))
-            notes = tk.Entry(c, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", relief="flat"); notes.pack(fill="x", pady=(6,2))
-            def save_flags():
-                selected = [{"flag": label_text, "label": label_text, "icon": icon, "reason": notes.get().strip()} for label_text, icon, var in vars if var.get()]
-                result = self.intel_history_call("set_manual_flags", pilot_id, selected, notify=True)
-                if result and result.get("ok"):
-                    self.set_status(f"Pilot flags saved: {name}"); refresh_profile()
-                else:
-                    self.messagebox.showwarning("Pilot Flags", f"Could not save flags: {result}")
-            r = tk.Frame(c, bg=c.cget("bg")); r.pack(anchor="w", pady=(6,0)); button(r, "Save", save_flags); button(r, "< Back", render_summary)
-
-        def copy_summary():
-            text = self.intel_history_call("copyable_pilot_summary", pilot_id, notify=True)
-            if text:
-                self.copy_to_clipboard(text); self.set_status(f"Copied pilot summary: {name}")
-
-        def open_zkill():
-            webbrowser.open(f"https://zkillboard.com/character/{pilot_id}/")
-
-        def sync_zkill():
-            self.set_zkill_summary(pilot_id, {"status": "syncing", "pilot_id": pilot_id, "pilot_name": name, "synced_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
-            render_summary()
-            self.set_status(f"Syncing zKill: {name}")
-            def done(ok, summary, pid):
-                render_summary()
-                self.set_status(("zKill synced" if ok else "zKill sync failed") + f": {name}")
-            self.start_zkill_sync(pilot_id, name, done)
-
-        button(actions, "Copy", copy_summary)
-        button(actions, "Flags", render_flags)
-        button(actions, "Activity", render_sightings)
-        button(actions, "Sync zKill", sync_zkill)
-        button(actions, "Open zKill", open_zkill)
-        button(actions, "Close", win.destroy)
-        render_summary()
-        try:
-            # The body sits inside a canvas, which never propagates its
-            # content's requested height — mirror it so fit_to_content sees it.
-            win.update_idletasks()
-            canvas.configure(height=body.winfo_reqheight())
-            width, height = sb_windows.fit_to_content(
-                win, self.root, min_size=(660, 520), max_size=(760, 720))
-            record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=height)
-        except Exception:
-            pass
-
+        from sb_ui.pilot_info import open_pilot_info_card
+        open_pilot_info_card(self, profile)
 
     def clicked_context(self, event, row: Row | None) -> dict:
         """Resolve the exact clicked token/span for the context menu.
@@ -7167,9 +6895,15 @@ class SignalBridgeGui:
         region_end = self.text.index("end-1c")
         for hostile_term in sorted(HOSTILE_DISPLAY_TERMS, key=len, reverse=True):
             self.tag_term(hostile_term, "esi", region_start, region_end)
+        from sb_highlight import term_is_ship
         system_terms = set(str(x).casefold() for x in unique(systems))
+        ship_terms = set()
+        try:
+            ship_terms = set(CATALOG.ship_names.values()) | set(CATALOG.ship_names.keys())
+        except Exception:
+            ship_terms = set()
+        highlight_modules = bool(self.appearance.get("highlight_modules", False)) if isinstance(self.appearance, dict) else False
         for term in sorted(unique(assets), key=len, reverse=True):
-            term_key = normalize_esi_query(term)
             if is_parser_noise(term) or is_highlight_excluded(term):
                 continue
             # System aliases/canonicals must stay yellow.  If extraction produced
@@ -7177,12 +6911,15 @@ class SignalBridgeGui:
             # module purple cannot override the system tag.
             if str(term or "").casefold() in system_terms or CATALOG.lookup_system(str(term or "")):
                 continue
+            is_ship = bool(CATALOG.is_ship(term)) or term_is_ship(term, ship_terms)
             if term.lower() == "ess":
                 self.tag_term_whole_word(term, "ess", region_start, region_end)
-            elif CATALOG.is_ship(term):
+            elif is_ship:
+                # Ships always use ship/asset color — never purple module on first paint.
                 self.tag_term(term, "asset", region_start, region_end)
-            else:
+            elif highlight_modules:
                 self.tag_term(term, "module", region_start, region_end)
+            # else: purple module highlighting disabled by default
         # Apply systems after assets/modules so system yellow wins any overlap.
         for term in sorted(unique(systems), key=len, reverse=True):
             if is_highlight_excluded(term):
@@ -7401,7 +7138,41 @@ class SignalBridgeGui:
         self.persist_settings()
         self.status_label.configure(text=f"New channel opened: {channel}")
 
+    def _feed_filters(self) -> list[FeedFilter]:
+        return normalize_filters(SETTINGS.get("feed_filters") or [])
+
+    def _spam_limiter(self) -> SpamLimiter:
+        limiter = getattr(self, "_spam_limiter_instance", None)
+        policy = SpamPolicy(
+            enabled=bool(SETTINGS.get("spam_control_enabled", True)),
+            local_channels_only=bool(SETTINGS.get("spam_local_channels_only", True)),
+            per_channel_max_per_minute=int(SETTINGS.get("spam_per_channel_max_per_minute", 30) or 30),
+            repeat_sender_window_seconds=int(SETTINGS.get("spam_repeat_sender_window_seconds", 8) or 8),
+            repeat_sender_max=int(SETTINGS.get("spam_repeat_sender_max", 3) or 3),
+            ascii_art_min_lines=6 if bool(SETTINGS.get("spam_ascii_art_filter", True)) else 9999,
+            ascii_art_symbol_ratio=0.45,
+        )
+        if limiter is None:
+            self._spam_limiter_instance = SpamLimiter(policy)
+        else:
+            limiter.update_policy(policy)
+        return self._spam_limiter_instance
+
     def append_row(self, row: Row):
+        admit = should_admit_row(
+            row.sender,
+            row.text,
+            row.channel,
+            self._feed_filters(),
+            self._spam_limiter(),
+            systems=list(row.systems or []),
+        )
+        if not admit.admit:
+            self.diagnostics["filtered_count"] = int(self.diagnostics.get("filtered_count") or 0) + 1
+            if str(admit.reason).startswith("spam_"):
+                self.diagnostics["spam_suppressed_count"] = int(self.diagnostics.get("spam_suppressed_count") or 0) + 1
+            record_event("row_filtered", reason=admit.reason, channel=row.channel, text_len=len(row.text or ""))
+            return
         self.rows.append(row)
         if self.esi_is_enabled():
             self.ensure_esi_resolver()
@@ -7582,6 +7353,7 @@ class SignalBridgeGui:
             self.queue.put(("translation_result", key, row, direction, result or "", error, duration_ms, source_label))
 
     def handle_translation_result(self, key, row: Row, direction: str, result: str, error: str, duration_ms: int, source_label: str = ""):
+        from sb_contracts.translation_decision import make_translation_decision
         self.translation_pending.discard(key)
         self.diagnostics["translation_pending"] = len(self.translation_pending)
         self.diagnostics["last_translation_ms"] = duration_ms
@@ -7590,6 +7362,10 @@ class SignalBridgeGui:
             record_event("translation_failed", direction=direction, duration_ms=duration_ms, error=error[:240])
             try:
                 row._last_translation_decision = f"failed: {error[:120]}"
+                row.translation_decision = make_translation_decision(
+                    decision="error", reason="background_failed", engine="google",
+                    duration_ms=duration_ms, error=error[:240],
+                )
             except Exception:
                 pass
             return
@@ -7597,6 +7373,9 @@ class SignalBridgeGui:
             record_event("translation_empty", direction=direction, duration_ms=duration_ms)
             try:
                 row._last_translation_decision = f"skipped: no {direction} translation result"
+                row.translation_decision = make_translation_decision(
+                    decision="skipped", reason="empty_result", engine="none", duration_ms=duration_ms,
+                )
             except Exception:
                 pass
             return
@@ -7605,8 +7384,16 @@ class SignalBridgeGui:
         if direction == "zh-en":
             row.free_translation = cache[direction]
         row.translation_source = source_label or ("catalog/db+background-mt" if (row.translation or row.localized) else "background-mt")
+        engine = "cache" if "cache" in str(source_label or "").lower() else ("google" if "google" in str(source_label or "").lower() else "background")
         try:
             row._last_translation_decision = f"used: {source_label or 'background'} {direction} translation ({duration_ms}ms)"
+            row.translation_decision = make_translation_decision(
+                decision="used",
+                reason=str(source_label or "background-mt"),
+                engine=engine,
+                duration_ms=duration_ms,
+                cache_hit=("cache" in engine),
+            )
         except Exception:
             pass
         record_event("translation_completed", direction=direction, duration_ms=duration_ms, sender=row.sender, channel=row.channel)
@@ -7658,11 +7445,24 @@ class SignalBridgeGui:
 
     def _render_row(self, row: Row, auto_scroll: bool = True):
         # Render must stay fast: ESI/cache hydration is done when rows arrive or resolver events update rows.
+        # Display lines come from pure RenderRow (contracts); no network/MT/ESI work here.
+        from sb_contracts.render_row import build_render_row
         self.text.configure(state="normal")
         row_tag = f"row_{self.render_seq}"
         self.render_seq += 1
         row_start = self.text.index("end-1c")
         parts = self.row_display_parts(row)
+        rr = build_render_row(
+            row,
+            translated_only=bool(self.translated_only.get()),
+            normalize=normalize_feed_text,
+        )
+        # Prefer alias-aware display body from row_display_parts for single-line chat;
+        # multi-segment rows use contract visible_lines (kill splits, etc.).
+        if self.row_uses_multiline_segments(row):
+            display_lines = list(rr.visible_lines)
+        else:
+            display_lines = self.row_visible_body_lines(row, parts)
         ts = row.received_at.split()[-1]
         if bool(self.show_timestamps.get()):
             self.text.insert("end", f"[{ts}] ", "time")
@@ -7672,7 +7472,6 @@ class SignalBridgeGui:
         sender_prefix = f"{row.sender} > "
         self.text.insert("end", sender_prefix, "sender")
         body_start = self.text.index("end-1c")
-        display_lines = self.row_visible_body_lines(row, parts)
         tag_assets = row.assets + [
             normalize_feed_text(x.get("original", ""))
             for x in row.localized
@@ -7705,7 +7504,13 @@ class SignalBridgeGui:
             if not is_parser_noise(name) and not is_esi_ignored(name):
                 self.tag_term(name, "esi", body_start, row_end)
         self.text.tag_add(row_tag, row_start, row_end)
-        self.rendered_row_map[row_tag] = {"row": row, **parts, "segments": [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])]}
+        self.rendered_row_map[row_tag] = {
+            "row": row,
+            **parts,
+            "render_row_id": rr.row_id,
+            "render": rr,
+            "segments": rr.segments or [getattr(seg, "__dict__", {}) for seg in getattr(row, "segments", [])],
+        }
         self.text.tag_bind(row_tag, "<Button-3>", self.show_feed_context_menu)
         if auto_scroll:
             self.restore_feed_scroll(True)
