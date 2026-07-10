@@ -3235,10 +3235,11 @@ class SignalBridgeGui:
         channels_menu.add_command(label="Close All Active Channels", command=self.close_selected_channels)
         menubar.add_cascade(label="Channels", menu=channels_menu)
 
-        # Pilot Intel first-class (v0.7 product IA); full page work continues in Phase C.
+        # Pilot Intel first-class (v0.7 product IA).
         pilot_menu = tk.Menu(menubar, tearoff=False, bg=mc["bg"], fg=mc["fg"])
-        pilot_menu.add_command(label="Pilot Recognition Rules...", command=lambda: self.show_settings_center("Recognition Rules"))
-        pilot_menu.add_command(label="Add-ons / Intel History...", command=lambda: self.show_settings_center("Add-ons"))
+        pilot_menu.add_command(label="Pilot Intel Settings...", command=lambda: self.show_settings_center("Pilot Intel"))
+        pilot_menu.add_command(label="Recognition Rules...", command=lambda: self.show_settings_center("Recognition Rules"))
+        pilot_menu.add_command(label="Add-ons (package)...", command=lambda: self.show_settings_center("Add-ons"))
         pilot_menu.add_separator()
         pilot_menu.add_command(label="Help: Pilot Info...", command=lambda: self.show_help_center("Pilot Info"))
         menubar.add_cascade(label="Pilot Intel", menu=pilot_menu)
@@ -4897,8 +4898,8 @@ class SignalBridgeGui:
     def show_settings_center(self, initial_page: str = "General"):
         pages = [
             "General", "Channels", "Appearance", "Translation", "Translation Cache", "Filters",
-            "EVE Catalog", "Aliases", "ESI", "Recognition Rules", "Add-ons", "Cache & Data",
-            "Diagnostics", "About / Support",
+            "EVE Catalog", "Aliases", "ESI", "Pilot Intel", "Recognition Rules", "Add-ons",
+            "Cache & Data", "Diagnostics", "About / Support",
         ]
         descriptions = {
             "General": "Window options, optional startup backlog, and folders.",
@@ -4910,8 +4911,9 @@ class SignalBridgeGui:
             "EVE Catalog": "Bundled catalog status and updates.",
             "Aliases": "Ship and system shorthand replacements for the feed.",
             "ESI": "Optional pilot recognition, OAuth, and ESI cache.",
+            "Pilot Intel": "Pilot cards, local history, flags, and zKill — core fleet workflow.",
             "Recognition Rules": "Ignored pilots, highlight exclusions, and noise words.",
-            "Add-ons": "Optional modules such as Intel History.",
+            "Add-ons": "Package install/enable for bundled modules (Intel History code).",
             "Cache & Data": "Starter files and local cache maintenance.",
             "Diagnostics": "Copy-friendly health summary and log access.",
             "About / Support": "Version window, help topics, and support links.",
@@ -4926,6 +4928,7 @@ class SignalBridgeGui:
             "EVE Catalog": self._render_settings_catalog,
             "Aliases": self._render_settings_aliases,
             "ESI": self._render_settings_esi,
+            "Pilot Intel": self._render_settings_pilot_intel,
             "Recognition Rules": self._render_settings_exclusions,
             "Add-ons": self._render_settings_addons,
             "Cache & Data": self._render_settings_cache_data,
@@ -6370,29 +6373,19 @@ class SignalBridgeGui:
         self.open_pilot_info(ent)
 
     def open_pilot_info(self, ent: dict):
-        pilot_id = ent.get("entity_id")
-        if not pilot_id:
+        import sb_pilot
+        ref = sb_pilot.resolve_from_entity(ent)
+        if not ref:
             return
-        profile = self.intel_history_call("get_pilot_profile", pilot_id=int(pilot_id), name=ent.get("name") or ent.get("query"))
+        profile = self.intel_history_call(
+            "get_pilot_profile",
+            pilot_id=ref.entity_id,
+            name=ref.name or ref.query,
+        )
         if not profile:
-            return
-        if not profile.get("found"):
-            profile = {
-                "found": True,
-                "pilot": {
-                    "pilot_id": pilot_id,
-                    "name": ent.get("name") or ent.get("query") or "Unknown Pilot",
-                    "corp_name": ent.get("corporation_name") or "",
-                    "alliance_name": ent.get("alliance_name") or "",
-                    "first_seen": "",
-                    "last_seen": "",
-                },
-                "report_count": 0,
-                "recent_sightings": [],
-                "top_ships": [],
-                "top_systems": [],
-                "flags": [],
-            }
+            profile = sb_pilot.empty_profile_for_ref(ref)
+        elif not profile.get("found"):
+            profile = sb_pilot.empty_profile_for_ref(ref)
         self.show_pilot_info_card(profile)
 
     def load_zkill_cache(self) -> dict:
@@ -6609,9 +6602,19 @@ class SignalBridgeGui:
         threading.Thread(target=worker, daemon=True).start()
 
 
+    def _render_settings_pilot_intel(self, body, shell=None):
+        from sb_ui.pilot.settings_page import render_pilot_intel_page
+        render_pilot_intel_page(
+            body,
+            self,
+            open_addons=lambda: self.show_settings_center("Add-ons"),
+            open_help=lambda: self.show_help_center("Pilot Info"),
+            open_recognition=lambda: self.show_settings_center("Recognition Rules"),
+        )
+
     def show_pilot_info_card(self, profile: dict):
-        from sb_ui.pilot_info import open_pilot_info_card
-        open_pilot_info_card(self, profile)
+        from sb_ui.pilot import open_pilot_card
+        open_pilot_card(self, profile)
 
     def clicked_context(self, event, row: Row | None) -> dict:
         """Resolve the exact clicked token/span for the context menu.

@@ -5,6 +5,7 @@ import tkinter as tk
 import pytest
 
 from sb_ui import pilot_info
+from sb_ui.pilot import open_pilot_card
 
 
 def test_term_kind_helpers():
@@ -74,7 +75,7 @@ def test_open_pilot_info_card_empty_profile(tk_root, monkeypatch):
         "flags": [],
     }
     app = FakeApp()
-    pilot_info.open_pilot_info_card(app, profile)
+    open_pilot_card(app, profile)
     # Find Toplevel children
     tops = [w for w in tk_root.winfo_children() if isinstance(w, tk.Toplevel)]
     assert tops, "Pilot Info window should open"

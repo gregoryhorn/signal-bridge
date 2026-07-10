@@ -4,6 +4,7 @@
 - **Theme (approved):** Void Tactical (Mockup A) — tokens in `sb_ui/theme.py`, spec `docs/superpowers/specs/2026-07-10-v0.7-void-tactical-theme.md`, mockup `docs/images/signal-bridge-v0.7-theme-mockup-a.png`.
 - **Shell extract:** `sb_ui/shell` (header + layout slots), `sb_ui/feed` base colors; main window wired through builders; **Pilot Intel** menu cascade added; tab strip colors follow Void Tactical.
 - **Tabs (Phase B):** pure `sb_tabs` state machine (select/close/reorder/unread/overflow); real `sb_ui/tabs` TabStrip (active underline, badges, close, overflow menu, context menu) replaces mobile OptionMenu channel bar.
+- **Pilot Intel (Phase C):** domain package `sb_pilot/` (terms, flags, entrypoints, snapshot); UI `sb_ui/pilot/` (card, sections, settings page); Settings **Pilot Intel** page; first-class menu; `sb_ui/pilot_info.py` is a thin compat shim.
 
 ## v0.6 - 2026-07-10
 

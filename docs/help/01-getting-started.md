@@ -26,8 +26,9 @@ copy actions; right-click a pilot name for **Pilot Info**.
 
 ## Where things live
 
-- **Settings > Settings...**: full Settings Center (General, Channels, Translation, Filters, Recognition Rules, ESI, Add-ons, …).
-- **Tools** menu: Recognition Rules shortcut, logs folder helpers as available.
+- **Settings > Settings...**: full Settings Center (General, Channels, Translation, Filters, ESI, **Pilot Intel**, Recognition Rules, Add-ons, …).
+- **Pilot Intel** menu: status, recognition rules, and help for pilot cards / history / flags.
+- **Tools** menu: logs folder helpers as available.
 - **Help** menu: these topics, update check, and About Signal Bridge.
 
 More documentation: https://github.com/gregoryhorn/signal-bridge

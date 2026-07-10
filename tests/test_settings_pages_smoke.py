@@ -248,8 +248,15 @@ def test_all_settings_page_renderers_run(tk_root, app):
         _render_settings_filters = gui.SignalBridgeGui._render_settings_filters
         _render_settings_aliases = gui.SignalBridgeGui._render_settings_aliases
         _render_settings_addons = gui.SignalBridgeGui._render_settings_addons
+        _render_settings_pilot_intel = gui.SignalBridgeGui._render_settings_pilot_intel
         # Translation cache page is large; still smoke it
         _render_settings_translation_cache = gui.SignalBridgeGui._render_settings_translation_cache
+
+        def show_settings_center(self, _page=None):
+            pass
+
+        def show_help_center(self, _topic=None):
+            pass
 
     g = FakeGui()
     pages = [
@@ -260,6 +267,7 @@ def test_all_settings_page_renderers_run(tk_root, app):
         ("Filters", g._render_settings_filters),
         ("EVE Catalog", g._render_settings_catalog),
         ("ESI", g._render_settings_esi),
+        ("Pilot Intel", g._render_settings_pilot_intel),
         ("Recognition Rules", g._render_settings_exclusions),
         ("Cache & Data", g._render_settings_cache_data),
         ("Diagnostics", g._render_settings_diagnostics),
@@ -275,5 +283,6 @@ def test_all_settings_page_renderers_run(tk_root, app):
         renderer(body, shell)
         created.append(name)
         body.destroy()
-    assert len(created) == 14
+    assert len(created) == 15
     assert "Recognition Rules" in created
+    assert "Pilot Intel" in created

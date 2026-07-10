@@ -1,6 +1,8 @@
 # Pilot Info
 
-Right-click a pilot name in the feed and choose **Pilot Info** to open the
+**Pilot Intel** is a core Signal Bridge feature (menu **Pilot Intel**, Settings **Pilot Intel**).
+
+Right-click a pilot name in the feed and choose **Open Pilot Info** to open the
 compact pilot card.
 
 ## Layout (at a glance)
