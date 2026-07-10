@@ -1,9 +1,9 @@
 # Merge prep — feature/contracts-and-backlog → main
 
-**Date:** 2026-07-10  
+**Status:** MERGED + v0.6 published (2026-07-10)  
 **PR:** https://github.com/gregoryhorn/signal-bridge/pull/1  
 **Branch:** `feature/contracts-and-backlog`  
-**Base:** `main` (clean fast-forward / merge; no version bump in this PR)
+**Base:** `main`
 
 ## Scope summary
 

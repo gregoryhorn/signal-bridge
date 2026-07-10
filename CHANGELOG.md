@@ -1,9 +1,11 @@
-## Unreleased (merge candidate — APP_VERSION still 0.6)
+## Unreleased
 
-Ready to merge via PR #1 (`docs/superpowers/MERGE_PREP.md`). Public download stays v0.6 until a packaging cut bumps the version.
+## v0.6 - 2026-07-10
+
+### Modular contracts, backlog, Settings, Pilot Info
 
 - **Settings design pass:** shared `danger_card` / `labeled_spinbox`; General backlog section; Channels/Filters/Translation/Cache-Data/Catalog/ESI/Aliases/Add-ons layout cleanup; nav **Exclusions** renamed to **Recognition Rules** (legacy deep link accepted); page render smoke tests.
-- **Docs:** README Unreleased notes; ARCHITECTURE/PROJECT_MAP/INVARIANTS; contract “implemented in” notes; Help Center Filters topic + updated Getting Started/Channels/Translation/Pilot Info; distribution Settings page list; merge prep checklist.
+- **Docs / Help:** ARCHITECTURE/PROJECT_MAP/INVARIANTS; contract “implemented in” notes; Help Center Filters topic + updated Getting Started/Channels/Translation/Pilot Info; packaging includes `docs/help/` (10 topics).
 - **EVE translation hygiene:** curated promotions in `data/eve_phrase_promotions.json` with repeatable `scripts/promote_eve_translations.py` (`report` / `sync` / `purge`) to merge into phrase overrides and clear bad machine-cache rows.
 - **Pilot Info redesign:** compact tactical card in `sb_ui/pilot_info.py` — threat ribbon, no triple-redundant Patterns/Summary, no raw zKill URL dump, smaller fit sizing, primary Sync/Open footer actions.
 - **Contracts:** `sb_contracts/` pure types (RenderRow, IntelSegment, TranslationDecision, AddonEvent, diagnostic redaction); feed builds RenderRow; Intel History uses AddonEvent.
@@ -13,10 +15,10 @@ Ready to merge via PR #1 (`docs/superpowers/MERGE_PREP.md`). Public download sta
 - **Backlog ingest:** optional Start Monitoring backlog window (default 10 minutes) via Settings > General.
 - **Translation:** Auto→EN uses CJK `zh-CN` or Google `auto` for other non-English (e.g. Russian); English tails kept after CJK (e.g. pilot names).
 - **Highlight:** ships never paint as purple modules; purple modules off by default (`highlight_modules`).
-- **Portable:** `DEFAULT_DB_PATH` is `data/translations.db`; monitor dedupe is bounded.
+- **Portable:** `DEFAULT_DB_PATH` is `data/translations.db`; monitor dedupe is bounded; package includes `phrase_overrides.json` and `eve_phrase_promotions.json`.
 - **Icon:** regenerated multi-size ICO from transparent 1024 PNG source.
 
-## v0.6 - 2026-07-03
+### UI foundation (included in v0.6)
 
 - Fixed Translation Cache source pollution: Auto to EN no longer stores English-only, URL-only, placeholder-only, or protected EVE-term-only machine-cache rows, while preserving manual corrections and explicit EN to CN rows.
 - Added shared UI foundation (`sb_ui` theme/components/window helpers) and typed settings store with validation warnings and non-silent save failures.
@@ -25,7 +27,7 @@ Ready to merge via PR #1 (`docs/superpowers/MERGE_PREP.md`). Public download sta
 - Rebuilt the Settings Center on a shared SettingsShell: uniform nav/scroll/footer, fixed always-visible action bar with a status line, settings-load warnings and save failures now shown in the UI (was P1: hidden controls on the Translation Cache page).
 - Redesigned the Translation Corrections browser as a single two-column Original/English table with a dedicated editor area; the English correction editor is now visually primary.
 - Fixed Pilot Info card: action buttons can no longer be clipped off the bottom, the window auto-sizes to content on open, and the zKill section now shows ranked Recent Kills (small-gang engagements first) and Recent Losses with per-killmail zKillboard links and gang-size labels.
-- Added an in-app Help Center (Help menu) with nine offline help topics rendered from bundled markdown, plus a restructured Help menu (Help Topics, Report an Issue, About Signal Bridge).
+- Added an in-app Help Center (Help menu) with offline help topics rendered from bundled markdown, plus a restructured Help menu (Help Topics, Report an Issue, About Signal Bridge).
 - Added a dedicated About/Support window with version, project links, diagnostics copy, update check, and donation info, replacing the old About and Support messageboxes.
 - Unified the remaining dialogs (Appearance, Recognition Rules, channel picker, hidden tabs) on the shared dark theme.
 

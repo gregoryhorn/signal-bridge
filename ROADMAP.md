@@ -1,12 +1,12 @@
-## Next packaging cut (after merge)
+## Shipped: v0.6 (2026-07-10)
 
-Branch `feature/contracts-and-backlog` is **merge-ready** (modular contracts, backlog features, Settings design pass, Pilot Info redesign, EVE phrase promotions). Details: `docs/superpowers/MERGE_PREP.md` and `CHANGELOG.md` Unreleased.
+Public GitHub release **v0.6** includes UI foundation, modular contracts/backlog systems, Settings design pass, Pilot Info redesign, Filters/spam, multi-language Auto→EN, EVE phrase promotions, and clean portable packaging. See `CHANGELOG.md` and `GITHUB_RELEASE.md`.
 
-After merge to `main`, a public cut still needs: live smoke (optional), **APP_VERSION** bump, portable ZIP + checksums, `GITHUB_RELEASE.md` / README download links.
+## Next
 
-## v0.6 release note
-
-Signal Bridge v0.6 focuses on the UI foundation refresh: shared themed controls, a dedicated Settings Center shell, redesigned Translation Corrections, offline Help Center, dedicated About/Support window, and safer Translation Cache cleanup. New portable builds continue to include curated starter data only and exclude local cache/runtime/log state.
+- Live smoke feedback and issue triage  
+- Further ESI / free-text extraction from the GUI  
+- LAN viewer / Argos helper process (still planned)
 
 ## v0.5 release note
 

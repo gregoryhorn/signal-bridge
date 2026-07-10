@@ -2,54 +2,27 @@
 
 **Updated:** 2026-07-10  
 **Repo:** `D:\AI\Rift\signal-bridge-live-gui`  
-**Branch:** `feature/contracts-and-backlog`  
-**PR:** https://github.com/gregoryhorn/signal-bridge/pull/1  
-**Public release:** still **v0.6** (`APP_VERSION` unchanged until packaging)
+**Branch:** `main`  
+**Public release:** **v0.6** on GitHub Releases  
 
 ## Current state
 
-Merge candidate is **ready**. Implementation (contracts, modular backlog, Settings design pass, Pilot Info redesign, EVE phrase promotions, icon) is on the feature branch. Docs and `docs/superpowers/MERGE_PREP.md` describe the merge.
+PR #1 (`feature/contracts-and-backlog`) is merged into `main`. v0.6 portable package is the public download. Source, README download links, `CHANGELOG.md`, `GITHUB_RELEASE.md`, and release assets must stay aligned for every public cut.
 
-- Do **not** bump `APP_VERSION` on merge.
-- Public GitHub download remains v0.6 until a deliberate packaging cut.
+## Release checklist (use every time)
 
-## Pre-merge validation (last run)
+1. `APP_VERSION` in `signal_bridge_gui.py` matches tag and ZIP name  
+2. `build_portable.ps1` `$Version` matches  
+3. README Download section points at the live release tag  
+4. `CHANGELOG.md` has a dated section for that version (not only Unreleased)  
+5. `GITHUB_RELEASE.md` describes that version  
+6. `powershell -File .\build_portable.ps1`  
+7. Verify package: `docs/help/`, `data/phrase_overrides.json`, `data/eve_phrase_promotions.json`, empty cache/logs  
+8. `gh release create` (or `upload`) with ZIP + both `.sha256` files  
+9. Confirm release is Latest and download URL returns 200  
 
-```powershell
-python -X utf8 -m py_compile signal_bridge_gui.py sb_paths.py sb_diagnostics.py sb_channels.py sb_monitor.py sb_filters.py sb_spam.py sb_feed_admit.py sb_highlight.py sb_appearance.py sb_text.py
-python -X utf8 -m compileall -q sb_contracts sb_translation sb_ui
-python -X utf8 scripts/check-fixtures.py
-python -m pytest tests/ -q
-```
+## Do not
 
-Results:
-
-- compile / compileall: OK  
-- fixtures: `Fixture check OK: 6 case(s)`  
-- pytest: **114 passed**  
-- `APP_VERSION`: **0.6**
-
-## Merge steps
-
-See `docs/superpowers/MERGE_PREP.md`.
-
-```powershell
-gh pr merge 1 --merge   # or --squash
-git checkout main
-git pull origin main
-```
-
-## After merge (packaging only)
-
-1. Bump `APP_VERSION` in `signal_bridge_gui.py`  
-2. Move CHANGELOG Unreleased under a dated version heading  
-3. Update `GITHUB_RELEASE.md` + README download links  
-4. `build_portable.ps1` with current `assets/signal_bridge_icon.ico`  
-5. Bundle `docs/help/` (10 topics), `data/phrase_overrides.json`, `data/eve_phrase_promotions.json`  
-6. Publish ZIP + SHA256  
-
-## Out of scope for this merge
-
-- APP_VERSION / GitHub release asset cut  
-- Full ESI / free-text extract from GUI  
-- LAN viewer / Argos helper process  
+- Push “merge prep” language to default README without shipping assets  
+- Leave README pointing at a release tag that does not exist  
+- Ship a local EXE only without publishing ZIP + checksums on the same cut  

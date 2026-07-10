@@ -30,25 +30,22 @@ No installer is required. The ZIP is the standalone portable package; keep the e
 SHA256 checksums are published beside the portable ZIP as `SignalBridge-v0.6-win64-portable.zip.sha256` and `SignalBridge.exe.sha256`.
 
 
-## Unreleased (merge candidate — still **0.6** until packaging)
+## v0.6 release
 
-Shipped GitHub release remains **v0.6**. The `main` merge candidate (see `CHANGELOG.md` Unreleased and [PR #1](https://github.com/gregoryhorn/signal-bridge/pull/1)) adds the following **without an APP_VERSION bump**:
+Signal Bridge **v0.6** is the current public portable release. It includes:
 
+- UI foundation: Settings Center shell, themed shared widgets, redesigned Translation Corrections, offline Help Center (10 topics), dedicated About/Support, safer Translation Cache cleanup  
 - Settings **Filters** (keyword/sender) and Local spam rate limits  
 - Optional **startup backlog** on Start Monitoring (default still live-only)  
 - **Auto → EN** multi-language detection; English names kept after CJK lines  
 - Curated **EVE phrase overrides** + `scripts/promote_eve_translations.py`  
-- Settings **Recognition Rules** nav (was Exclusions); full Settings design pass  
-- Compact **Pilot Info** card (threat ribbon, less wasted space)  
+- Settings **Recognition Rules** nav (was Exclusions); Settings design pass  
+- Compact **Pilot Info** card (threat ribbon)  
 - Purple **module** highlighting off by default; ships use ship color  
 - Modular `sb_*` / `sb_contracts` / `sb_ui` layout; portable default DB path  
 - Updated app icon (transparent 1024 source → multi-size ICO)  
 
-Merge prep notes: `docs/superpowers/MERGE_PREP.md`.
-
-## v0.6 UI foundation and help update
-
-Signal Bridge v0.6 ships the UI foundation refresh: centralized Settings Center shell, themed shared widgets, redesigned Translation Corrections, fixed-footer dialogs, offline in-app Help Center, dedicated About/Support window, and safer Translation Cache machine-row cleanup. Portable builds continue to start with clean runtime/cache/log state while bundling curated starter data and offline help topics.
+Portable builds start with clean runtime/cache/log state and bundle curated starter data plus offline help.
 
 ## v0.5 Recognition and clean-data update
 
