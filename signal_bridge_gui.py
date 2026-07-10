@@ -1928,6 +1928,12 @@ COMMON_ESI_NOISE = {
     "people", "person", "persons", "player", "players", "guy", "guys", "dude", "dudes",
     "man", "men", "woman", "women", "friend", "friends", "group", "groups", "member", "members",
     "hostiles", "friendlies", "blues", "neutrals", "reds",
+    # Fitting / client UI / sim words (and common typos)
+    "simulated", "simulation", "simulator", "fitting", "fittings", "fit", "fits", "button", "botton",
+    "damage", "dps", "hp", "ehp", "resists", "resist", "tank", "tanking", "active", "passive",
+    "room", "window", "menu", "option", "options", "settings", "filter", "filters", "tab", "tabs",
+    "click", "clicked", "press", "pressed", "select", "selected", "save", "saved", "load", "loaded",
+    "apply", "reset", "cancel", "confirm", "export", "import", "browse", "search", "result", "results",
 }
 NAME_CONTEXT_WORDS = {
     "tackle", "watch", "seen", "spotted", "reported", "report", "by", "from", "with", "kill", "killed",

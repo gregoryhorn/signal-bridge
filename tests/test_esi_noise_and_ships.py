@@ -48,6 +48,34 @@ def test_people_not_character_candidate():
     assert "people" not in cands
 
 
+def test_fitting_ui_words_not_characters():
+    for w in ("Simulated", "Fitting", "botton", "button", "simulation", "damage"):
+        assert is_probable_character_candidate(w) is False, w
+    db = EveDb(__import__("signal_bridge_gui", fromlist=["DB_PATH"]).DB_PATH, use_sqlite=False)
+    line = "Simulated Fitting botton"
+    systems, assets, localized, counts, links, intent = extract_intel(line, db)
+    row = Row(
+        "Corp",
+        "2026-01-01 12:00:00",
+        "Tester",
+        line,
+        systems,
+        assets,
+        localized,
+        counts,
+        links,
+        intent,
+        "",
+        "",
+        "none",
+        "x.log",
+    )
+    cands = [c.casefold() for c in esi_message_candidates_for_row(row)]
+    for bad in ("simulated", "fitting", "botton", "button"):
+        assert bad not in cands
+        assert not any(bad in c for c in cands)
+
+
 def test_original_not_in_esi_candidates():
     db = EveDb(__import__("signal_bridge_gui", fromlist=["DB_PATH"]).DB_PATH, use_sqlite=False)
     line = "the original ship was wrong"
