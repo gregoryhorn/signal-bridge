@@ -62,3 +62,10 @@ The v0.6 portable package must:
 - Use `assets/signal_bridge_icon.ico` (regenerated from `signal_bridge_icon_true_transparent_1024.png`).
 - Keep `docs/contracts/` and `docs/superpowers/` as developer docs (optional in the end-user ZIP; `build_portable.ps1` currently copies all of `docs/`).
 - Still exclude local `cache/`, `logs/`, `config/`, tokens, and runtime state.
+
+## v0.7 Void Tactical package note
+
+The v0.7 portable package includes the refreshed `docs/images/` visual assets,
+`docs/ui/void-tactical-surface-matrix.md`, and the full `web_lan/` viewer.
+Do not include local `.playwright-cli/` traces, browser captures outside
+`docs/images/`, runtime logs, caches, tokens, or local testing state.

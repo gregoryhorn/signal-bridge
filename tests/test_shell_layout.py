@@ -15,6 +15,7 @@ def test_build_header_bar(tk_root):
     assert chrome.status_label.cget("text") == "Idle"
     assert chrome.frame.cget("bg") == theme.COLORS["bg_chrome"]
     assert chrome.title_label.cget("fg") == theme.COLORS["fg"]
+    assert chrome.scan_line.cget("bg") == theme.COLORS["accent_line"]
 
 
 def test_build_main_layout_slots(tk_root):
@@ -25,3 +26,5 @@ def test_build_main_layout_slots(tk_root):
     assert layout.feed_text is not None
     assert layout.feed_scroll is not None
     assert layout.feed_host.cget("bg") == theme.COLORS["bg_feed"]
+    assert layout.footer_host is not None
+    assert layout.footer_host.cget("bg") == theme.COLORS["bg_chrome"]

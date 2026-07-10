@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = '0.6'
+$Version = '0.7'
 Set-Location $Root
 
 # Lean portable build:
@@ -70,6 +70,10 @@ for ($Attempt = 1; $Attempt -le 5; $Attempt++) {
     Start-Sleep -Seconds 2
   }
 }
-Get-FileHash $Zip -Algorithm SHA256 | Tee-Object -FilePath "$Zip.sha256"
-Get-FileHash .\dist\SignalBridge\SignalBridge.exe -Algorithm SHA256 | Tee-Object -FilePath .\SignalBridge.exe.sha256
+$ZipHash = Get-FileHash $Zip -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+$ExeHash = Get-FileHash .\dist\SignalBridge\SignalBridge.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+$ZipHash | Set-Content -NoNewline -Path "$Zip.sha256"
+$ExeHash | Set-Content -NoNewline -Path .\SignalBridge.exe.sha256
+Write-Host "ZIP SHA256: $ZipHash"
+Write-Host "EXE SHA256: $ExeHash"
 Write-Host "Portable ZIP created: $Zip"

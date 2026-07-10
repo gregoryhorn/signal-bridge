@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Signal Bridge · LAN</title>
   <link rel="stylesheet" href="styles.css" id="base-css" />
-  <link rel="stylesheet" href="api/theme.css" id="theme-css" />
+  <link rel="stylesheet" data-theme-href="api/theme.css" id="theme-css" />
 </head>
 <body>
   <header class="chrome">
@@ -20,7 +20,9 @@
       </select>
     </label>
   </div>
-  <main id="feed" class="feed" aria-live="polite"></main>
+  <main id="feed" class="feed" aria-live="polite">
+    <div class="empty-state" id="empty-state">Waiting for live intel…</div>
+  </main>
   <footer class="chrome foot">
     <span id="count">0 rows</span>
     <span id="clients"></span>

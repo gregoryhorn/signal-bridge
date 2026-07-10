@@ -16,6 +16,7 @@ class LayoutHandles:
     header_host: Any
     tabs_host: Any
     feed_host: Any
+    footer_host: Any
     feed_text: Any | None = None
     feed_scroll: Any | None = None
 
@@ -36,6 +37,9 @@ def build_main_layout(root, *, create_feed: bool = True, feed_font=None) -> Layo
         pady=theme.SPACING["xs"],
     )
     tabs_host.pack(fill="x")
+    footer_host = tk.Frame(root, bg=c["bg_chrome"], highlightthickness=1,
+                           highlightbackground=c["border"])
+    footer_host.pack(fill="x", side="bottom")
     feed_host = tk.Frame(root, bg=c["bg_feed"])
     feed_host.pack(fill="both", expand=True)
 
@@ -65,6 +69,7 @@ def build_main_layout(root, *, create_feed: bool = True, feed_font=None) -> Layo
         header_host=header_host,
         tabs_host=tabs_host,
         feed_host=feed_host,
+        footer_host=footer_host,
         feed_text=feed_text,
         feed_scroll=feed_scroll,
     )

@@ -1,12 +1,15 @@
 ## Unreleased
 
-- **v0.7 plan:** four pillars (look & feel, real tabs, pilot intel first-class, LAN phone viewer) documented in `docs/superpowers/plans/2026-07-10-v0.7-four-pillars.md` with mandatory modular file splits (`sb_ui/shell`, `sb_tabs`, `sb_ui/tabs`, `sb_pilot`, `sb_ui/pilot`, `sb_lan`, `web_lan`).
-- **Theme (approved):** Void Tactical (Mockup A) — tokens in `sb_ui/theme.py`, spec `docs/superpowers/specs/2026-07-10-v0.7-void-tactical-theme.md`, mockup `docs/images/signal-bridge-v0.7-theme-mockup-a.png`.
-- **Shell extract:** `sb_ui/shell` (header + layout slots), `sb_ui/feed` base colors; main window wired through builders; **Pilot Intel** menu cascade added; tab strip colors follow Void Tactical.
-- **Tabs (Phase B):** pure `sb_tabs` state machine (select/close/reorder/unread/overflow); real `sb_ui/tabs` TabStrip (active underline, badges, close, overflow menu, context menu) replaces mobile OptionMenu channel bar.
-- **Pilot Intel (Phase C):** domain package `sb_pilot/` (terms, flags, entrypoints, snapshot); UI `sb_ui/pilot/` (card, sections, settings page); Settings **Pilot Intel** page; first-class menu; `sb_ui/pilot_info.py` is a thin compat shim.
-- **LAN Viewer (Phase D):** opt-in LAN phone mirror — `sb_lan/` (config, security, buffer, serialize, SSE server, theme CSS), `web_lan/` static viewer, Settings **LAN Viewer**, feed publish of visible lines with entity spans; tokenized URL; packaging copies `web_lan/`.
-- **Recognition fix:** block common English/translation noise (`original`, etc.) from ESI character detection; never paint catalog ships/systems as pilots; re-scan visible lines for ships so capitals like Chimera/Minokawa/Erebus highlight after Auto→EN.
+## v0.7 - 2026-07-10
+
+- Applied the approved **Void Tactical** visual system to the main shell, feed, tabs, settings, dialogs, Help, About, Pilot Info, and LAN viewer.
+- Added semantic theme roles, shared operational components, grouped Settings navigation, a stable footer status area, and consistent child-window placement.
+- Refined Pilot Info around local context, threat status, flags, direct zKill actions, and a compact overflow menu.
+- Added indented, muted translated feed sublines while preserving entity highlighting and copy behavior.
+- Added an opt-in tokenized LAN feed with matching theme tokens, phone-density filters, empty/reconnect states, and SSE live updates.
+- Added a complete desktop capture registry plus live prompt/LAN review captures; capture windows are forced opaque and topmost for reliable visual evidence.
+- Archived resolved v0.4-v0.6 issues; `ISSUES.md` now contains only open v0.7 work.
+- Fixed the Settings page-specific Apply handler and prevented an initial unauthenticated LAN theme stylesheet request.
 
 ## v0.6 - 2026-07-10
 

@@ -1,29 +1,28 @@
-# Signal Bridge v0.6
+# Signal Bridge v0.7
 
 ## Release summary
 
-Signal Bridge **v0.6** is the public portable Windows build. It includes the UI foundation refresh, modular `sb_*` / contracts architecture, Settings Filters and design pass, multi-language Auto→EN, EVE phrase promotions, compact Pilot Info, and clean-data packaging.
+Signal Bridge **v0.7** is the public portable Windows build. It delivers the approved Void Tactical interface across the desktop app and LAN viewer while preserving the local-first monitoring, translation, ESI, and Pilot Info workflows.
 
 ## Assets
 
-- `SignalBridge-v0.6-win64-portable.zip`
-- `SignalBridge-v0.6-win64-portable.zip.sha256`
+- `SignalBridge-v0.7-win64-portable.zip`
+- `SignalBridge-v0.7-win64-portable.zip.sha256`
 - `SignalBridge.exe.sha256`
 
 ## Highlights
 
-- Bumped app/package version to **0.6**.
-- Shared `sb_ui` theme/components/window foundation; Settings Center SettingsShell with fixed footer actions and status.
-- Offline Help Center under `docs/help/` (10 topics including Filters); dedicated About/Support window.
-- Settings **Filters** + Local spam controls; optional startup backlog; **Recognition Rules** nav (was Exclusions).
-- Multi-language Auto→EN (CJK + Google auto); English names kept after CJK; durable phrase overrides + `scripts/promote_eve_translations.py`.
-- Compact Pilot Info card; modular `sb_contracts` / `sb_*` modules; portable default DB path; module purple off by default.
-- Refreshed app icon (transparent 1024 → multi-size ICO).
-- Portable packaging: curated starter data and empty runtime folders only.
+- Bumped app/package version to **0.7**.
+- Applied Void Tactical shell, feed, tab, settings, dialog, Help, About, and Pilot Info treatment.
+- Added semantic theme roles and shared components to keep desktop and phone views aligned.
+- Grouped Settings navigation and stabilized page-specific Apply behavior.
+- Added translated feed sublines, compact Pilot Info actions, and reliable child-window placement.
+- Brought the tokenized LAN viewer to phone density with matching colors, filters, empty states, and reconnect status.
+- Added reviewed UI capture evidence under `docs/images/ui-review/`.
 
 ## Clean-data packaging note
 
-The v0.6 portable package must **not** include local `cache/`, `runtime/`, `logs/`, ESI tokens, zKill cache, translation runtime cache, starter ESI cache rows, legacy broad exclusions, temporary backup files, or local testing state.
+The v0.7 portable package must **not** include local `cache/`, `runtime/`, `logs/`, ESI tokens, zKill cache, translation runtime cache, starter ESI cache rows, legacy broad exclusions, temporary backup files, browser automation traces, or local testing state.
 
 ## Intended packaged data
 
@@ -44,13 +43,13 @@ The portable package must also include the `docs/help/` folder (offline in-app h
 ## Verification commands
 
 ```powershell
-Get-Item .\SignalBridge-v0.6-win64-portable.zip
-Get-FileHash .\SignalBridge-v0.6-win64-portable.zip -Algorithm SHA256
+Get-Item .\SignalBridge-v0.7-win64-portable.zip
+Get-FileHash .\SignalBridge-v0.7-win64-portable.zip -Algorithm SHA256
 Get-FileHash .\dist\SignalBridge\SignalBridge.exe -Algorithm SHA256
 ```
 
 ## Install
 
-Download and extract `SignalBridge-v0.6-win64-portable.zip`, then run `SignalBridge.exe`.
+Download and extract `SignalBridge-v0.7-win64-portable.zip`, then run `SignalBridge.exe`.
 
 No installer or admin rights are required.

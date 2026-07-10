@@ -53,3 +53,10 @@ The v0.5 portable package must start with clean local runtime state. Include cur
 ## v0.6 UI/help package note
 
 The v0.6 portable package keeps the v0.5 clean-data rules and includes offline Help Center topics under `docs/help/` in the extracted ZIP.
+
+## v0.7 Void Tactical package note
+
+The v0.7 package includes the Void Tactical desktop interface, the tokenized
+LAN viewer assets under `web_lan/`, and the refreshed screenshot/documentation
+set under `docs/images/`. Local browser traces, caches, logs, credentials, and
+runtime state are not part of the portable ZIP.

@@ -44,7 +44,7 @@ def open_pilot_card(app: Any, profile: dict) -> None:
     win = tk.Toplevel(app.root)
     app.polish_window(
         win, app.root, width=480, height=420, minsize=(400, 320),
-        title=f"Pilot Info — {name}",
+        title=f"Pilot Info — {name}", placement="beside_parent",
     )
 
     header = tk.Frame(win, bg=sb_theme.COLORS["bg_panel"], padx=10, pady=8)
@@ -131,7 +131,8 @@ def open_pilot_card(app: Any, profile: dict) -> None:
             win.update_idletasks()
             canvas.configure(height=max(120, body.winfo_reqheight()))
             w, h = sb_windows.fit_to_content(
-                win, app.root, min_size=(400, 320), max_size=(560, 680), pad=(20, 20)
+                win, app.root, min_size=(400, 320), max_size=(560, 680), pad=(20, 20),
+                preserve_position=True,
             )
             record_event("pilot_card_layout_autosized", pilot_id=pilot_id, height=h, width=w)
         except Exception:
@@ -378,6 +379,21 @@ def open_pilot_card(app: Any, profile: dict) -> None:
         zks = app.get_zkill_summary(pilot_id)
         synced = zks.get("status") == "synced"
 
+        def open_more():
+            menu = tk.Menu(
+                footer, tearoff=False, bg=sb_theme.COLORS["bg_chrome"],
+                fg=sb_theme.COLORS["fg"], activebackground=sb_theme.COLORS["accent_active"],
+                activeforeground=sb_theme.COLORS["fg_bright"],
+            )
+            menu.add_command(label="Activity", command=render_sightings)
+            menu.add_command(label="Copy summary", command=copy_summary)
+            menu.add_separator()
+            menu.add_command(label="Close", command=win.destroy)
+            try:
+                menu.tk_popup(footer.winfo_rootx(), footer.winfo_rooty() - 4)
+            finally:
+                menu.grab_release()
+
         if view == "summary":
             if not synced:
                 sb_components.primary_button(footer, "Sync zKill", sync_zkill).pack(side="left", padx=(0, 6))
@@ -386,8 +402,7 @@ def open_pilot_card(app: Any, profile: dict) -> None:
                 sb_components.primary_button(footer, "Open zKill", open_zkill).pack(side="left", padx=(0, 6))
                 sb_components.action_button(footer, "Sync", sync_zkill).pack(side="left", padx=(0, 4))
             sb_components.action_button(footer, "Flags", render_flags).pack(side="left", padx=(0, 4))
-            sb_components.action_button(footer, "Activity", render_sightings).pack(side="left", padx=(0, 4))
-            sb_components.action_button(footer, "Copy", copy_summary).pack(side="left", padx=(0, 4))
+            sb_components.action_button(footer, "More...", open_more).pack(side="left", padx=(0, 4))
             sb_components.action_button(footer, "Close", win.destroy).pack(side="right")
         else:
             sb_components.action_button(footer, "Close", win.destroy).pack(side="right")

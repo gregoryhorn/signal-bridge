@@ -5,7 +5,7 @@ Signal Bridge is currently shipped from the Python/Tk source tree in this reposi
 ## Current live app
 
 - Main app / Tk shell: `signal_bridge_gui.py`
-- Current public release: **v0.6** (`APP_VERSION` 0.6; portable ZIP on GitHub Releases)
+- Current public release: **v0.7** (`APP_VERSION` 0.7; portable ZIP on GitHub Releases)
 - Portable packaging: PyInstaller-based Windows ZIP scripts/docs in this repo
 - Runtime logs: `logs/`
 - Local runtime add-ons: `modules/` (not committed)

@@ -7,7 +7,6 @@
   const statusEl = document.getElementById("status");
   const channelEl = document.getElementById("channel");
   const countEl = document.getElementById("count");
-
   /** @type {Array<any>} */
   let rows = [];
   let channelFilter = "__ALL__";
@@ -41,6 +40,12 @@
   function renderFeed() {
     feedEl.innerHTML = "";
     const visible = rows.filter(rowVisible);
+    if (!visible.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = channelFilter === "__ALL__" ? "Waiting for live intel…" : "No rows in this channel yet.";
+      feedEl.appendChild(empty);
+    }
     for (const row of visible) {
       const div = document.createElement("div");
       div.className = "row";

@@ -14,6 +14,7 @@ class ChromeHandles:
     title_label: Any
     mode_label: Any
     status_label: Any
+    scan_line: Any
 
 
 def menu_colors() -> dict[str, str]:
@@ -56,10 +57,15 @@ def build_header_bar(parent, *, title: str, status: str = "Idle") -> ChromeHandl
         font=theme.font(9),
         padx=theme.SPACING["sm"],
     )
-    status_label.pack(side="right")
+    # The live status itself lives in the shell footer; retain this handle for
+    # callers that need a compact header status in a future embedded layout.
+    scan_line = tk.Frame(frame, bg=c["accent_line"], height=2)
+    scan_line.pack(side="bottom", fill="x")
+    scan_line.pack_propagate(False)
     return ChromeHandles(
         frame=frame,
         title_label=title_label,
         mode_label=mode_label,
         status_label=status_label,
+        scan_line=scan_line,
     )

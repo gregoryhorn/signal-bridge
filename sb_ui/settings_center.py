@@ -20,7 +20,8 @@ class SettingsShell:
                  title: str = "Signal Bridge Settings",
                  startup_status: str = "",
                  nav_title: str = "Settings",
-                 show_apply: bool = True):
+                 show_apply: bool = True,
+                 groups: dict[str, str] | None = None):
         self.root = root
         self.pages = list(pages)
         self.descriptions = dict(descriptions)
@@ -32,6 +33,7 @@ class SettingsShell:
         self.startup_status = startup_status
         self.nav_title = nav_title
         self.show_apply = show_apply
+        self.groups = dict(groups or {})
         self.win: tk.Toplevel | None = None
         self.body: tk.Frame | None = None
         self._nav_buttons = {}
@@ -39,6 +41,7 @@ class SettingsShell:
         self._title: tk.Label | None = None
         self._subtitle: tk.Label | None = None
         self._body_configure = lambda _event=None: None
+        self._page_apply: Callable[[], bool | None] | None = None
 
     def open(self) -> tk.Toplevel:
         win = tk.Toplevel(self.root)
@@ -105,7 +108,14 @@ class SettingsShell:
         tk.Label(nav, text=self.nav_title, bg=theme.COLORS["bg_nav"],
                  fg=theme.COLORS["fg_bright"], font=theme.font(12, bold=True)).pack(
             anchor="w", padx=12, pady=(14, 8))
+        last_group = None
         for page in self.pages:
+            group = self.groups.get(page, "")
+            if group and group != last_group:
+                tk.Label(nav, text=group.upper(), bg=theme.COLORS["bg_nav"],
+                         fg=theme.COLORS["fg_muted"], font=theme.font(8, bold=True)).pack(
+                    anchor="w", padx=12, pady=(12 if last_group else 4, 3))
+                last_group = group
             btn = tk.Button(nav, text=page, command=lambda name=page: self.render_page(name))
             btn.pack(fill="x", padx=8, pady=1)
             self._nav_buttons[page] = btn
@@ -124,6 +134,7 @@ class SettingsShell:
     def render_page(self, name: str):
         if name not in self.renderers:
             name = self.pages[0]
+        self._page_apply = None
         for child in self.body.winfo_children():
             child.destroy()
         self._title.configure(text=name)
@@ -137,10 +148,16 @@ class SettingsShell:
         if self._status_var is not None:
             self._status_var.set(text)
 
+    def set_apply_handler(self, handler: Callable[[], bool | None]) -> None:
+        """Use a page-specific Apply action until the user changes pages."""
+        self._page_apply = handler
+
     def _apply(self):
         ok = False
         try:
-            ok = bool(self.on_apply())
+            handler = self._page_apply or self.on_apply
+            result = handler()
+            ok = True if result is None else bool(result)
         except Exception:
             ok = False
         self.set_status("Settings saved" if ok

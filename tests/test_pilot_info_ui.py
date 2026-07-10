@@ -84,4 +84,10 @@ def test_open_pilot_info_card_empty_profile(tk_root, monkeypatch):
     # Geometry should start compact-ish (width set at open)
     win.update_idletasks()
     assert win.winfo_width() <= 600 or int(win.geometry().split("x")[0]) <= 560
+    footer = [child for child in win.winfo_children() if isinstance(child, tk.Frame) and child.pack_info().get("side") == "bottom"][0]
+    labels = [child.cget("text") for child in footer.winfo_children() if isinstance(child, tk.Button)]
+    assert "Sync zKill" in labels
+    assert "More..." in labels
+    assert "Activity" not in labels
+    assert "Copy" not in labels
     win.destroy()

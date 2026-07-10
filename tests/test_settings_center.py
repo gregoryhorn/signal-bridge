@@ -113,3 +113,37 @@ def test_defaults_keep_settings_nav_and_apply(tk_root):
     assert any(isinstance(w, tk.Label) and w.cget("text") == "Settings" for w in widgets)
     assert any(isinstance(w, tk.Button) and w.cget("text") == "Apply" for w in widgets)
     win.destroy()
+
+
+def test_page_apply_handler_overrides_the_shell_default(tk_root):
+    rendered = []
+    default_calls = []
+    page_calls = []
+    shell = make_shell(tk_root, rendered, on_apply=lambda: default_calls.append(True) or True)
+    win = shell.open()
+    shell.set_apply_handler(lambda: page_calls.append(True) or True)
+
+    shell._apply()
+
+    assert page_calls == [True]
+    assert default_calls == []
+    assert "saved" in shell._status_var.get().lower()
+    win.destroy()
+
+
+def test_navigation_can_group_related_pages(tk_root):
+    rendered = []
+    shell = SettingsShell(
+        tk_root,
+        pages=["General", "Channels", "Translation"],
+        descriptions={"General": "", "Channels": "", "Translation": ""},
+        renderers={name: lambda body, shell: rendered.append(name) for name in ("General", "Channels", "Translation")},
+        on_apply=lambda: True,
+        polish=_noop_polish,
+        groups={"General": "Monitor", "Channels": "Monitor", "Translation": "Translation"},
+    )
+    win = shell.open()
+    labels = [widget.cget("text") for widget in _descendants(win) if isinstance(widget, tk.Label)]
+    assert "MONITOR" in labels
+    assert "TRANSLATION" in labels
+    win.destroy()

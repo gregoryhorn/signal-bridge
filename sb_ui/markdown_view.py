@@ -68,7 +68,7 @@ def render_into(widget, segments: list, on_link=None) -> None:
                          foreground=theme.COLORS["fg_bright"])
     widget.tag_configure("code", font=("Consolas", 9), foreground=theme.COLORS["gold"],
                          background=theme.COLORS["bg_input"])
-    widget.tag_configure("link", font=theme.font(10), foreground="#5ad7ff", underline=True)
+    widget.tag_configure("link", font=theme.font(10), foreground=theme.semantic_color("link"), underline=True)
     link_count = 0
     for text, tag in segments:
         if tag == "link":

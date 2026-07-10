@@ -75,7 +75,7 @@ from sb_ui import components as sb_components
 from sb_ui import markdown_view as sb_markdown
 from sb_ui import theme as sb_theme
 from sb_ui import windows as sb_windows
-from sb_ui.feed import apply_base_feed_colors, default_feed_background, default_feed_foreground
+from sb_ui.feed import apply_base_feed_colors, default_feed_background, default_feed_foreground, translated_subline_options
 from sb_ui.settings_center import SettingsShell
 from sb_ui.shell import build_header_bar, build_main_layout, menu_colors
 from sb_ui.tabs import TabStrip
@@ -86,7 +86,7 @@ from pathlib import Path
 from typing import Callable
 
 APP_NAME = "Signal Bridge"
-APP_VERSION = "0.6"
+APP_VERSION = "0.7"
 UPDATE_API_URL = "https://api.github.com/repos/gregoryhorn/signal-bridge/releases/latest"
 UPDATE_RELEASE_URL = "https://github.com/gregoryhorn/signal-bridge/releases/latest"
 GITHUB_REPO_URL = "https://github.com/gregoryhorn/signal-bridge"
@@ -3456,7 +3456,19 @@ class SignalBridgeGui:
         chrome.frame.pack(fill="x")
         self.title_label = chrome.title_label
         self.mode_label = chrome.mode_label
-        self.status_label = chrome.status_label
+        self.status_label = self.tk.Label(
+            layout.footer_host,
+            text="Idle",
+            bg=sb_theme.COLORS["bg_chrome"],
+            fg=sb_theme.COLORS["fg_muted"],
+            anchor="w",
+            font=sb_theme.mono_font(9),
+            padx=sb_theme.SPACING["sm"],
+            pady=sb_theme.SPACING["xs"],
+        )
+        self.status_label.pack(side="left", fill="x", expand=True)
+        self.mode_label.configure(text="LIVE FEED")
+        self.mode_label.pack(side="left")
         # Color legend intentionally hidden; colors are documented in Help/About.
 
         self.tab_bar = layout.tabs_host
@@ -3597,10 +3609,14 @@ class SignalBridgeGui:
             self.messagebox.showinfo("Restore Hidden Tabs", "No hidden tabs.")
             return
         win = tk.Toplevel(self.root)
-        win.title("Restore Hidden Tabs")
-        win.geometry("360x420")
-        win.configure(bg=sb_theme.COLORS["bg"])
-        win.transient(self.root)
+        self.polish_window(
+            win,
+            width=360,
+            height=420,
+            minsize=(320, 340),
+            modal=True,
+            title="Restore Hidden Tabs",
+        )
         tk.Label(win, text="Select tabs to restore", **sb_theme.label_kw(),
                  font=sb_theme.font(10, bold=True)).pack(anchor="w", padx=10, pady=(10, 4))
         lb = tk.Listbox(win, selectmode="extended", activestyle="none",
@@ -3623,10 +3639,9 @@ class SignalBridgeGui:
             if not self.visible_channel and hidden:
                 self.visible_channel = hidden[0]
             self.update_channel_tabs(); self.persist_settings(); self.redraw_feed(); win.destroy()
-        tk.Button(btns, text="Restore Selected", command=restore_selected,
-                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=(0, 6))
-        tk.Button(btns, text="Restore All", command=restore_all,
-                  **sb_theme.btn_secondary_kw()).pack(side="left", padx=6)
+        selected = sb_components.primary_button(btns, "Restore Selected", restore_selected)
+        selected.pack(side="left", padx=(0, 6))
+        sb_components.action_button(btns, "Restore All", restore_all)
         tk.Button(btns, text="Cancel", command=win.destroy,
                   **sb_theme.btn_secondary_kw()).pack(side="right")
 
@@ -3812,12 +3827,14 @@ class SignalBridgeGui:
         path = APP_DIR / "assets" / "signal_bridge_icon.ico"
         return path if path.exists() else None
 
-    def polish_window(self, win, parent=None, *, width=None, height=None, minsize=None, modal=False, center=True, title=None):
+    def polish_window(self, win, parent=None, *, width=None, height=None, minsize=None, modal=False,
+                      center=True, title=None, placement=None, preserve_position=False):
         """Apply consistent Signal Bridge chrome, icon, stacking, and placement to child windows."""
         return sb_windows.polish_window(
             win, parent or self.root, width=width, height=height, minsize=minsize,
             modal=modal, center=center, title=title,
-            icon_path=self.app_icon_path(), log=write_log,
+            icon_path=self.app_icon_path(), log=write_log, placement=placement,
+            preserve_position=preserve_position,
         )
 
     def friendly_datetime(self, value: str) -> str:
@@ -3966,6 +3983,7 @@ class SignalBridgeGui:
         apply_base_feed_colors(self.text, bg=bg, fg=fg, font=self.feed_font())
         for tag in STYLE_TAGS:
             self.text.tag_configure(tag, **self.tag_options(tag))
+        self.text.tag_configure("translation_subline", **translated_subline_options())
         for tag in ("time", "sender", "system", "asset", "module", "ess", "link", "esi", "error"):
             try:
                 self.text.tag_raise(tag)
@@ -4003,12 +4021,9 @@ class SignalBridgeGui:
         common = [f for f in ["Segoe UI", "Aptos", "Arial", "Verdana", "Tahoma", "Calibri", "Segoe UI Variable", "Consolas", "Cascadia Mono", "Courier New"] if f in families]
         ordered = common + [f for f in families if f not in common]
         win = tk.Toplevel(self.root)
-        win.title("Choose Feed Font")
-        win.geometry("420x520")
-        win.configure(bg="#0b0f14")
-        win.transient(self.root)
-        tk.Label(win, text="Feed font", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
-        lb = tk.Listbox(win, bg="#070b10", fg="#d7dde5", selectbackground="#23405c", activestyle="none")
+        self.polish_window(win, self.root, width=420, height=520, minsize=(360, 420), modal=True, title="Choose Feed Font")
+        tk.Label(win, text="Feed font", **sb_theme.label_kw(), font=sb_theme.font(10, bold=True)).pack(anchor="w", padx=10, pady=(10, 4))
+        lb = tk.Listbox(win, activestyle="none", **sb_theme.listbox_kw())
         lb.pack(fill="both", expand=True, padx=10, pady=6)
         current_index = 0
         for idx, fam in enumerate(ordered):
@@ -4018,12 +4033,12 @@ class SignalBridgeGui:
         if ordered:
             lb.selection_set(current_index)
             lb.see(current_index)
-        controls = tk.Frame(win, bg="#0b0f14")
+        controls = tk.Frame(win, bg=sb_theme.COLORS["bg"])
         controls.pack(fill="x", padx=10, pady=6)
-        tk.Label(controls, text="Size:", bg="#0b0f14", fg="#d7dde5").pack(side="left")
-        size_spin = tk.Spinbox(controls, from_=8, to=28, width=5, textvariable=self.font_size)
+        tk.Label(controls, text="Size:", **sb_theme.label_kw(muted=True)).pack(side="left")
+        size_spin = tk.Spinbox(controls, from_=8, to=28, width=5, textvariable=self.font_size, **sb_theme.entry_kw())
         size_spin.pack(side="left", padx=6)
-        preview = tk.Label(win, text="Preview: 4-HWWF Loki ESS", bg="#070b10", fg="#d7dde5", padx=8, pady=8)
+        preview = tk.Label(win, text="Preview: 4-HWWF Loki ESS", bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"], padx=8, pady=8)
         preview.pack(fill="x", padx=10, pady=6)
         def update_preview(*_):
             fam = ordered[lb.curselection()[0]] if lb.curselection() and ordered else self.font_family.get()
@@ -4035,7 +4050,7 @@ class SignalBridgeGui:
         lb.bind("<<ListboxSelect>>", update_preview)
         size_spin.configure(command=update_preview)
         update_preview()
-        btns = tk.Frame(win, bg="#0b0f14")
+        btns = tk.Frame(win, bg=sb_theme.COLORS["bg"])
         btns.pack(fill="x", padx=10, pady=8)
         def apply_selection():
             if lb.curselection() and ordered:
@@ -5104,6 +5119,13 @@ class SignalBridgeGui:
             "Diagnostics": self._render_settings_diagnostics,
             "About / Support": self._render_settings_about,
         }
+        groups = {
+            "General": "Monitor", "Channels": "Monitor", "Appearance": "Monitor",
+            "Translation": "Translation", "Translation Cache": "Translation", "Filters": "Translation",
+            "EVE Catalog": "Intel", "Aliases": "Intel", "ESI": "Intel", "Pilot Intel": "Intel",
+            "LAN Viewer": "Intel", "Recognition Rules": "Intel", "Add-ons": "Intel",
+            "Cache & Data": "Data", "Diagnostics": "Support", "About / Support": "Support",
+        }
         # Back-compat: old deep links / call sites may still pass "Exclusions".
         if initial_page == "Exclusions":
             initial_page = "Recognition Rules"
@@ -5121,7 +5143,7 @@ class SignalBridgeGui:
         shell = SettingsShell(
             self.root, pages=pages, descriptions=descriptions, renderers=renderers,
             on_apply=apply_settings, polish=self.polish_window,
-            initial_page=initial_page, startup_status=startup_status,
+            initial_page=initial_page, startup_status=startup_status, groups=groups,
         )
         shell.open()
 
@@ -5518,38 +5540,35 @@ class SignalBridgeGui:
         tk = self.tk
         self.esi_settings = load_esi_settings()
         win = tk.Toplevel(self.root)
-        win.title("ESI / OAuth Settings")
-        win.geometry("560x460")
-        win.configure(bg="#0b0f14")
-        win.transient(self.root)
-        tk.Label(win, text="Optional ESI support", bg="#0b0f14", fg="#d7dde5", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=10, pady=(10, 4))
-        tk.Label(win, text="Signal Bridge works normally with ESI disabled. OAuth is only needed for future character-aware features.", bg="#0b0f14", fg="#8b98a8", wraplength=520, justify="left").pack(anchor="w", padx=10, pady=(0, 8))
-        tk.Checkbutton(win, text="Enable ESI entity recognition", variable=self.esi_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(anchor="w", padx=10)
-        tk.Checkbutton(win, text="Enable OAuth features", variable=self.esi_oauth_enabled, bg="#0b0f14", fg="#d7dde5", selectcolor="#111821", activebackground="#0b0f14", activeforeground="#ffffff").pack(anchor="w", padx=10)
-        form = tk.Frame(win, bg="#0b0f14"); form.pack(fill="x", padx=10, pady=8)
-        tk.Label(form, text="Client ID", bg="#0b0f14", fg="#d7dde5").grid(row=0, column=0, sticky="w", pady=3)
-        client_id = tk.Entry(form, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", width=52)
+        self.polish_window(win, self.root, width=560, height=460, minsize=(480, 400), modal=True, title="ESI / OAuth Settings")
+        tk.Label(win, text="Optional ESI support", **sb_theme.label_kw(), font=sb_theme.font(11, bold=True)).pack(anchor="w", padx=10, pady=(10, 4))
+        tk.Label(win, text="Signal Bridge works normally with ESI disabled. OAuth is only needed for future character-aware features.", **sb_theme.label_kw(muted=True), wraplength=520, justify="left").pack(anchor="w", padx=10, pady=(0, 8))
+        tk.Checkbutton(win, text="Enable ESI entity recognition", variable=self.esi_enabled, **sb_theme.check_kw()).pack(anchor="w", padx=10)
+        tk.Checkbutton(win, text="Enable OAuth features", variable=self.esi_oauth_enabled, **sb_theme.check_kw()).pack(anchor="w", padx=10)
+        form = tk.Frame(win, bg=sb_theme.COLORS["bg"]); form.pack(fill="x", padx=10, pady=8)
+        tk.Label(form, text="Client ID", **sb_theme.label_kw(muted=True)).grid(row=0, column=0, sticky="w", pady=3)
+        client_id = tk.Entry(form, width=52, **sb_theme.entry_kw())
         client_id.insert(0, str(self.esi_settings.get("client_id") or ESI_DEFAULT_CLIENT_ID)); client_id.grid(row=0, column=1, sticky="ew", padx=8, pady=3)
-        tk.Label(form, text="Client Secret", bg="#0b0f14", fg="#d7dde5").grid(row=1, column=0, sticky="w", pady=3)
-        client_secret = tk.Entry(form, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", show="*", width=52)
+        tk.Label(form, text="Client Secret", **sb_theme.label_kw(muted=True)).grid(row=1, column=0, sticky="w", pady=3)
+        client_secret = tk.Entry(form, show="*", width=52, **sb_theme.entry_kw())
         client_secret.insert(0, str(self.esi_settings.get("client_secret") or "")); client_secret.grid(row=1, column=1, sticky="ew", padx=8, pady=3)
-        tk.Label(form, text="Callback", bg="#0b0f14", fg="#d7dde5").grid(row=2, column=0, sticky="w", pady=3)
-        callback = tk.Entry(form, bg="#070b10", fg="#d7dde5", insertbackground="#d7dde5", width=52)
+        tk.Label(form, text="Callback", **sb_theme.label_kw(muted=True)).grid(row=2, column=0, sticky="w", pady=3)
+        callback = tk.Entry(form, width=52, **sb_theme.entry_kw())
         callback.insert(0, str(self.esi_settings.get("callback_url") or ESI_CALLBACK_URL)); callback.grid(row=2, column=1, sticky="ew", padx=8, pady=3)
         form.columnconfigure(1, weight=1)
         stats = ESI_CACHE.stats()
         status_text = f"Cache: {stats.get('entities',0)} entities, {stats.get('negative',0)} negative, {stats.get('corrections',0)} corrections\nCallback listener: {'listening' if self.oauth_listener_active else 'closed'}\nToken file: {'present' if ESI_TOKENS_PATH.exists() else 'not authorized'}"
-        tk.Label(win, text=status_text, bg="#0b0f14", fg="#8b98a8", justify="left").pack(anchor="w", padx=10, pady=8)
-        btns = tk.Frame(win, bg="#0b0f14"); btns.pack(fill="x", padx=10, pady=10)
+        tk.Label(win, text=status_text, **sb_theme.label_kw(muted=True), justify="left").pack(anchor="w", padx=10, pady=8)
+        btns = tk.Frame(win, bg=sb_theme.COLORS["bg"]); btns.pack(fill="x", padx=10, pady=10)
         def apply():
             self.esi_settings["client_id"] = client_id.get().strip() or ESI_DEFAULT_CLIENT_ID
             self.esi_settings["client_secret"] = client_secret.get().strip()
             self.esi_settings["callback_url"] = callback.get().strip() or ESI_CALLBACK_URL
             self.save_esi_ui_settings()
-        tk.Button(btns, text="Save", command=apply).pack(side="left", padx=(0, 6))
-        tk.Button(btns, text="Authorize Character", command=lambda: (apply(), self.authorize_esi_character())).pack(side="left", padx=6)
-        tk.Button(btns, text="Check ESI", command=self.check_esi_status).pack(side="left", padx=6)
-        tk.Button(btns, text="Close", command=win.destroy).pack(side="right")
+        sb_components.primary_button(btns, "Save", apply).pack(side="left", padx=(0, 6))
+        sb_components.action_button(btns, "Authorize Character", lambda: (apply(), self.authorize_esi_character())).pack(side="left", padx=6)
+        sb_components.action_button(btns, "Check ESI", self.check_esi_status).pack(side="left", padx=6)
+        sb_components.action_button(btns, "Close", win.destroy).pack(side="right")
 
     def check_esi_status(self):
         write_log("ESI status check requested from UI")
@@ -7715,14 +7734,16 @@ class SignalBridgeGui:
             self.tag_urls(body_start, self.text.index("end-1c"), body)
         if not bool(self.translated_only.get()) and not multiline:
             if parts["free_text"] and parts["free_text"] != parts["original_text"]:
-                self.text.insert("end", "    translated: ", "muted")
+                self.text.insert("end", "    translated: ", ("muted", "translation_subline"))
                 t_start = self.text.index("end-1c")
                 self.insert_tagged_text(parts["free_text"] + "\n", row.systems, row.assets, self.character_names_for_row(row))
+                self.text.tag_add("translation_subline", t_start, self.text.index("end-1c"))
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["free_text"])
             elif parts["display_text"] != parts["original_text"]:
-                self.text.insert("end", "    translated: ", "muted")
+                self.text.insert("end", "    translated: ", ("muted", "translation_subline"))
                 t_start = self.text.index("end-1c")
                 self.insert_tagged_text(parts["display_text"] + "\n", row.systems, row.assets, self.character_names_for_row(row))
+                self.text.tag_add("translation_subline", t_start, self.text.index("end-1c"))
                 self.tag_urls(t_start, self.text.index("end-1c"), parts["display_text"])
         row_end = self.text.index("end-1c")
         for ent in row.esi_entities:

@@ -1,15 +1,10 @@
-from sb_ui.feed import apply_base_feed_colors, default_feed_background, default_feed_foreground
+from sb_ui.feed.text_tags import translated_subline_options
 from sb_ui import theme
 
 
-def test_default_feed_colors():
-    assert default_feed_background() == theme.COLORS["bg_feed"]
-    assert default_feed_foreground() == theme.COLORS["fg"]
+def test_translated_subline_uses_a_muted_indented_scan_edge():
+    options = translated_subline_options()
 
-
-def test_apply_base_feed_colors(tk_root):
-    import tkinter as tk
-    t = tk.Text(tk_root)
-    apply_base_feed_colors(t)
-    assert t.cget("bg") == theme.COLORS["bg_feed"]
-    assert t.cget("fg") == theme.COLORS["fg"]
+    assert options["foreground"] == theme.COLORS["fg_secondary"]
+    assert options["lmargin1"] == theme.SPACING["lg"]
+    assert options["spacing1"] == theme.SPACING["xs"]

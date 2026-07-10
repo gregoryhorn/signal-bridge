@@ -5,6 +5,80 @@ import tkinter as tk
 from . import theme
 
 
+def section(parent, title: str, note: str | None = None, tone: str = "normal") -> tk.LabelFrame:
+    """A compact titled operational section with optional guidance."""
+    fg = theme.COLORS["fg"] if tone == "normal" else theme.semantic_color(tone)
+    frame = tk.LabelFrame(
+        parent, text=title, bg=theme.COLORS["bg_surface"], fg=fg,
+        padx=theme.SPACING["sm"], pady=theme.SPACING["sm"],
+        highlightthickness=1, highlightbackground=theme.COLORS["border"],
+    )
+    frame.pack(fill="x", padx=theme.SPACING["xs"], pady=theme.SPACING["sm"])
+    if note:
+        tk.Label(frame, text=note, justify="left", anchor="w", wraplength=590,
+                 bg=theme.COLORS["bg_surface"], fg=theme.COLORS["fg_muted"],
+                 font=theme.font(9)).pack(anchor="w", fill="x", pady=(0, theme.SPACING["xs"]))
+    return frame
+
+
+def status_ribbon(parent, text: str, tone: str = "info") -> tk.Label:
+    """A single high-salience status strip; callers choose one per surface."""
+    label = tk.Label(
+        parent, text=text, anchor="w", padx=theme.SPACING["sm"], pady=theme.SPACING["xs"],
+        bg=theme.COLORS["bg_elevated"], fg=theme.semantic_color(tone),
+        font=theme.mono_font(10, bold=True), highlightthickness=1,
+        highlightbackground=theme.semantic_color(tone),
+    )
+    label.pack(fill="x", pady=(theme.SPACING["xs"], theme.SPACING["sm"]))
+    return label
+
+
+def chip(parent, text: str, kind: str = "neutral") -> tk.Label:
+    """Small summary token for a system, ship, pilot, or neutral value."""
+    fg = theme.COLORS["fg_secondary"] if kind == "neutral" else theme.semantic_color(kind)
+    label = tk.Label(
+        parent, text=text, padx=theme.SPACING["sm"], pady=theme.SPACING["xs"],
+        bg=theme.COLORS["bg_elevated"], fg=fg, font=theme.font(9, bold=True),
+        highlightthickness=1, highlightbackground=theme.COLORS["border"],
+    )
+    label.pack(side="left", padx=(0, theme.SPACING["xs"]), pady=theme.SPACING["xs"])
+    return label
+
+
+def empty_state(parent, title: str, guidance: str, action_text: str | None = None, command=None) -> tk.Frame:
+    frame = tk.Frame(parent, bg=theme.COLORS["bg_surface"], padx=theme.SPACING["md"], pady=theme.SPACING["md"],
+                     highlightthickness=1, highlightbackground=theme.COLORS["border"])
+    frame.pack(fill="x", pady=theme.SPACING["sm"])
+    tk.Label(frame, text=title, bg=theme.COLORS["bg_surface"], fg=theme.COLORS["fg"],
+             font=theme.font(10, bold=True)).pack(anchor="w")
+    tk.Label(frame, text=guidance, bg=theme.COLORS["bg_surface"], fg=theme.COLORS["fg_muted"],
+             justify="left", wraplength=590).pack(anchor="w", pady=(theme.SPACING["xs"], 0))
+    if action_text and command:
+        primary_button(frame, action_text, command).pack(anchor="w", pady=(theme.SPACING["sm"], 0))
+    return frame
+
+
+def toolbar(parent) -> tk.Frame:
+    frame = tk.Frame(parent, bg=theme.COLORS["bg"])
+    frame.pack(fill="x", pady=theme.SPACING["xs"])
+    return frame
+
+
+def footer(parent) -> tk.Frame:
+    frame = tk.Frame(parent, bg=theme.COLORS["bg_panel"], highlightthickness=1,
+                     highlightbackground=theme.COLORS["border"])
+    frame.pack(fill="x", side="bottom")
+    return frame
+
+
+def data_table(parent, columns: list[tuple[str, str]], rows=(), height: int = 5):
+    frame, tree = preview_table(parent, columns, height=height)
+    for row in rows:
+        tree.insert("", "end", values=row)
+    frame.pack(fill="x", pady=theme.SPACING["xs"])
+    return frame, tree
+
+
 def card(parent, heading: str, note: str | None = None) -> tk.LabelFrame:
     frame = tk.LabelFrame(parent, text=heading, bg=theme.COLORS["bg"],
                           fg=theme.COLORS["fg"], padx=10, pady=8)

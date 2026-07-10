@@ -61,9 +61,11 @@ body {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 8px;
+  min-height: 44px;
+  padding: 8px 10px;
   max-width: 70vw;
 }
+.filters select:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 .feed {
   flex: 1;
   overflow-y: auto;
@@ -76,6 +78,16 @@ body {
   line-height: 1.45;
   word-break: break-word;
 }
+.empty-state {
+  margin: 32px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent-line);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  font-size: 13px;
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 .ts {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 11px;

@@ -3,11 +3,11 @@
 **Updated:** 2026-07-10  
 **Repo:** `D:\AI\Rift\signal-bridge-live-gui`  
 **Branch:** `main`  
-**Public release:** **v0.6** on GitHub Releases  
+**Public release:** **v0.7** on GitHub Releases
 
 ## Current state
 
-PR #1 (`feature/contracts-and-backlog`) is merged into `main`. v0.6 portable package is the public download. Source, README download links, `CHANGELOG.md`, `GITHUB_RELEASE.md`, and release assets must stay aligned for every public cut.
+The v0.7 portable package is the public download. Source, README download links, `CHANGELOG.md`, `GITHUB_RELEASE.md`, and release assets must stay aligned for every public cut.
 
 ## Release checklist (use every time)
 

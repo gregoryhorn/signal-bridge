@@ -1,23 +1,23 @@
-# Signal Bridge v0.6 Alpha
+# Signal Bridge v0.7
 
 Signal Bridge is a lightweight portable Windows app for EVE Online live chat monitoring, CN/EN translation, intel/entity highlighting, ESI pilot lookups, zKill-aware Pilot Info, aliases, exclusions, and cache-first translation correction.
 
 It is designed for players who want a compact side-panel tool beside EVE: no installer, no admin requirement, live-only chat monitoring by default, and a clean local-first workflow.
 
-Current version: **0.6**
+Current version: **0.7**
 
 ## Screenshot
 
-![Signal Bridge screenshot](docs/images/signal-bridge-v0.4-screenshot.png)
+![Signal Bridge v0.7 Void Tactical interface](docs/images/signal-bridge-v0.7-screenshot.png)
 
-Signal Bridge screenshot showing the live EVE intel feed, translation workflow, ESI/Pilot Info support, configurable cache tools, aliases, Recognition Rules, and compact Windows desktop layout.
+Signal Bridge v0.7's live Void Tactical interface: feed-first monitoring with translated intel, grouped settings, compact Pilot Info, and LAN viewer visual parity.
 
 ## Download
 
 Get the Windows portable app from the GitHub release:
 
-- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.6](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.6)
-- **Direct download:** [SignalBridge-v0.6-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.6/SignalBridge-v0.6-win64-portable.zip)
+- **Release page:** [https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.7](https://github.com/gregoryhorn/signal-bridge/releases/tag/v0.7)
+- **Direct download:** [SignalBridge-v0.7-win64-portable.zip](https://github.com/gregoryhorn/signal-bridge/releases/download/v0.7/SignalBridge-v0.7-win64-portable.zip)
 
 Extract the ZIP, then run:
 
@@ -27,23 +27,18 @@ SignalBridge.exe
 
 No installer is required. The ZIP is the standalone portable package; keep the extracted folder together because `SignalBridge.exe` uses the bundled `_internal` runtime folder.
 
-SHA256 checksums are published beside the portable ZIP as `SignalBridge-v0.6-win64-portable.zip.sha256` and `SignalBridge.exe.sha256`.
+SHA256 checksums are published beside the portable ZIP as `SignalBridge-v0.7-win64-portable.zip.sha256` and `SignalBridge.exe.sha256`.
 
 
-## v0.6 release
+## v0.7 release
 
-Signal Bridge **v0.6** is the current public portable release. It includes:
+Signal Bridge **v0.7** is the current public portable release. It includes:
 
-- UI foundation: Settings Center shell, themed shared widgets, redesigned Translation Corrections, offline Help Center (10 topics), dedicated About/Support, safer Translation Cache cleanup  
-- Settings **Filters** (keyword/sender) and Local spam rate limits  
-- Optional **startup backlog** on Start Monitoring (default still live-only)  
-- **Auto → EN** multi-language detection; English names kept after CJK lines  
-- Curated **EVE phrase overrides** + `scripts/promote_eve_translations.py`  
-- Settings **Recognition Rules** nav (was Exclusions); Settings design pass  
-- Compact **Pilot Info** card (threat ribbon)  
-- Purple **module** highlighting off by default; ships use ship color  
-- Modular `sb_*` / `sb_contracts` / `sb_ui` layout; portable default DB path  
-- Updated app icon (transparent 1024 source → multi-size ICO)  
+- Void Tactical visual system across the desktop shell, feed, settings, dialogs, Help, About, Pilot Info, and LAN viewer.
+- Grouped settings navigation, a fixed status footer, semantic theme tokens, and consistent child-window placement.
+- Compact Pilot Info with direct zKill actions, threat status, local context, flags, and overflow actions.
+- Phone-density LAN viewer with protected tokenized feed, live status, channel filtering, empty/reconnect states, and matching semantic colors.
+- Offline Help, diagnostics, translation, filters, aliases, Recognition Rules, optional ESI, and bundled Intel History remain included.
 
 Portable builds start with clean runtime/cache/log state and bundle curated starter data plus offline help.
 
@@ -84,7 +79,7 @@ Signal Bridge v0.5 starts new portable installs from clean runtime/cache data wh
 - Use **Settings > Filters** for keyword/sender filters and Local spam controls.
 - Use **Settings > Recognition Rules** (or Tools > Recognition Rules) for ignored pilots, highlight exclusions, and noise words.
 - Use `Help > Check for Updates` to manually check the latest GitHub release.
-- See [ROADMAP.md](ROADMAP.md): **v0.7** targets full look-and-feel, real tabs, pilot intel as first-class, and LAN phone viewer with desktop display parity (all four in one cut).
+- See [ROADMAP.md](ROADMAP.md) for follow-on work after the v0.7 release.
 
 ## Optional Intel History add-on
 

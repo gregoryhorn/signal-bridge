@@ -58,6 +58,24 @@ COLORS = {
     "tab_active_bg": "#1a2838",
 }
 
+# Semantic roles keep desktop widgets and LAN CSS aligned without requiring
+# every caller to know a concrete palette token.
+SEMANTIC_COLORS = {
+    "focus": COLORS["accent_line"],
+    "disabled": COLORS["fg_muted"],
+    "info": COLORS["accent"],
+    "success": COLORS["success"],
+    "warning": COLORS["warning"],
+    "error": COLORS["error"],
+    "threat_high": COLORS["error"],
+    "threat_medium": COLORS["warning"],
+    "system": COLORS["entity_system"],
+    "ship": COLORS["entity_ship"],
+    "pilot": COLORS["entity_pilot"],
+    "link": COLORS["entity_link"],
+    "count": COLORS["entity_count"],
+}
+
 THEME_NAME = "void_tactical"
 THEME_VERSION = "0.7"
 
@@ -68,6 +86,11 @@ def font(size: int = 10, bold: bool = False) -> tuple:
 
 def mono_font(size: int = 10, bold: bool = False) -> tuple:
     return (FONT_MONO, size, "bold") if bold else (FONT_MONO, size)
+
+
+def semantic_color(role: str) -> str:
+    """Return the canonical color for a semantic UI role."""
+    return SEMANTIC_COLORS[role]
 
 
 def feed_tag_styles() -> dict[str, dict]:
@@ -104,6 +127,7 @@ def export_theme_dict() -> dict:
             "clear": COLORS["entity_clear"],
             "count": COLORS["entity_count"],
         },
+        "semantic": dict(SEMANTIC_COLORS),
     }
 
 
