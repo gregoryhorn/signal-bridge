@@ -700,7 +700,9 @@ The Settings shell, nav, footer, spacing, and help-text pattern are uniform via 
 - Recognition Rules: updated copy (scoped rules + Filters pointer)
 - Appearance / Diagnostics: clearer purpose text
 
-Remaining optional polish: Aliases / Add-ons / ESI dense action rows; visual screenshot pass at default 860×620.
+2026-07-10 follow-up: Catalog, ESI, Aliases, and Add-ons pages split status vs danger actions; clearer nav subtitles.
+
+Remaining optional: visual screenshot pass at default 860×620; rename nav label "Exclusions" → "Recognition Rules" if desired (page key still Exclusions for compatibility).
 
 
 ## Fixed: False system detection for decimal/security values such as 9.2

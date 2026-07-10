@@ -4309,33 +4309,61 @@ class SignalBridgeGui:
         sb_components.action_button(r, "Decrease Font", lambda: self.adjust_font_size(-1))
 
     def _render_settings_catalog(self, body, shell):
-        c = sb_components.card(body, "EVE Catalog", "Compact bundled catalog used for system, ship, asset, alias, and protected-term recognition.")
-        sb_components.info_label(c, f"Catalog loaded: {CATALOG.loaded}")
-        sb_components.info_label(c, f"Version: {CATALOG.version}")
+        c = sb_components.card(
+            body,
+            "Status",
+            "Compact bundled catalog for systems, ships, assets, aliases, and protected terms on the live path.",
+        )
+        sb_components.info_label(c, f"Loaded: {'yes' if CATALOG.loaded else 'no'} | Version: {CATALOG.version}")
         sb_components.info_label(c, f"Counts: {CATALOG.counts()}", muted=True)
         sb_components.info_label(c, f"Path: {CATALOG_PATH}", muted=True)
         r = sb_components.action_row(c)
-        sb_components.action_button(r, "Aliases...", self.show_alias_editor)
-        sb_components.action_button(r, "Check Catalog Updates", self.check_catalog_updates)
-        sb_components.action_button(r, "Restore Previous Catalog", self.restore_previous_catalog)
+        sb_components.action_button(r, "Check for Updates", self.check_catalog_updates)
         sb_components.action_button(r, "Health Status", self.show_health)
+        r2 = sb_components.action_row(c)
+        sb_components.action_button(r2, "Edit Aliases…", lambda: shell.render_page("Aliases"))
+        danger = sb_components.danger_card(
+            body,
+            "Restore previous catalog",
+            "Replaces the active catalog with the last backup if one exists. Live recognition may change until the next update.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Restore Previous Catalog", self.restore_previous_catalog)
 
     def _render_settings_esi(self, body, shell):
-        c = sb_components.card(body, "ESI", "Optional cache-first background ESI recognition. Live monitoring works even when ESI is disabled.")
+        c = sb_components.card(
+            body,
+            "Recognition",
+            "Optional cache-first background ESI. Live monitoring works with ESI off. Network work never runs on the render path.",
+        )
         sb_components.check(c, "Enable public ESI entity recognition", self.esi_enabled, self.save_esi_ui_settings)
         sb_components.check(c, "Enable OAuth features", self.esi_oauth_enabled, self.save_esi_ui_settings)
-        stats = ESI_CACHE.stats(); status = ESI_CACHE.get_status()
-        sb_components.info_label(c, f"Recognition: {'Enabled' if self.esi_enabled.get() else 'Disabled'}")
-        sb_components.info_label(c, f"OAuth: {'Enabled' if self.esi_oauth_enabled.get() else 'Disabled'}")
-        sb_components.info_label(c, f"Known characters/entities: {stats.get('entities', 0)}", muted=True)
-        sb_components.info_label(c, f"Ignored/excluded terms: {stats.get('corrections', 0)}", muted=True)
-        sb_components.info_label(c, f"Recent negative answers: {stats.get('negative', 0)}", muted=True)
-        sb_components.info_label(c, f"Last ESI check: {status.get('last_check') or 'none'}", muted=True)
+        stats = ESI_CACHE.stats()
+        status = ESI_CACHE.get_status()
+        sb_components.info_label(
+            c,
+            f"Recognition: {'on' if self.esi_enabled.get() else 'off'} | "
+            f"OAuth: {'on' if self.esi_oauth_enabled.get() else 'off'}",
+        )
+        sb_components.info_label(
+            c,
+            f"Entities: {stats.get('entities', 0)} | Corrections: {stats.get('corrections', 0)} | "
+            f"Negative: {stats.get('negative', 0)} | Last check: {status.get('last_check') or 'none'}",
+            muted=True,
+        )
         r = sb_components.action_row(c)
-        sb_components.action_button(r, "ESI / OAuth Settings...", self.show_esi_settings)
-        sb_components.action_button(r, "Manual Character Check...", self.manual_esi_check_dialog)
-        sb_components.action_button(r, "Diagnostics", self.show_esi_diagnostics)
-        sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
+        sb_components.action_button(r, "ESI / OAuth Settings…", self.show_esi_settings)
+        sb_components.action_button(r, "Manual Character Check…", self.manual_esi_check_dialog)
+        r2 = sb_components.action_row(c)
+        sb_components.action_button(r2, "ESI Diagnostics", self.show_esi_diagnostics)
+        sb_components.action_button(r2, "Recognition Rules…", lambda: shell.render_page("Exclusions"))
+        danger = sb_components.danger_card(
+            body,
+            "Clear ESI cache",
+            "Removes cached entity lookups. Recognition Rules and OAuth tokens are not deleted here.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Clear ESI Cache", self.clear_esi_cache)
 
     def _render_settings_exclusions(self, body, shell):
         c = sb_components.card(
@@ -4739,100 +4767,191 @@ class SignalBridgeGui:
     def _render_settings_aliases(self, body, shell):
         tk = self.tk
         aliases_state = {"items": [dict(x) for x in USER_ALIASES]}
-        c = sb_components.card(body, "Ship & System Aliases", "Aliases replace shorthand or bad translation artifacts with the canonical name in the visible feed and recognition. Use this for ship and system aliases only.")
-        sb_components.info_label(c, f"Stored at: {USER_ALIASES_PATH}", muted=True)
-        form = tk.Frame(c, bg=sb_theme.COLORS["bg"]); form.pack(fill="x", pady=4)
-        alias_var = tk.StringVar(); canonical_var = tk.StringVar(); kind_var = tk.StringVar(value="ship"); enabled_var = tk.BooleanVar(value=True); note_var = tk.StringVar()
-        left = tk.Frame(form, bg=sb_theme.COLORS["bg"]); left.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        right = tk.Frame(form, bg=sb_theme.COLORS["bg"]); right.pack(side="left", fill="x", expand=True)
-        sb_components.info_label(left, "Alias seen in chat", muted=True); tk.Entry(left, textvariable=alias_var, **sb_theme.entry_kw()).pack(fill="x")
-        sb_components.info_label(right, "Canonical display name", muted=True); tk.Entry(right, textvariable=canonical_var, **sb_theme.entry_kw()).pack(fill="x")
-        opts = tk.Frame(c, bg=sb_theme.COLORS["bg"]); opts.pack(fill="x", pady=4)
-        kind_menu = tk.OptionMenu(opts, kind_var, "ship", "system"); kind_menu.configure(**sb_theme.optionmenu_kw()); kind_menu.pack(side="left", padx=(0, 8))
+        c = sb_components.card(
+            body,
+            "Ship & system aliases",
+            "Replace chat shorthand with the canonical ship or system name in the feed. Not for pilots (use Recognition Rules / ESI).",
+        )
+        sb_components.info_label(c, f"{len(aliases_state['items'])} alias(es) · {USER_ALIASES_PATH.name}", muted=True)
+        form = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        form.pack(fill="x", pady=4)
+        alias_var = tk.StringVar()
+        canonical_var = tk.StringVar()
+        kind_var = tk.StringVar(value="ship")
+        enabled_var = tk.BooleanVar(value=True)
+        note_var = tk.StringVar()
+        left = tk.Frame(form, bg=sb_theme.COLORS["bg"])
+        left.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        right = tk.Frame(form, bg=sb_theme.COLORS["bg"])
+        right.pack(side="left", fill="x", expand=True)
+        sb_components.info_label(left, "Alias seen in chat", muted=True)
+        tk.Entry(left, textvariable=alias_var, **sb_theme.entry_kw()).pack(fill="x")
+        sb_components.info_label(right, "Canonical display name", muted=True)
+        tk.Entry(right, textvariable=canonical_var, **sb_theme.entry_kw()).pack(fill="x")
+        opts = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        opts.pack(fill="x", pady=4)
+        kind_menu = tk.OptionMenu(opts, kind_var, "ship", "system")
+        kind_menu.configure(**sb_theme.optionmenu_kw())
+        kind_menu.pack(side="left", padx=(0, 8))
         tk.Checkbutton(opts, text="Enabled", variable=enabled_var, **sb_theme.check_kw()).pack(side="left")
+        sb_components.info_label(opts, "Note", muted=True)
         tk.Entry(opts, textvariable=note_var, **sb_theme.entry_kw()).pack(side="left", fill="x", expand=True, padx=(8, 0))
-        list_frame = tk.Frame(c, bg=sb_theme.COLORS["bg"]); list_frame.pack(fill="both", expand=True, pady=6)
-        lb = tk.Listbox(list_frame, height=12, **sb_theme.listbox_kw())
+        list_frame = tk.Frame(c, bg=sb_theme.COLORS["bg"])
+        list_frame.pack(fill="both", expand=True, pady=6)
+        lb = tk.Listbox(list_frame, height=10, **sb_theme.listbox_kw())
         lb.pack(side="left", fill="both", expand=True)
-        lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview); lb_scroll.pack(side="right", fill="y"); lb.configure(yscrollcommand=lb_scroll.set)
+        lb_scroll = tk.Scrollbar(list_frame, orient="vertical", command=lb.yview)
+        lb_scroll.pack(side="right", fill="y")
+        lb.configure(yscrollcommand=lb_scroll.set)
+
         def fmt_alias(entry):
             status = "on" if entry.get("enabled", True) else "off"
-            return f"[{entry.get('kind','ship')}/{status}] {entry.get('alias','')}  ->  {entry.get('canonical','')}"
+            return f"[{entry.get('kind', 'ship')}/{status}] {entry.get('alias', '')}  →  {entry.get('canonical', '')}"
+
         def reload_list():
             lb.delete(0, "end")
             for entry in aliases_state["items"]:
                 lb.insert("end", fmt_alias(entry))
+
         def selected_index():
             sel = lb.curselection()
             return int(sel[0]) if sel else None
+
         def load_selected(_event=None):
             idx = selected_index()
-            if idx is None: return
+            if idx is None:
+                return
             entry = aliases_state["items"][idx]
-            alias_var.set(entry.get("alias", "")); canonical_var.set(entry.get("canonical", "")); kind_var.set(entry.get("kind", "ship")); enabled_var.set(bool(entry.get("enabled", True))); note_var.set(entry.get("note", ""))
+            alias_var.set(entry.get("alias", ""))
+            canonical_var.set(entry.get("canonical", ""))
+            kind_var.set(entry.get("kind", "ship"))
+            enabled_var.set(bool(entry.get("enabled", True)))
+            note_var.set(entry.get("note", ""))
+
         def persist_aliases():
             save_user_aliases(aliases_state["items"])
             reload_user_aliases()
             self.redraw_feed()
             self.set_status("Aliases saved and feed refreshed")
+
         def add_or_update():
-            entry = normalize_user_alias_entry({"alias": alias_var.get(), "canonical": canonical_var.get(), "kind": kind_var.get(), "enabled": enabled_var.get(), "note": note_var.get()})
+            entry = normalize_user_alias_entry({
+                "alias": alias_var.get(),
+                "canonical": canonical_var.get(),
+                "kind": kind_var.get(),
+                "enabled": enabled_var.get(),
+                "note": note_var.get(),
+            })
             if not entry:
-                self.messagebox.showwarning("Aliases", "Alias and canonical name are required."); return
+                self.messagebox.showwarning("Aliases", "Alias and canonical name are required.")
+                return
             idx = selected_index()
             if idx is None:
                 aliases_state["items"].append(entry)
             else:
                 aliases_state["items"][idx] = entry
-            persist_aliases(); reload_list()
+            persist_aliases()
+            reload_list()
+
         def delete_selected():
             idx = selected_index()
-            if idx is None: return
+            if idx is None:
+                return
             del aliases_state["items"][idx]
-            persist_aliases(); reload_list(); alias_var.set(""); canonical_var.set(""); note_var.set("")
+            persist_aliases()
+            reload_list()
+            alias_var.set("")
+            canonical_var.set("")
+            note_var.set("")
+
         def test_alias():
-            sample = alias_var.get().strip()
-            if not sample: sample = "Apocalypse Navy"
+            sample = alias_var.get().strip() or "Apocalypse Navy"
             kind = kind_var.get()
             hit = CATALOG.lookup_system(sample) if kind == "system" else CATALOG.lookup_type(sample)
             self.messagebox.showinfo("Alias Test", f"{sample}\n=> {hit or 'no match'}")
+
         btns = sb_components.action_row(c)
-        sb_components.action_button(btns, "Add / Update", add_or_update); sb_components.action_button(btns, "Delete", delete_selected); sb_components.action_button(btns, "Test", test_alias); sb_components.action_button(btns, "Reload", lambda: (aliases_state.update(items=[dict(x) for x in reload_user_aliases()]), reload_list()))
+        sb_components.action_button(btns, "Add / Update", add_or_update)
+        sb_components.action_button(btns, "Test", test_alias)
+        sb_components.action_button(btns, "Reload", lambda: (aliases_state.update(items=[dict(x) for x in reload_user_aliases()]), reload_list()))
+        danger = sb_components.danger_card(body, "Remove alias", "Deletes the selected alias from the list and saves immediately.")
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Delete selected", delete_selected)
         lb.bind("<<ListboxSelect>>", load_selected)
         reload_list()
 
     def _render_settings_addons(self, body, shell):
-        c = sb_components.card(body, "Add-ons", "Optional add-ons keep Signal Bridge lightweight. LAN Viewer and Argos remain native/core features; Intel History is the first planned optional add-on.")
-        sb_components.info_label(c, f"Modules folder: {MODULES_DIR}", muted=True)
-        sb_components.info_label(c, f"Module data folder: {MODULE_DATA_DIR}", muted=True)
-        ih = self.intel_history_status(); manifest = ih.get("manifest") or {}
-        c2 = sb_components.card(body, INTEL_HISTORY_ADDON_NAME, "Planned optional module for local pilot memory, Pilot Intelligence Cards, flags, zKill enrichment, import/export packs, and future LLM query support.")
+        c = sb_components.card(
+            body,
+            "Add-ons foundation",
+            "Optional modules keep the core app light. Intel History is bundled for portable installs; you can still disable it.",
+        )
+        sb_components.info_label(c, f"Code: {MODULES_DIR}", muted=True)
+        sb_components.info_label(c, f"Data: {MODULE_DATA_DIR}", muted=True)
+        ih = self.intel_history_status()
+        manifest = ih.get("manifest") or {}
+        c2 = sb_components.card(
+            body,
+            INTEL_HISTORY_ADDON_NAME,
+            "Local pilot sightings and flags. Fails isolated — never blocks the live feed.",
+        )
         sb_components.info_label(c2, f"Status: {self.intel_history_status_label()}")
         if ih.get("installed"):
-            sb_components.info_label(c2, f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}", muted=True)
+            sb_components.info_label(
+                c2,
+                f"Version: {manifest.get('version') or 'unknown'} | Compatible app: {manifest.get('compatible_app') or 'n/a'}",
+                muted=True,
+            )
             health = self.current_intel_history_health()
             if health:
-                sb_components.info_label(c2, f"Health: pilots {health.get('pilots', 0)} | sightings {health.get('sightings', 0)} | queue {health.get('queue_size', 0)}", muted=True)
+                sb_components.info_label(
+                    c2,
+                    f"Health: pilots {health.get('pilots', 0)} | sightings {health.get('sightings', 0)} | queue {health.get('queue_size', 0)}",
+                    muted=True,
+                )
                 sb_components.info_label(c2, f"Last sighting: {health.get('last_sighting', 'none')}", muted=True)
                 if health.get("last_error") and health.get("last_error") != "none":
                     sb_components.info_label(c2, f"Last error: {str(health.get('last_error'))[:160]}", fg=sb_theme.COLORS["error"])
-            sb_components.info_label(c2, f"Code: {ih.get('code_dir')}", muted=True)
-            sb_components.info_label(c2, f"Data: {ih.get('data_dir')}", muted=True)
         else:
-            sb_components.info_label(c2, "Not installed. Install the official Intel History add-on ZIP when available.", muted=True)
+            sb_components.info_label(c2, "Not installed. Use Install from ZIP for the official package.", muted=True)
         enabled_var = self.tk.BooleanVar(value=bool(ih.get("enabled")))
-        sb_components.check(c2, "Enable Intel History", enabled_var, lambda v=enabled_var: self.set_intel_history_enabled(bool(v.get())))
+        sb_components.check(
+            c2,
+            "Enable Intel History",
+            enabled_var,
+            lambda v=enabled_var: self.set_intel_history_enabled(bool(v.get())),
+        )
         r = sb_components.action_row(c2)
-        sb_components.action_button(r, "Install from ZIP...", self.install_intel_history_addon_from_file)
+        sb_components.action_button(r, "Install from ZIP…", self.install_intel_history_addon_from_file)
         sb_components.action_button(r, "Details", self.show_intel_history_details)
         sb_components.action_button(r, "Open Data Folder", self.open_intel_history_data_folder)
         if ih.get("installed"):
-            sb_components.action_button(r, "Uninstall Code", self.uninstall_intel_history_addon_code)
-        sb_components.info_label(c2, "MVP guardrails: same SignalBridge.exe, local SQLite data, ESI-confirmed pilots by default, no live-feed blocking.", muted=True)
+            danger = sb_components.danger_card(
+                body,
+                "Uninstall add-on code",
+                "Removes module code only. Local SQLite data under user_data is kept by default.",
+            )
+            dr = sb_components.action_row(danger)
+            sb_components.action_button(dr, "Uninstall Code", self.uninstall_intel_history_addon_code)
 
     def show_settings_center(self, initial_page: str = "General"):
         pages = ["General", "Channels", "Appearance", "Translation", "Translation Cache", "Filters", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
-        descriptions = {"General": "Core app behavior and folders.", "Channels": "Manage active, hidden, and discovered EVE chat channels.", "Appearance": "Fonts, colors, highlight styling, and transparency.", "Translation": "Translation direction, free text, phrase overrides, and cache.", "Translation Cache": "Translation Corrections: fix visible translations and manage cache-first overrides.", "Filters": "Keyword/sender filters and Local spam controls.", "EVE Catalog": "Compact catalog status and updates.", "Aliases": "View, add, and edit ship/system aliases that replace shorthand in the feed.", "ESI": "Optional background character/entity recognition and OAuth.", "Exclusions": "Scoped Recognition Rules for ignored pilots, highlight exclusions, and noise words.", "Add-ons": "Install, enable, disable, and inspect optional Signal Bridge add-ons.", "Cache & Data": "Bundled starter data and local cache actions.", "Diagnostics": "Health information for troubleshooting.", "About / Support": "Version, update, and support information."}
+        descriptions = {
+            "General": "Window options, optional startup backlog, and folders.",
+            "Channels": "Track, restore, and stop monitoring EVE chat channels.",
+            "Appearance": "Fonts, colors, opacity, and highlight toggles.",
+            "Translation": "Display mode, engines, and cache shortcuts.",
+            "Translation Cache": "Correct live translations and manage cache-backed rows.",
+            "Filters": "Keyword/sender filters and Local spam rate limits.",
+            "EVE Catalog": "Bundled catalog status and updates.",
+            "Aliases": "Ship and system shorthand replacements for the feed.",
+            "ESI": "Optional pilot recognition, OAuth, and ESI cache.",
+            "Exclusions": "Recognition Rules: ignored pilots, highlight exclusions, noise words.",
+            "Add-ons": "Optional modules such as Intel History.",
+            "Cache & Data": "Starter files and local cache maintenance.",
+            "Diagnostics": "Copy-friendly health summary and log access.",
+            "About / Support": "Version window, help topics, and support links.",
+        }
         renderers = {
             "General": self._render_settings_general,
             "Channels": self._render_settings_channels,
