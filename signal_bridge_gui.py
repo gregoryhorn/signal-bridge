@@ -4153,6 +4153,11 @@ class SignalBridgeGui:
             "local_only": tk.BooleanVar(value=bool(SETTINGS.get("spam_local_channels_only", True))),
             "ascii": tk.BooleanVar(value=bool(SETTINGS.get("spam_ascii_art_filter", True))),
         }
+        spam_spin_vars = {
+            "max_per_min": tk.IntVar(value=int(SETTINGS.get("spam_per_channel_max_per_minute", 30) or 30)),
+            "repeat_window": tk.IntVar(value=int(SETTINGS.get("spam_repeat_sender_window_seconds", 8) or 8)),
+            "repeat_max": tk.IntVar(value=int(SETTINGS.get("spam_repeat_sender_max", 3) or 3)),
+        }
 
         def list_lines():
             lines = []
@@ -4186,6 +4191,7 @@ class SignalBridgeGui:
             tk=tk,
             filters_var_list=None,
             spam_vars=spam_vars,
+            spam_spin_vars=spam_spin_vars,
             on_add_keyword=lambda: add_kind("keyword"),
             on_add_sender=lambda: add_kind("sender"),
             on_remove_selected=remove_selected,
@@ -4196,6 +4202,9 @@ class SignalBridgeGui:
             SETTINGS["spam_control_enabled"] = bool(spam_vars["enabled"].get())
             SETTINGS["spam_local_channels_only"] = bool(spam_vars["local_only"].get())
             SETTINGS["spam_ascii_art_filter"] = bool(spam_vars["ascii"].get())
+            SETTINGS["spam_per_channel_max_per_minute"] = max(5, min(200, int(spam_spin_vars["max_per_min"].get() or 30)))
+            SETTINGS["spam_repeat_sender_window_seconds"] = max(2, min(120, int(spam_spin_vars["repeat_window"].get() or 8)))
+            SETTINGS["spam_repeat_sender_max"] = max(1, min(50, int(spam_spin_vars["repeat_max"].get() or 3)))
             save_settings(SETTINGS)
             self._spam_limiter()  # refresh policy
             shell.set_status("Filters and spam settings saved.")
@@ -4226,7 +4235,7 @@ class SignalBridgeGui:
         return result["value"]
 
     def _render_settings_general(self, body, shell):
-        c = sb_components.card(body, "App Behavior", "Common runtime options and folders.")
+        c = sb_components.card(body, "App Behavior", "Window and feed display options used every session.")
         sb_components.check(c, "Always on top", self.always_on_top, self.apply_topmost)
         sb_components.check(c, "Compact mode", self.compact, self.persist_settings)
         sb_components.check(c, "Check for updates on launch", self.check_updates_on_start, self.persist_settings)
@@ -4234,16 +4243,18 @@ class SignalBridgeGui:
         sb_components.check(c, "Show channel names in feed", self.show_channel_names, self.persist_and_redraw)
         sb_components.check(c, "Show channel names in All", self.show_channel_names_in_all, self.persist_and_redraw)
         sb_components.check(c, "Enable clickable hyperlinks", self.enable_hyperlinks, self.persist_and_redraw)
+
+        bl = sb_components.card(
+            body,
+            "Startup backlog",
+            "Default is live-only (no history on Start Monitoring). Enable only when you want recent chat backfilled first.",
+        )
         self.replay_on_start_var = self.tk.BooleanVar(value=bool(SETTINGS.get("replay_on_start", False)))
         self.backlog_minutes_var = self.tk.IntVar(value=int(SETTINGS.get("backlog_minutes", 10) or 10))
-        sb_components.check(c, "Ingest recent backlog on Start Monitoring", self.replay_on_start_var, self.persist_settings)
-        row = self.tk.Frame(c, bg=sb_theme.COLORS["bg_panel"])
-        row.pack(fill="x", pady=2)
-        self.tk.Label(row, text="Backlog window (minutes):", **sb_theme.label_kw(muted=True)).pack(side="left")
-        self.tk.Spinbox(row, from_=1, to=360, textvariable=self.backlog_minutes_var, width=6,
-                        command=self.persist_settings).pack(side="left", padx=6)
-        sb_components.info_label(c, "Default is live-only. When backlog is enabled, only the last N minutes (default 10) are ingested, then live monitoring continues.", muted=True)
-        c2 = sb_components.card(body, "Folders")
+        sb_components.check(bl, "Ingest recent backlog on Start Monitoring", self.replay_on_start_var, self.persist_settings)
+        sb_components.labeled_spinbox(bl, "Backlog window (minutes):", self.backlog_minutes_var, from_=1, to=360)
+
+        c2 = sb_components.card(body, "Folders", "Chatlog folder is required for monitoring. App and logs folders help troubleshooting.")
         r = sb_components.action_row(c2)
         sb_components.action_button(r, "Choose Chatlog Folder...", self.choose_chatlog_folder)
         sb_components.action_button(r, "Open App Folder", self.open_app_folder)
@@ -4251,23 +4262,47 @@ class SignalBridgeGui:
         sb_components.info_label(c2, f"Current chatlogs: {CHATLOG_DIR}", muted=True)
 
     def _render_settings_channels(self, body, shell):
-        c = sb_components.card(body, "Channels", "Add channels without replacing existing ones. Hidden channels stay hidden until restored.")
+        c = sb_components.card(
+            body,
+            "Channels",
+            "Add channels without replacing existing ones. Hidden channels stay hidden until restored. Saved channels wait for new log files after restart.",
+        )
         catalog = self.channel_catalog()
         discovered_count = len([x for x in catalog.values() if x.get("discovered")])
         waiting_count = len([x for x in catalog.values() if x.get("active") and not x.get("discovered")])
-        sb_components.info_label(c, f"Tracking: {len(self.active_channels)} | Discovered: {discovered_count} | Waiting for log: {waiting_count} | Hidden: {len(self.hidden_tab_ids)}")
-        sb_components.info_label(c, f"Visible: {self.visible_channel}", muted=True)
+        sb_components.info_label(
+            c,
+            f"Tracking: {len(self.active_channels)} | Discovered: {discovered_count} | "
+            f"Waiting for log: {waiting_count} | Hidden: {len(self.hidden_tab_ids)}",
+        )
+        sb_components.info_label(c, f"Visible tab: {self.visible_channel}", muted=True)
         r = sb_components.action_row(c)
         sb_components.action_button(r, "Add / Open Channels...", self.choose_channels)
         sb_components.action_button(r, "Restore Hidden Tabs...", self.restore_hidden_tabs_dialog)
         sb_components.action_button(r, "Refresh Status", self.refresh_channel_status)
-        sb_components.action_button(r, "Close All Active", self.close_selected_channels)
-        sb_components.info_label(c, "Saved channels stay listed and continue waiting for new log files after restart. Live-only/no-backfill remains enabled.", muted=True)
+        danger = sb_components.danger_card(
+            body,
+            "Stop tracking",
+            "Close All Active clears the tracking set. Channels can be re-added from discovery.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Close All Active", self.close_selected_channels)
 
     def _render_settings_appearance(self, body, shell):
-        c = sb_components.card(body, "Appearance", "Customize fonts, colors, bold styling, highlight backgrounds, opacity, and presets.")
+        c = sb_components.card(
+            body,
+            "Appearance",
+            "Fonts, colors, opacity, and presets. Purple module highlighting is off by default for new installs.",
+        )
         sb_components.info_label(c, f"Font: {self.font_family.get()} {int(self.font_size.get())}")
-        sb_components.info_label(c, f"Preset: {self.appearance.get('preset', 'Default Dark')} | Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}%", muted=True)
+        modules_on = bool(self.appearance.get("highlight_modules", False)) if isinstance(self.appearance, dict) else False
+        sb_components.info_label(
+            c,
+            f"Preset: {self.appearance.get('preset', 'Default Dark')} | "
+            f"Opacity: {int(float(self.appearance.get('window_opacity', 1.0))*100)}% | "
+            f"Module purple: {'on' if modules_on else 'off'}",
+            muted=True,
+        )
         r = sb_components.action_row(c)
         sb_components.action_button(r, "Open Appearance Editor...", self.show_appearance_dialog)
         sb_components.action_button(r, "Increase Font", lambda: self.adjust_font_size(1))
@@ -4303,40 +4338,62 @@ class SignalBridgeGui:
         sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
 
     def _render_settings_exclusions(self, body, shell):
-        c = sb_components.card(body, "Recognition & Highlight Exclusions", "Current exclusions stop pilot recognition and hide matching visual highlights. Future scoped rules will split pilot ignores, highlight exclusions, noise words, and chat filters.")
+        c = sb_components.card(
+            body,
+            "Recognition Rules",
+            "Scoped rules: ignored pilots, highlight exclusions, and parser noise words. Feed keyword/sender filters live under Filters.",
+        )
         try:
             pilot_rules = ESI_CACHE.list_exclusion_rules("pilot_ignore")
             highlight_rules = ESI_CACHE.list_exclusion_rules("highlight_exclude")
             noise_rules = ESI_CACHE.list_exclusion_rules("noise_word")
         except Exception:
             pilot_rules, highlight_rules, noise_rules = [], [], []
-        sb_components.info_label(c, f"Ignored pilots: {len(pilot_rules)} | Highlight exclusions: {len(highlight_rules)} | Noise words: {len(noise_rules)}")
+        sb_components.info_label(
+            c,
+            f"Ignored pilots: {len(pilot_rules)} | Highlight exclusions: {len(highlight_rules)} | Noise words: {len(noise_rules)}",
+        )
         sample = ", ".join((x.get("text") or "") for x in (pilot_rules + highlight_rules + noise_rules)[:12])
         if sample:
-            sb_components.info_label(c, sample + ("..." if len(pilot_rules) + len(highlight_rules) + len(noise_rules) > 12 else ""), muted=True)
+            more = len(pilot_rules) + len(highlight_rules) + len(noise_rules) > 12
+            sb_components.info_label(c, sample + ("…" if more else ""), muted=True)
         r = sb_components.action_row(c)
-        sb_components.action_button(r, "Open Scoped Rules...", self.show_esi_exclusion_list)
+        sb_components.action_button(r, "Open Recognition Rules...", self.show_esi_exclusion_list)
 
     def _render_settings_cache_data(self, body, shell):
-        c = sb_components.card(body, "Cache & Data", "Bundled starter data seeds new installs without overwriting local user data.")
+        c = sb_components.card(
+            body,
+            "Starter & local data",
+            "Bundled starter files seed new installs. Local caches grow while you use the app.",
+        )
         count, hits = TRANSLATION_CACHE.stats()
-        sb_components.info_label(c, f"Legacy starter exclusions disabled: {DEFAULT_EXCLUSIONS_PATH.name}")
-        sb_components.info_label(c, f"Starter recognition rules: {DEFAULT_RECOGNITION_RULES_PATH.exists()} | {DEFAULT_RECOGNITION_RULES_PATH.name}")
-        sb_components.info_label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} | {DEFAULT_ESI_ENTITIES_PATH.name}")
+        sb_components.info_label(c, f"Starter recognition rules: {DEFAULT_RECOGNITION_RULES_PATH.exists()} ({DEFAULT_RECOGNITION_RULES_PATH.name})")
+        sb_components.info_label(c, f"Starter ESI entities: {DEFAULT_ESI_ENTITIES_PATH.exists()} ({DEFAULT_ESI_ENTITIES_PATH.name})")
         default_translation_cache_path = DATA_DIR / "default_translation_cache.json"
-        sb_components.info_label(c, f"Starter translation cache: {default_translation_cache_path.exists()} | {default_translation_cache_path.name}")
+        sb_components.info_label(c, f"Starter translation cache: {default_translation_cache_path.exists()} ({default_translation_cache_path.name})")
         sb_components.info_label(c, f"Local translation cache: {count} entries, {hits} hits", muted=True)
         sb_components.info_label(c, f"Local ESI cache: {ESI_CACHE.stats()}", muted=True)
         r = sb_components.action_row(c)
         sb_components.action_button(r, "Open App Folder", self.open_app_folder)
         sb_components.action_button(r, "Open Logs Folder", self.open_logs_folder)
-        sb_components.action_button(r, "Clear Translation Cache", self.clear_translation_cache)
-        sb_components.action_button(r, "Clear ESI Cache", self.clear_esi_cache)
+
+        danger = sb_components.danger_card(
+            body,
+            "Clear caches",
+            "Clearing caches does not delete aliases, Recognition Rules, or manual translation corrections that live in overrides.",
+        )
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Clear Translation Cache", self.clear_translation_cache)
+        sb_components.action_button(dr, "Clear ESI Cache", self.clear_esi_cache)
 
     def _render_settings_diagnostics(self, body, shell):
         tk = self.tk
-        c = sb_components.card(body, "Diagnostics", "Copy this information when reporting bugs. UI stalls, slow redraws, and errors are logged as JSONL in the logs folder.")
-        txt = tk.Text(c, height=17, wrap="word", bg=sb_theme.COLORS["bg_input"], fg=sb_theme.COLORS["fg"], insertbackground=sb_theme.COLORS["fg"], relief="flat")
+        c = sb_components.card(
+            body,
+            "Diagnostics",
+            "Copy this when reporting bugs. Stalls, slow redraws, and errors also go to JSONL logs.",
+        )
+        txt = tk.Text(c, height=14, wrap="word", **sb_theme.text_kw())
         txt.pack(fill="both", expand=True, pady=4)
         txt.insert("1.0", self.settings_summary_text())
         txt.configure(state="disabled")
@@ -4357,20 +4414,68 @@ class SignalBridgeGui:
 
     def _render_settings_translation(self, body, shell):
         tk = self.tk
-        c = sb_components.card(body, "Translation", "Translation display is hardened so redraws never perform blocking network/offline MT work.")
-        sb_components.check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw); sb_components.check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
-        rr = sb_components.action_row(c); tk.Radiobutton(rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en", command=self.persist_and_schedule_redraw, **sb_theme.radio_kw()).pack(side="left", padx=(0, 10)); tk.Radiobutton(rr, text="EN -> CN", variable=self.translation_direction, value="en-zh", command=self.persist_and_schedule_redraw, **sb_theme.radio_kw()).pack(side="left")
-        c_engine = sb_components.card(body, "Translation Engine", "Argos is offline/local when installed; Google is online and remains lightweight by default.")
+        c = sb_components.card(
+            body,
+            "Display",
+            "Redraw never blocks on network or offline MT. Free translation runs in the background.",
+        )
+        sb_components.check(c, "Translated only", self.translated_only, self.persist_and_schedule_redraw)
+        sb_components.check(c, "Translate free text", self.translate_chinese_text, self.persist_and_schedule_redraw)
+        rr = sb_components.action_row(c)
+        tk.Radiobutton(
+            rr, text="Auto -> EN", variable=self.translation_direction, value="zh-en",
+            command=self.persist_and_schedule_redraw, **sb_theme.radio_kw(),
+        ).pack(side="left", padx=(0, 10))
+        tk.Radiobutton(
+            rr, text="EN -> CN", variable=self.translation_direction, value="en-zh",
+            command=self.persist_and_schedule_redraw, **sb_theme.radio_kw(),
+        ).pack(side="left")
+        sb_components.info_label(c, "Auto → EN uses Chinese when CJK is present, otherwise Google auto-detect for other non-English text.", muted=True)
+
+        c_engine = sb_components.card(
+            body,
+            "Engine & cache",
+            "Google is the default online engine. Argos remains optional/offline and safety-gated.",
+        )
         sb_components.info_label(c_engine, "Preferred engine")
-        opt1 = tk.OptionMenu(c_engine, self.translation_preferred_engine, "auto", "argos", "google", command=lambda _=None: self.save_translation_engine_settings()); opt1.configure(**sb_theme.optionmenu_kw()); opt1.pack(anchor="w", pady=(0, 4))
+        opt1 = tk.OptionMenu(
+            c_engine, self.translation_preferred_engine, "auto", "argos", "google",
+            command=lambda _=None: self.save_translation_engine_settings(),
+        )
+        opt1.configure(**sb_theme.optionmenu_kw())
+        opt1.pack(anchor="w", pady=(0, 4))
         sb_components.info_label(c_engine, "Cache mode")
-        opt0 = tk.OptionMenu(c_engine, self.translation_cache_mode, "cache-first-auto", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt0.configure(**sb_theme.optionmenu_kw()); opt0.pack(anchor="w", pady=(0, 4))
+        opt0 = tk.OptionMenu(
+            c_engine, self.translation_cache_mode, "cache-first-auto", "cache-only",
+            command=lambda _=None: self.save_translation_engine_settings(),
+        )
+        opt0.configure(**sb_theme.optionmenu_kw())
+        opt0.pack(anchor="w", pady=(0, 4))
         sb_components.info_label(c_engine, "Fallback mode")
-        opt2 = tk.OptionMenu(c_engine, self.translation_fallback_mode, "online-only", "google-argos", "argos-google", "offline-only", "cache-only", command=lambda _=None: self.save_translation_engine_settings()); opt2.configure(**sb_theme.optionmenu_kw()); opt2.pack(anchor="w", pady=(0, 4))
-        tk.Label(c_engine, textvariable=self.argos_status_text, wraplength=640, justify="left", **sb_theme.label_kw(muted=True)).pack(anchor="w", fill="x", pady=2)
-        count, hits = TRANSLATION_CACHE.stats(); sb_components.info_label(c_engine, f"Translation cache: {count} entries, {hits} hits", muted=True)
-        r = sb_components.action_row(c_engine); sb_components.action_button(r, "Refresh Argos Status", self.refresh_argos_status); sb_components.action_button(r, "Install / Repair Argos", self.install_argos_models); sb_components.action_button(r, "Test Translation", self.test_translation_engine)
-        r2 = sb_components.action_row(c_engine); sb_components.action_button(r2, "Open Translation Cache...", lambda: shell.render_page("Translation Cache")); sb_components.action_button(r2, "Cache Status", self.show_translation_cache); sb_components.action_button(r2, "Clear Cache", self.clear_translation_cache); sb_components.action_button(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+        opt2 = tk.OptionMenu(
+            c_engine, self.translation_fallback_mode,
+            "online-only", "google-argos", "argos-google", "offline-only", "cache-only",
+            command=lambda _=None: self.save_translation_engine_settings(),
+        )
+        opt2.configure(**sb_theme.optionmenu_kw())
+        opt2.pack(anchor="w", pady=(0, 4))
+        tk.Label(
+            c_engine, textvariable=self.argos_status_text, wraplength=640, justify="left",
+            **sb_theme.label_kw(muted=True),
+        ).pack(anchor="w", fill="x", pady=2)
+        count, hits = TRANSLATION_CACHE.stats()
+        sb_components.info_label(c_engine, f"Translation cache: {count} entries, {hits} hits", muted=True)
+        r = sb_components.action_row(c_engine)
+        sb_components.action_button(r, "Refresh Argos Status", self.refresh_argos_status)
+        sb_components.action_button(r, "Install / Repair Argos", self.install_argos_models)
+        sb_components.action_button(r, "Test Translation", self.test_translation_engine)
+        r2 = sb_components.action_row(c_engine)
+        sb_components.action_button(r2, "Open Translation Corrections…", lambda: shell.render_page("Translation Cache"))
+        sb_components.action_button(r2, "Cache Status", self.show_translation_cache)
+        sb_components.action_button(r2, "Open Phrase Overrides", self.open_phrase_overrides)
+        danger = sb_components.danger_card(body, "Clear translation cache", "Machine cache only; manual corrections are preserved by the cleaner path.")
+        dr = sb_components.action_row(danger)
+        sb_components.action_button(dr, "Clear Cache", self.clear_translation_cache)
 
     def _render_settings_translation_cache(self, body, shell):
         tk = self.tk

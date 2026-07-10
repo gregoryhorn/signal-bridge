@@ -641,9 +641,9 @@ Acceptance notes:
 - Startup remains safe: no modal loop and no blocking if the module is unavailable.
 
 
-## Open: Dedicated settings tab and sub-page design pass
+## Improved: Dedicated settings tab and sub-page design pass
 
-- Status: partially addressed (Phase 2.1); per-page design passes continue in Phase 2 batches
+- Status: advanced in source (2026-07-10 design pass); shell + high-traffic pages tightened
 - Priority: medium
 - Area: Settings / UX design / dialogs
 - Reported: user feedback
@@ -686,9 +686,21 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - Tables and editors resize gracefully on narrow/mobile-style layouts.
 - Help text explains impact without making pages feel like debug tools.
 
-### Progress note (Phase 2.1)
+### Progress note (Phase 2.1 + 2026-07-10)
 
-The Settings shell, nav, footer, spacing, and help-text pattern are now uniform via `SettingsShell` + `sb_ui.components`. Individual page redesigns (Translation Corrections, Pilot Info, Help/About) continue in later Phase 2 batches.
+The Settings shell, nav, footer, spacing, and help-text pattern are uniform via `SettingsShell` + `sb_ui.components`.
+
+2026-07-10 design pass:
+- Shared `danger_card` + `labeled_spinbox` for destructive sections and numeric settings
+- General: split App Behavior / Startup backlog / Folders
+- Channels: primary actions vs Close All danger section
+- Filters: spam rate spinboxes on the page
+- Translation: Display vs Engine cards; clear-cache in danger card
+- Cache & Data: starter info vs Clear caches danger section
+- Recognition Rules: updated copy (scoped rules + Filters pointer)
+- Appearance / Diagnostics: clearer purpose text
+
+Remaining optional polish: Aliases / Add-ons / ESI dense action rows; visual screenshot pass at default 860×620.
 
 
 ## Fixed: False system detection for decimal/security values such as 9.2

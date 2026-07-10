@@ -15,6 +15,30 @@ def card(parent, heading: str, note: str | None = None) -> tk.LabelFrame:
     return frame
 
 
+def danger_card(parent, heading: str, note: str | None = None) -> tk.LabelFrame:
+    """Card for destructive actions — warning-colored title and explicit help."""
+    frame = tk.LabelFrame(
+        parent,
+        text=heading,
+        bg=theme.COLORS["bg"],
+        fg=theme.COLORS["error"],
+        padx=10,
+        pady=8,
+    )
+    frame.pack(fill="x", padx=6, pady=8)
+    default_note = note or "These actions cannot be undone from inside the app. Confirm carefully."
+    kw = theme.label_kw(muted=True)
+    kw["fg"] = theme.COLORS["warning"]
+    tk.Label(
+        frame,
+        text=default_note,
+        wraplength=590,
+        justify="left",
+        **kw,
+    ).pack(anchor="w", pady=(0, 6))
+    return frame
+
+
 def action_row(parent) -> tk.Frame:
     row = tk.Frame(parent, bg=theme.COLORS["bg"])
     row.pack(fill="x", pady=4)
@@ -31,6 +55,27 @@ def action_button(parent, text: str, command) -> tk.Button:
 def primary_button(parent, text: str, command) -> tk.Button:
     return tk.Button(parent, text=text, command=command, padx=16,
                      **theme.btn_primary_kw())
+
+
+def labeled_spinbox(parent, label: str, variable, *, from_: int = 1, to: int = 100, width: int = 6):
+    """Horizontal label + Spinbox row (not packed itself; packs into parent)."""
+    row = tk.Frame(parent, bg=theme.COLORS["bg"])
+    row.pack(fill="x", pady=2)
+    tk.Label(row, text=label, **theme.label_kw(muted=True)).pack(side="left")
+    box = tk.Spinbox(
+        row,
+        from_=from_,
+        to=to,
+        textvariable=variable,
+        width=width,
+        bg=theme.COLORS["bg_input"],
+        fg=theme.COLORS["fg"],
+        insertbackground=theme.COLORS["fg_bright"],
+        buttonbackground=theme.COLORS["bg_panel"],
+        relief="flat",
+    )
+    box.pack(side="left", padx=6)
+    return row, box
 
 
 def check(parent, text: str, var, command=None) -> tk.Checkbutton:

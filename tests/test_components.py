@@ -11,6 +11,20 @@ def test_card_builds_labelframe_with_note(tk_root):
     assert notes and notes[0].cget("text") == "help text"
 
 
+def test_danger_card_uses_error_title_color(tk_root):
+    c = components.danger_card(tk_root, "Danger", note="be careful")
+    assert c.cget("fg") == theme.COLORS["error"]
+    notes = [w for w in c.winfo_children() if isinstance(w, tk.Label)]
+    assert notes and "be careful" in notes[0].cget("text")
+
+
+def test_labeled_spinbox_packs_row(tk_root):
+    var = tk.IntVar(master=tk_root, value=10)
+    row, box = components.labeled_spinbox(tk_root, "Minutes", var, from_=1, to=60)
+    assert row.winfo_manager() == "pack"
+    assert int(box.cget("to")) == 60
+
+
 def test_action_button_uses_secondary_style(tk_root):
     row = components.action_row(tk_root)
     btn = components.action_button(row, "Do It", lambda: None)
