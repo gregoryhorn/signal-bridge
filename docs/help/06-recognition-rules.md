@@ -12,7 +12,7 @@ parser/rendering pipeline.
 
 ## Managing rules
 
-- Open **Settings**, page **Exclusions**, to reach the Recognition Rules dialog.
+- Open **Settings**, page **Recognition Rules**, then **Open Recognition Rules…** for the full editor.
 - Rules can be added one at a time or imported as a pasted list, one term per line.
 - Bundled starter rules cover common parser noise; your own rules are stored locally.
 

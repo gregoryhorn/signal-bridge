@@ -672,7 +672,7 @@ Settings has grown into many tabs and sub-pages, and each page needs a focused d
 - EVE Catalog
 - Aliases
 - ESI
-- Exclusions
+- Recognition Rules (was Exclusions)
 - Add-ons
 - Cache & Data
 - Diagnostics
@@ -702,7 +702,7 @@ The Settings shell, nav, footer, spacing, and help-text pattern are uniform via 
 
 2026-07-10 follow-up: Catalog, ESI, Aliases, and Add-ons pages split status vs danger actions; clearer nav subtitles.
 
-Remaining optional: visual screenshot pass at default 860×620; rename nav label "Exclusions" → "Recognition Rules" if desired (page key still Exclusions for compatibility).
+Nav page renamed to **Recognition Rules** (old `Exclusions` deep link still accepted). Remaining optional: visual screenshot pass at default 860×620.
 
 
 ## Fixed: False system detection for decimal/security values such as 9.2

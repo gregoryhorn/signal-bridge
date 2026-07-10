@@ -3201,7 +3201,7 @@ class SignalBridgeGui:
         settings_menu.add_command(label="Appearance...", command=lambda: self.show_settings_center("Appearance"))
         settings_menu.add_command(label="Aliases...", command=lambda: self.show_settings_center("Aliases"))
         settings_menu.add_command(label="ESI...", command=lambda: self.show_settings_center("ESI"))
-        settings_menu.add_command(label="Exclusions...", command=lambda: self.show_settings_center("Exclusions"))
+        settings_menu.add_command(label="Recognition Rules...", command=lambda: self.show_settings_center("Recognition Rules"))
         settings_menu.add_command(label="Add-ons...", command=lambda: self.show_settings_center("Add-ons"))
         menubar.add_cascade(label="Settings", menu=settings_menu)
 
@@ -4356,7 +4356,7 @@ class SignalBridgeGui:
         sb_components.action_button(r, "Manual Character Check…", self.manual_esi_check_dialog)
         r2 = sb_components.action_row(c)
         sb_components.action_button(r2, "ESI Diagnostics", self.show_esi_diagnostics)
-        sb_components.action_button(r2, "Recognition Rules…", lambda: shell.render_page("Exclusions"))
+        sb_components.action_button(r2, "Recognition Rules…", lambda: shell.render_page("Recognition Rules"))
         danger = sb_components.danger_card(
             body,
             "Clear ESI cache",
@@ -4421,7 +4421,7 @@ class SignalBridgeGui:
             "Diagnostics",
             "Copy this when reporting bugs. Stalls, slow redraws, and errors also go to JSONL logs.",
         )
-        txt = tk.Text(c, height=14, wrap="word", **sb_theme.text_kw())
+        txt = tk.Text(c, height=14, **sb_theme.text_kw())
         txt.pack(fill="both", expand=True, pady=4)
         txt.insert("1.0", self.settings_summary_text())
         txt.configure(state="disabled")
@@ -4935,7 +4935,11 @@ class SignalBridgeGui:
             sb_components.action_button(dr, "Uninstall Code", self.uninstall_intel_history_addon_code)
 
     def show_settings_center(self, initial_page: str = "General"):
-        pages = ["General", "Channels", "Appearance", "Translation", "Translation Cache", "Filters", "EVE Catalog", "Aliases", "ESI", "Exclusions", "Add-ons", "Cache & Data", "Diagnostics", "About / Support"]
+        pages = [
+            "General", "Channels", "Appearance", "Translation", "Translation Cache", "Filters",
+            "EVE Catalog", "Aliases", "ESI", "Recognition Rules", "Add-ons", "Cache & Data",
+            "Diagnostics", "About / Support",
+        ]
         descriptions = {
             "General": "Window options, optional startup backlog, and folders.",
             "Channels": "Track, restore, and stop monitoring EVE chat channels.",
@@ -4946,7 +4950,7 @@ class SignalBridgeGui:
             "EVE Catalog": "Bundled catalog status and updates.",
             "Aliases": "Ship and system shorthand replacements for the feed.",
             "ESI": "Optional pilot recognition, OAuth, and ESI cache.",
-            "Exclusions": "Recognition Rules: ignored pilots, highlight exclusions, noise words.",
+            "Recognition Rules": "Ignored pilots, highlight exclusions, and noise words.",
             "Add-ons": "Optional modules such as Intel History.",
             "Cache & Data": "Starter files and local cache maintenance.",
             "Diagnostics": "Copy-friendly health summary and log access.",
@@ -4962,12 +4966,15 @@ class SignalBridgeGui:
             "EVE Catalog": self._render_settings_catalog,
             "Aliases": self._render_settings_aliases,
             "ESI": self._render_settings_esi,
-            "Exclusions": self._render_settings_exclusions,
+            "Recognition Rules": self._render_settings_exclusions,
             "Add-ons": self._render_settings_addons,
             "Cache & Data": self._render_settings_cache_data,
             "Diagnostics": self._render_settings_diagnostics,
             "About / Support": self._render_settings_about,
         }
+        # Back-compat: old deep links / call sites may still pass "Exclusions".
+        if initial_page == "Exclusions":
+            initial_page = "Recognition Rules"
 
         def apply_settings() -> bool:
             self.persist_settings()
